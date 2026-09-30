@@ -123,7 +123,7 @@ gaps = [
     "Shape edges: Core Graphics flattens each curve by halving it until its control points' second differences are within 1/15 px on each axis, then covers each pixel by the exact area of the outline, floor(area × 256). The port does the same, but the Mac's coverage is one level off that on some edge pixels, with no pattern found yet: 46 of 1,483 edge pixels in the rectangle and ellipse probes, and about one in five on slanted line strokes (653 of 3,068 in the line cases: 575 by 1, 54 by 2, 20 by 3). Composites stay within 1/255 except resize-line and stacked-in-folder (2/255 on 1 or 2 pixels); the #structure checks of shape layers fail on these pixels.",
     "Lines 1 px wide are pending: Core Graphics strokes them another way (a level line's ends reach half a pixel past its points, a slanted line's are cut square to its main axis).",
     "Gradients match the Mac's table of 16 × (floor(ceil(length) / 16) + 1) − 2 colors, its 16 × 16 dither and the order it steps through the dither's columns, except where t × slots falls within about 0.003 of a whole number: there the Mac's slightly less precise t sometimes picks the neighboring slot, a step of 2 to 6 levels. That happens on 2 to 8 pixels in seven gradient cases (at most 8 of 4,096).",
-    "Gradients on a layer mask, and on layers that are scaled, turned or placed off whole pixels, are pending.",
+    "Gradients on a mask that would grow past its layer (its background comes from its thumbnail) or that sits apart from its layer, and on layers that are scaled, turned or placed off whole pixels, are pending.",
 ]
 
 [[feature]]

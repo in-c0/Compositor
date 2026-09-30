@@ -36,9 +36,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     if (end[0] - start[0]).hypot(end[1] - start[1]) < 0.5 {
         return failed("the drag was too short to leave a gradient".into());
     }
-    if op.get("mask").and_then(|v| v.as_bool()).unwrap_or(false) {
-        return Err(RenderError::Unsupported("gradients on a layer mask".into()));
-    }
+    let on_mask = op.get("mask").and_then(|v| v.as_bool()).unwrap_or(false);
     let shape = match op.get("type").and_then(|v| v.as_str()).unwrap_or("Linear") {
         "Linear" => Shape::Linear,
         "Radial" => Shape::Radial,
@@ -51,8 +49,20 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     };
     let reversed = op.get("reversed").and_then(|v| v.as_bool()).unwrap_or(false);
     let opacity = op.get("opacity").and_then(|v| v.as_f64()).unwrap_or(1.0);
-    let fg = color(op, "foreground")?.unwrap_or([0.0; 3]);
-    let bg = color(op, "background")?.unwrap_or([1.0; 3]);
+    let mut fg = color(op, "foreground")?.unwrap_or([0.0; 3]);
+    let mut bg = color(op, "background")?.unwrap_or([1.0; 3]);
+    if on_mask {
+        // On a mask the swatches are black and white: `setPaletteColor` makes white the
+        // foreground only for white, and the background's choice decides it when both are set.
+        let mut white = false;
+        if let Some(c) = color(op, "foreground")? {
+            white = c == [1.0; 3];
+        }
+        if let Some(c) = color(op, "background")? {
+            white = c != [1.0; 3];
+        }
+        (fg, bg) = if white { ([1.0; 3], [0.0; 3]) } else { ([0.0; 3], [1.0; 3]) };
+    }
     // `gradientColors`: the foreground, then the background or the foreground made transparent.
     let mut colors = [[fg[0], fg[1], fg[2], 1.0], if both { [bg[0], bg[1], bg[2], 1.0] } else { [fg[0], fg[1], fg[2], 0.0] }];
     if reversed {
@@ -69,8 +79,11 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     if !crate::order::visible_layers(&project.manifest.layers).iter().any(|l| l.id == layer.id) {
         return failed(format!("“{}” is hidden", layer.name));
     }
-    if layer.mask_file.is_some() {
-        return Err(RenderError::Unsupported("a gradient on a layer with a mask".into()));
+    if on_mask && !layer.mask_enabled() {
+        return failed(format!("“{}” has no mask turned on to paint", layer.name));
+    }
+    if layer.mask_placement.is_some() {
+        return Err(RenderError::Unsupported("a gradient on a layer whose mask is placed on its own".into()));
     }
     let t = layer.transform;
     let source = project.images.get(&layer.id).map(|a| &a.pixels);
@@ -99,6 +112,23 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
         b1 = [b1[0].max(source_rect[0] + w), b1[1].max(source_rect[1] + h)];
     }
     let committed = [b0[0], b0[1], b1[0] - b0[0], b1[1] - b0[1]];
+    // A mask grown past its layer starts as its background, read off its thumbnail; only masks
+    // that already cover the canvas are drawn so far.
+    if on_mask {
+        let grows = committed != source_rect || source.is_none();
+        let mask = project.masks.get(&layer.id).map(|m| &m.pixels);
+        let Some(mask) = mask.filter(|m| !grows && m.dimensions() == (w as u32, h as u32)) else {
+            return Err(RenderError::Unsupported("a gradient on a mask that grows or is sized apart from its layer".into()));
+        };
+        let base: Vec<u8> = mask.pixels().flat_map(|p| [p.0[0], p.0[0], p.0[0], 255]).collect();
+        let region = [canvas[0] - committed[0], canvas[1] - committed[1], cw, ch];
+        let offset = [ox + ex0 + committed[0], oy + ey0 + committed[1]];
+        let drawn = super::raster::gradient_over(gpu, &base, w as u32, h as u32, region, offset, &fill)?;
+        let gray = image::GrayImage::from_raw(w as u32, h as u32, drawn.chunks_exact(4).map(|p| p[0]).collect()).expect("mask size");
+        let id = layer.id.clone();
+        project.masks.insert(id, Asset::new(gray));
+        return Ok(());
+    }
     // The committed grid, premultiplied: the layer's pixels, then the gradient over them inside
     // the canvas.
     let mut base = vec![0u8; (committed[2] * committed[3] * 4) as usize];
@@ -139,6 +169,11 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
             cropped.extend_from_slice(&pixels[(y * cwid + crop[0]) * 4..(y * cwid + crop[0] + crop[2]) * 4]);
         }
         pixels = cropped;
+    }
+    // `commitRasterEdit` carries a mask over only as far as the layer's grid stayed put.
+    let moved = [crop[0] as i64 + committed[0], crop[1] as i64 + committed[1], crop[2] as i64, crop[3] as i64] != source_rect;
+    if layer.mask_file.is_some() && (moved || source.is_none()) {
+        return Err(RenderError::Unsupported("a gradient that grows a layer with a mask".into()));
     }
     unpremultiply(&mut pixels);
     let image = image::RgbaImage::from_raw(crop[2] as u32, crop[3] as u32, pixels).expect("cropped size");
