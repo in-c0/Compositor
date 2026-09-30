@@ -37,9 +37,8 @@ const SATURATION: u32 = 21u;
 const COLOR: u32 = 22u;
 const LUMINOSITY: u32 = 23u;
 
-// Layer opacity as Core Graphics applies it: every premultiplied byte, alpha included, times the
-// opacity in single precision, rounded back to a byte. The CPU builds the 256 answers
-// (`opacity_table`) so every GPU rounds them identically.
+// Layer opacity as Core Graphics applies it: the opacity quantized to a byte, every premultiplied
+// byte, alpha included, scaled by it and rounded. The CPU builds the 256 answers (`opacity_table`).
 fn scale_source(straight: vec4<u32>) -> vec4<u32> {
     let a = straight.w;
     let premultiplied = vec4<u32>(div255v(vec4<u32>(straight.xyz * a, 0u)).xyz, a);

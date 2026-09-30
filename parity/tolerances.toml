@@ -28,12 +28,6 @@ max_pixels_over = 3
 reason = "Hard Mix at an exact tie follows the Mac GPU's division rounding, which IEEE f32 can't reproduce: 3 of 4,096 pixels."
 
 [[override]]
-cases = "blend/stack"
-max_channel_diff = 1
-max_pixels_over = 55
-reason = "A 30% Hard Mix layer over low-alpha source pixels makes exact ties common; at a tie the Mac GPU's division rounding decides, which IEEE f32 can't reproduce: 55 of 4,096 pixels, all Hard Mix."
-
-[[override]]
 cases = "blend/color-burn-alpha-60"
 max_channel_diff = 1
 max_pixels_over = 1

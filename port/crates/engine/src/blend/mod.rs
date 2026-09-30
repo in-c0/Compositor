@@ -26,11 +26,12 @@ pub fn draw_upright(gpu: &Gpu, canvas: &GpuImage, layer: &GpuImage, offset: (i32
     out
 }
 
-/// round(v × opacity) for every byte v, in single precision as Core Graphics computes it.
+/// Opacity as Core Graphics applies it: quantized to a byte, then every premultiplied byte v
+/// scaled by it and rounded, (v × alpha + 127) / 255.
 pub fn opacity_table(gpu: &Gpu, opacity: f64) -> wgpu::Buffer {
     use wgpu::util::DeviceExt;
-    let alpha = opacity as f32;
-    let table: Vec<u32> = (0..256u32).map(|v| (v as f32 * alpha + 0.5).floor().clamp(0.0, 255.0) as u32).collect();
+    let alpha = (opacity.clamp(0.0, 1.0) * 255.0).round() as u32;
+    let table: Vec<u32> = (0..256u32).map(|v| (v * alpha + 127) / 255).collect();
     gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("opacity table"),
         contents: bytemuck::cast_slice(&table),
