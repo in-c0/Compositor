@@ -264,9 +264,15 @@ pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i
     for v in [region[0], region[1], region[2], region[3], offset[0], offset[1]] {
         params.extend_from_slice(&(v as i32).to_le_bytes());
     }
-    let floats = [base_point[0], base_point[1], step[0], step[1], slots, 0.0];
-    for v in floats.iter().chain(premultiplied(fill.colors[0]).iter()).chain(premultiplied(fill.colors[1]).iter()) {
-        params.extend_from_slice(&(*v as f32).to_le_bytes());
+    let split = |v: f64| {
+        let hi = v as f32;
+        [hi, (v - hi as f64) as f32]
+    };
+    let (b0, b1, s0, s1) = (split(base_point[0]), split(base_point[1]), split(step[0]), split(step[1]));
+    let floats = [slots as f32, f32::INFINITY, b0[0], b1[0], b0[1], b1[1], s0[0], s1[0], s0[1], s1[1]];
+    let colors = premultiplied(fill.colors[0]).into_iter().chain(premultiplied(fill.colors[1])).map(|v| v as f32);
+    for v in floats.into_iter().chain(colors) {
+        params.extend_from_slice(&v.to_le_bytes());
     }
     let pipeline = gpu.pipeline("shape_gradient", include_str!("gradient.wgsl"));
     let layer = gpu.upload(width, height, base);

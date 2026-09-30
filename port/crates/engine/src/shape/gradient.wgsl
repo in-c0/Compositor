@@ -20,12 +20,16 @@ struct Params {
     region: vec4<i32>,
     // Document coordinates of the grid's top-left pixel.
     origin: vec2<i32>,
-    // t * slots at the grid's top-left pixel center (linear), or the center in the grid (radial).
-    base: vec2<f32>,
-    // How t * slots changes per pixel right and down (linear); slots / radius first (radial).
-    step: vec2<f32>,
     slots: f32,
-    _pad: f32,
+    // +infinity: `keep` rounds through it (see adjust/float.wgsl).
+    guard: f32,
+    // Each value below as a pair of floats, high and low, summing to it: t * slots at the grid's
+    // top-left pixel center (x; linear), or the center in the grid (radial).
+    base_hi: vec2<f32>,
+    base_lo: vec2<f32>,
+    // How t * slots changes per pixel right and down (linear); slots / radius first (radial).
+    step_hi: vec2<f32>,
+    step_lo: vec2<f32>,
     // Premultiplied colors at the start and the end, 0-255.
     from_color: vec4<f32>,
     to_color: vec4<f32>,
@@ -48,24 +52,49 @@ fn coarse14(v: f32) -> f32 {
     return trunc(v * scale) / scale;
 }
 
-// t * slots at grid pixel p.
-fn position(p: vec2<i32>) -> f32 {
+fn keep(x: f32) -> f32 {
+    return min(x, params.guard);
+}
+
+// a + b as a rounded sum and its exact error.
+fn two_sum(a: f32, b: f32) -> vec2<f32> {
+    let s = keep(a + b);
+    let bb = keep(s - a);
+    return vec2<f32>(s, keep(a - keep(s - bb)) + keep(b - bb));
+}
+
+// A value held as high + low floats, so a position just past a slot boundary stays past it on
+// every GPU.
+fn position(p: vec2<i32>) -> vec2<f32> {
     if (params.kind == RADIAL) {
-        let d = vec2<f32>(p) + vec2<f32>(0.5) - params.base;
-        return coarse14(sqrt(dot(d, d)) * params.step.x);
+        let d = vec2<f32>(p) + vec2<f32>(0.5) - params.base_hi;
+        return vec2<f32>(coarse14(sqrt(dot(d, d)) * params.step_hi.x), 0.0);
     }
-    return params.base.x + f32(p.x) * params.step.x + f32(p.y) * params.step.y;
+    let x = f32(p.x);
+    let y = f32(p.y);
+    let px = keep(x * params.step_hi.x);
+    let py = keep(y * params.step_hi.y);
+    let ex = fma(x, params.step_hi.x, -px) + x * params.step_lo.x;
+    let ey = fma(y, params.step_hi.y, -py) + y * params.step_lo.y;
+    let a = two_sum(params.base_hi.x, px);
+    let b = two_sum(a.x, py);
+    return two_sum(b.x, keep(keep(keep(a.y + b.y) + keep(ex + ey)) + params.base_lo.x));
 }
 
 // Which color a position takes: a slot, or -1 and slots + 1 for the two ends.
-fn key(u: f32) -> i32 {
-    if (u <= 0.0) {
+fn key(u: vec2<f32>) -> i32 {
+    if (u.x < 0.0 || (u.x == 0.0 && u.y <= 0.0)) {
         return -1;
     }
-    if (u > params.slots) {
+    if (u.x > params.slots || (u.x == params.slots && u.y > 0.0)) {
         return i32(params.slots) + 1;
     }
-    return i32(ceil(u)) - 1;
+    // ceil(u) - 1, deciding a whole high part by the low one.
+    var c = ceil(u.x);
+    if (c == u.x && u.y > 0.0) {
+        c += 1.0;
+    }
+    return i32(c) - 1;
 }
 
 // The dither table's column for document column x. `flat`: the whole row is one color.
@@ -98,17 +127,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let first = key(position(vec2<i32>(r.x, p.y)));
     var flat = first == key(position(vec2<i32>(r.x + r.z - 1, p.y)));
     if (params.kind == RADIAL) {
-        let nearest = clamp(i32(floor(params.base.x)), r.x, r.x + r.z - 1);
+        let nearest = clamp(i32(floor(params.base_hi.x)), r.x, r.x + r.z - 1);
         flat = flat && first == key(position(vec2<i32>(nearest, p.y)));
     }
+    let slot = key(u);
     var value: vec4<f32>;
-    if (u <= 0.0) {
+    if (slot < 0) {
         value = params.from_color;
-    } else if (u > params.slots) {
+    } else if (slot > i32(params.slots)) {
         value = params.to_color;
     } else {
-        let slot = ceil(u) - 1.0;
-        value = params.from_color + (params.to_color - params.from_color) * ((slot + 0.5) / params.slots);
+        value = params.from_color + (params.to_color - params.from_color) * ((f32(slot) + 0.5) / params.slots);
     }
     let doc = params.origin + p;
     let d = (f32(dither[(u32(doc.y) & 15u) * 16u + column(doc.x, flat)]) + 0.5) / 256.0;
