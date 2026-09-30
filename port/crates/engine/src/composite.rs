@@ -175,6 +175,9 @@ impl<'a> Compositor<'a> {
         if opacity < 1.0 {
             adjusted = self.mix(&target, &adjusted, None, 0, opacity);
         }
+        if layer.mask_enabled() && crate::transform::clip::resampled(self.project, layer) {
+            return unsupported("adjustment layer masks resampled over other rectangles");
+        }
         let own = if layer.mask_enabled() {
             Some(mask::folder_coverage(self.project, layer, (self.width, self.height)).map_err(RenderError::Unsupported)?)
         } else {
@@ -209,6 +212,12 @@ impl<'a> Compositor<'a> {
         for folder in order::folders(layer, &self.by_id) {
             if !folder.mask_enabled() {
                 continue;
+            }
+            // A resampled folder mask is sampled as the layer inside draws (measured for layers
+            // drawn 1:1 and upright).
+            let child_resamples = layer.adjustment.is_some() || layer.transform.sampling == comp_format::Sampling::Nearest || crate::transform::needs_resampling(self.project, layer);
+            if child_resamples && crate::transform::clip::resampled(self.project, folder) {
+                return unsupported("folder masks resampled over transformed layers");
             }
             let coverage = mask::folder_coverage(self.project, folder, (self.width, self.height)).map_err(RenderError::Unsupported)?;
             combined = Some(match combined {

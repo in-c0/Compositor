@@ -4,7 +4,7 @@
 //! and `mask.rs` hands them over as coverage per pixel.
 
 use super::{Placement, Rect};
-use comp_format::{Sampling, Transform};
+use comp_format::{LayerRecord, Project, Transform};
 use image::GrayImage;
 
 /// 32.32 fixed point, as the kernel steps sample positions.
@@ -114,25 +114,29 @@ pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filt
     out
 }
 
-/// `FolderMaskClip.apply`: a folder's mask clipped over the folder's rectangle, as coverage per
-/// canvas pixel. Errors name what isn't reproduced yet.
-pub fn folder_coverage(mask: &GrayImage, t: &Transform, (width, height): (u32, u32)) -> Result<Vec<u32>, String> {
-    // Clipping to a mask with High samples the nearest pixel (measured shrinking, and rotated at
-    // its own size); enlarging with High hasn't been measured.
-    let (mw, mh) = mask.dimensions();
-    let filter = match t.sampling {
-        Sampling::Nearest => Filter::Nearest,
-        Sampling::Smooth => return Err("folder masks resampled with Smooth".into()),
-        Sampling::High => {
-            if t.size[0] > mw as f64 || t.size[1] > mh as f64 {
-                return Err("folder masks enlarged with High".into());
-            }
-            Filter::Nearest
-        }
+/// Whether a folder's (or an adjustment layer's) mask is resampled to cover its rectangle, rather
+/// than lying on the canvas pixel for pixel.
+pub fn resampled(project: &Project, layer: &LayerRecord) -> bool {
+    let Some(mask) = project.masks.get(&layer.id) else {
+        return false;
     };
+    let t = &layer.transform;
+    let (w, h) = mask.pixels.dimensions();
+    let upright = t.rotation % 360.0 == 0.0 && !t.flip_x && !t.flip_y && t.origin[0].fract() == 0.0 && t.origin[1].fract() == 0.0;
+    !upright || ((w, h) != (1, 1) && t.size != [w as f64, h as f64])
+}
+
+/// `FolderMaskClip.apply`: a folder's mask clipped over the folder's rectangle, as coverage per
+/// canvas pixel.
+///
+/// Core Graphics resamples a clip mask when something is drawn through it, with that drawing's
+/// interpolation, so a folder's mask follows the layer inside rather than the folder's own
+/// sampling. For a layer drawn 1:1 and upright (the only case `composite.rs` sends here) that is
+/// the nearest pixel.
+pub fn folder_coverage(mask: &GrayImage, t: &Transform, (width, height): (u32, u32)) -> Result<Vec<u32>, String> {
     let placement = Placement::of(t);
     let rect = placement.rect(1.0, 1.0);
-    Ok(sample(mask, &placement, &rect, filter, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
+    Ok(sample(mask, &placement, &rect, Filter::Nearest, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
 }
 
 /// `LayerMask.background(of:)`: what an unlinked mask shows beyond its pixels, white or black,
@@ -165,6 +169,7 @@ struct Axis {
 /// High's filter along one axis for one target pixel: shrinking averages the target pixel's
 /// footprint over the source (a box of source pixels and their weights); enlarging blends like
 /// Low.
+#[derive(Clone)]
 enum AxisTaps {
     Box(Vec<(i64, f64)>),
     Low(Taps),
@@ -235,43 +240,56 @@ pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (
     };
     let ax = axis(layer.origin[0], layer.size[0], layer.flip_x, width, placement.origin[0], placement.size[0], placement.flip_x, mw);
     let ay = axis(layer.origin[1], layer.size[1], layer.flip_y, height, placement.origin[1], placement.size[1], placement.flip_y, mh);
-    // Where the mask's rectangle lies on the grid; its edges must fall between pixels for now.
-    let span = |origin: f64, size: f64, pixels: u32, m_origin: f64, m_size: f64| {
-        let grid = |p: f64| (p - origin) * pixels as f64 / size;
-        let (lo, hi) = (grid(m_origin), grid(m_origin + m_size));
-        let whole = |v: f64| (v - v.round()).abs() < 1e-9;
-        (lo.round(), hi.round(), (whole(lo) && whole(hi)) || hi <= 0.0 || lo >= pixels as f64)
-    };
     if layer.flip_x || layer.flip_y {
         return Err("unlinked masks over flipped layers".into());
     }
-    let (x0, x1, x_whole) = span(layer.origin[0], layer.size[0], width, placement.origin[0], placement.size[0]);
-    let (y0, y1, y_whole) = span(layer.origin[1], layer.size[1], height, placement.origin[1], placement.size[1]);
-    if !x_whole || !y_whole {
-        return Err("unlinked masks with edges off the pixel grid".into());
-    }
+    // Where the mask's rectangle lies on the grid, and each grid pixel's fade at its edges.
+    let fades = |origin: f64, size: f64, pixels: u32, m_origin: f64, m_size: f64| {
+        let grid = |p: f64| (p - origin) * pixels as f64 / size;
+        let (lo, hi) = (grid(m_origin), grid(m_origin + m_size));
+        (0..pixels).map(|i| (0.5 + (i as f64 + 0.5 - lo)).clamp(0.0, 1.0) * (0.5 + (hi - i as f64 - 0.5)).clamp(0.0, 1.0)).collect::<Vec<f64>>()
+    };
+    let fx = fades(layer.origin[0], layer.size[0], width, placement.origin[0], placement.size[0]);
+    let fy = fades(layer.origin[1], layer.size[1], height, placement.origin[1], placement.size[1]);
     let tx = high_axis(ax, width)?;
     let ty = high_axis(ay, height)?;
     let shrinks = (ax.a.abs() > 1.0, ay.a.abs() > 1.0);
     if shrinks.0 && !shrinks.1 && ay.a.abs() < 1.0 {
         return Err("unlinked masks shrunk across and enlarged down".into());
     }
+    let partial = |f: &[f64]| f.iter().any(|&f| f > 0.0 && f < 1.0);
+    if (shrinks.0 && partial(&fx)) || (shrinks.1 && partial(&fy)) {
+        return Err("unlinked masks shrunk with edges off the pixel grid".into());
+    }
+    // Where an edge only partly covers a pixel, Low takes the heavy pixel across it.
+    let heavy = |t: &AxisTaps| match t {
+        AxisTaps::Low(t) => AxisTaps::Low(Taps { shift: 0, ..*t }),
+        AxisTaps::Box(b) => AxisTaps::Box(b.clone()),
+    };
     let at = |x: i64, y: i64| mask.as_raw()[(y * mw as i64 + x) as usize] as u32;
     let bg = background(mask);
     let mut out = GrayImage::new(width, height);
-    for y in 0..height {
-        for x in 0..width {
-            let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
-            let inside = cx > x0 && cx < x1 && cy > y0 && cy < y1;
-            let value = if !inside {
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let c = ((fx[x] * fy[y] * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32;
+            let value = if c == 0 {
                 bg
-            } else if shrinks.0 && shrinks.1 {
-                // Both boxes: across first.
-                apply(&ty[y as usize], |j| apply(&tx[x as usize], |i| at(i, j)))
             } else {
-                apply(&tx[x as usize], |i| apply(&ty[y as usize], |j| at(i, j)))
+                let tx = if fx[x] < 1.0 { heavy(&tx[x]) } else { tx[x].clone() };
+                let ty = if fy[y] < 1.0 { heavy(&ty[y]) } else { ty[y].clone() };
+                let m = if shrinks.0 && shrinks.1 {
+                    // Both boxes: across first.
+                    apply(&ty, |j| apply(&tx, |i| at(i, j)))
+                } else {
+                    apply(&tx, |i| apply(&ty, |j| at(i, j)))
+                };
+                // `LayerMask.placed`: the background, black filled over the rectangle, then white
+                // through the mask clipped to it.
+                let under = (bg * (255 - c) + 127) / 255;
+                let through = (m * c / 255) * c / 255;
+                under + ((255 - under) * through + 127) / 255
             };
-            out.put_pixel(x, y, image::Luma([value as u8]));
+            out.put_pixel(x as u32, y as u32, image::Luma([value as u8]));
         }
     }
     Ok(out)
