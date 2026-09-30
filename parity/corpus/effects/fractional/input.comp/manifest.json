@@ -1,0 +1,90 @@
+{
+  "activeLayerID" : "F29CAA5C-BF23-404C-A3AB-A7C2166230E2",
+  "colorSpace" : "sRGB",
+  "documentID" : "51B75648-F564-463A-B189-894D46295613",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "id" : "5E326499-13E4-41FF-851D-1645E94A4BDA",
+      "imageFile" : "5E326499-13E4-41FF-851D-1645E94A4BDA.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    },
+    {
+      "effects" : {
+        "colorOverlay" : {
+          "blue" : 0.1,
+          "green" : 0.85,
+          "opacity" : 0.3,
+          "red" : 1
+        },
+        "innerGlow" : {
+          "blue" : 0,
+          "green" : 0,
+          "opacity" : 0.9,
+          "red" : 0,
+          "size" : 0.01
+        },
+        "outerGlow" : {
+          "blue" : 1,
+          "green" : 1,
+          "opacity" : 0.9,
+          "red" : 1,
+          "size" : 0.01
+        },
+        "shadow" : {
+          "angle" : 33,
+          "blue" : 0.1,
+          "blur" : 5.5,
+          "distance" : 7.3,
+          "green" : 0.1,
+          "opacity" : 0.65,
+          "red" : 0.9
+        },
+        "stroke" : {
+          "blue" : 0.9,
+          "green" : 0.2,
+          "inside" : true,
+          "opacity" : 0.8,
+          "red" : 0.1,
+          "size" : 2.5
+        }
+      },
+      "id" : "F29CAA5C-BF23-404C-A3AB-A7C2166230E2",
+      "imageFile" : "F29CAA5C-BF23-404C-A3AB-A7C2166230E2.png",
+      "isVisible" : true,
+      "name" : "Shape",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          24,
+          24
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          48
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

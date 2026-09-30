@@ -1,0 +1,5 @@
+{
+  "feature": "effects",
+  "input": "input.comp",
+  "label": "Rounded sizes, a fractional shadow offset and glows too small to blur"
+}

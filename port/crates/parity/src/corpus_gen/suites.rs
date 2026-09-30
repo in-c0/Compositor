@@ -476,6 +476,40 @@ fn effects(w: &mut CaseWriter) -> Result<()> {
         }
         w.write("effects", case, label, d, vec![])?;
     }
+    // The paths the cases above leave out: a base whose effects clip the layer above it; sizes
+    // that round (stroke reach, blur radius), a fractional shadow offset and glows too small to
+    // blur; a layer partly off the canvas whose effects reach further still.
+    let mut d = w.doc("effects", "clip-base", E, E);
+    d.image("Ground", images::noise(E, E, 31, Alpha::Opaque), spec());
+    let base = d.image("Base", images::disc(48, 48, [240, 240, 240]), LayerSpec { transform: Some(Transform::at(24.0, 24.0, 48.0, 48.0)), ..spec() });
+    d.layer(&base).effects = Some(Effects { stroke: Some(stroke(3.0, red, 1.0, false)), shadow: Some(shadow(60.0, 5.0, 3.0, black, 0.7)), ..Default::default() });
+    let clipped = d.image("Clipped", images::photo(E, E), spec());
+    d.layer(&clipped).mask_source_id = Some(base);
+    w.write("effects", "clip-base", "A base with effects, a photo clipped to it", d, vec![])?;
+
+    let mut d = w.doc("effects", "fractional", E, E);
+    d.image("Ground", images::photo(E, E), spec());
+    let id = d.image("Shape", images::noise(48, 48, 32, Alpha::Varied), LayerSpec { transform: Some(Transform::at(24.0, 24.0, 48.0, 48.0)), ..spec() });
+    d.layer(&id).effects = Some(Effects {
+        stroke: Some(stroke(2.5, blue, 0.8, true)),
+        shadow: Some(shadow(33.0, 7.3, 5.5, red, 0.65)),
+        color_overlay: Some(ColorOverlayEffect { enabled: None, red: 1.0, green: 0.85, blue: 0.1, opacity: 0.3 }),
+        outer_glow: Some(glow(0.01, white, 0.9)),
+        inner_glow: Some(glow(0.01, black, 0.9)),
+        ..Default::default()
+    });
+    w.write("effects", "fractional", "Rounded sizes, a fractional shadow offset and glows too small to blur", d, vec![])?;
+
+    let mut d = w.doc("effects", "off-canvas", E, E);
+    d.image("Ground", images::photo(E, E), spec());
+    let id = d.image("Shape", images::corners(48, 48, [230, 60, 40]), LayerSpec { transform: Some(Transform::at(-20.0, 60.0, 48.0, 48.0)), ..spec() });
+    d.layer(&id).effects = Some(Effects {
+        shadow: Some(shadow(-135.0, 12.0, 8.0, black, 0.0)),
+        outer_glow: Some(glow(6.0, yellow, 0.8)),
+        inner_shadow: Some(shadow(150.0, 4.0, 0.0, blue, 0.6)),
+        ..Default::default()
+    });
+    w.write("effects", "off-canvas", "A layer partly off the canvas, a hidden shadow widening its margin", d, vec![])?;
     Ok(())
 }
 
