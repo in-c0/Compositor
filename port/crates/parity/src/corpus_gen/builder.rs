@@ -10,6 +10,7 @@ pub struct Doc {
     pub width: u32,
     pub height: u32,
     pub version: i64,
+    pub resolution: Option<f64>,
     pub layers: Vec<LayerRecord>,
     images: HashMap<String, RgbaImage>,
     masks: HashMap<String, GrayImage>,
@@ -29,7 +30,7 @@ pub struct LayerSpec {
 
 impl Doc {
     pub fn new(width: u32, height: u32) -> Self {
-        Self { width, height, version: CURRENT_VERSION, layers: Vec::new(), images: HashMap::new(), masks: HashMap::new(), seed: 0, next: 0 }
+        Self { width, height, version: CURRENT_VERSION, resolution: None, layers: Vec::new(), images: HashMap::new(), masks: HashMap::new(), seed: 0, next: 0 }
     }
 
     fn id(&mut self) -> String {
@@ -119,7 +120,7 @@ impl Doc {
             format: FORMAT.into(),
             version: self.version,
             color_space: "sRGB".into(),
-            resolution: None,
+            resolution: self.resolution,
             document_id: uuid::Builder::from_random_bytes(bytes).into_uuid().to_string().to_ascii_uppercase(),
             width: self.width as i64,
             height: self.height as i64,
@@ -138,11 +139,12 @@ impl Doc {
 pub struct CaseWriter {
     root: PathBuf,
     pub count: usize,
+    extra: Value,
 }
 
 impl CaseWriter {
     pub fn new(root: &Path) -> Self {
-        Self { root: root.to_path_buf(), count: 0 }
+        Self { root: root.to_path_buf(), count: 0, extra: Value::Null }
     }
 
     /// A fresh document whose layer ids are derived from the case name, so they are stable.
@@ -153,10 +155,18 @@ impl CaseWriter {
     }
 
     pub fn write(&mut self, feature: &str, case: &str, label: &str, doc: Doc, ops: Vec<Value>) -> Result<()> {
+        self.write_with(feature, case, label, doc, ops, Value::Null)
+    }
+
+    /// Like `write`, with extra top-level case.json fields (e.g. `jpeg`) merged in.
+    pub fn write_with(&mut self, feature: &str, case: &str, label: &str, doc: Doc, ops: Vec<Value>, extra: Value) -> Result<()> {
         let dir = self.root.join(feature).join(case);
         std::fs::create_dir_all(&dir)?;
         comp_format::save(&doc.into_project(), &dir.join("input.comp"))?;
-        self.write_spec(&dir, feature, label, "input.comp", ops)
+        self.extra = extra;
+        let result = self.write_spec(&dir, feature, label, "input.comp", ops);
+        self.extra = Value::Null;
+        result
     }
 
     /// A case whose input is a file, such as a `.psd` or `.psb`, written as `input_name`.
@@ -171,6 +181,11 @@ impl CaseWriter {
         let mut spec = serde_json::json!({ "feature": feature, "label": label, "input": input });
         if !ops.is_empty() {
             spec["ops"] = Value::Array(ops);
+        }
+        if let Value::Object(extra) = &self.extra {
+            for (k, v) in extra {
+                spec[k] = v.clone();
+            }
         }
         std::fs::write(dir.join("case.json"), serde_json::to_string_pretty(&spec)? + "\n")?;
         self.count += 1;

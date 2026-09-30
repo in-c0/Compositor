@@ -17,6 +17,7 @@ pub fn all(w: &mut CaseWriter) -> Result<()> {
     effects(w)?;
     document(w)?;
     filters(w)?;
+    export(w)?;
     Ok(())
 }
 
@@ -560,6 +561,45 @@ fn filters(w: &mut CaseWriter) -> Result<()> {
             op["seed"] = json!(1);
         }
         w.write("filters", case, label, d, vec![op])?;
+    }
+    Ok(())
+}
+
+fn export(w: &mut CaseWriter) -> Result<()> {
+    // PNG export: pixels are every case's reference; these vary what the metadata records.
+    for (case, resolution, label) in [
+        ("png-72", None, "PNG at the default 72 ppi"),
+        ("png-300", Some(300.0), "PNG at 300 ppi"),
+        ("png-96-5", Some(96.5), "PNG at a fractional 96.5 ppi"),
+    ] {
+        let mut d = w.doc("export", case, 37, 23);
+        d.resolution = resolution;
+        d.image("Photo", images::photo(37, 23), spec());
+        d.image("Translucent", images::noise(37, 23, 61, Alpha::Varied), LayerSpec { opacity: Some(0.8), ..spec() });
+        w.write("export", case, label, d, vec![])?;
+    }
+    // JPEG export: quality and matte, over opaque and translucent content.
+    let jpegs: [(&str, &str, f64, [f64; 3], bool); 6] = [
+        ("jpeg-q85-white", "JPEG at the default quality 0.85 on white", 0.85, [1.0, 1.0, 1.0], true),
+        ("jpeg-q50-black", "JPEG at 0.5 on black", 0.5, [0.0, 0.0, 0.0], true),
+        ("jpeg-q100", "JPEG at quality 1", 1.0, [1.0, 1.0, 1.0], false),
+        ("jpeg-q0", "JPEG at quality 0", 0.0, [1.0, 1.0, 1.0], false),
+        ("jpeg-q70-red", "JPEG at 0.7 on a red matte", 0.7, [0.9, 0.1, 0.1], true),
+        ("jpeg-q92-opaque", "JPEG at 0.92, fully opaque", 0.92, [1.0, 1.0, 1.0], false),
+    ];
+    for (case, label, quality, matte, translucent) in jpegs {
+        let mut d = w.doc("export", case, 48, 40);
+        d.image("Photo", images::photo(48, 40), spec());
+        if translucent {
+            d.image("Translucent", images::noise(48, 40, 62, Alpha::Varied), LayerSpec { opacity: Some(0.8), ..spec() });
+            d.image("Hole", images::disc(48, 40, [30, 200, 90]), LayerSpec { blend: Some(BlendMode::Normal), ..spec() });
+        }
+        if translucent {
+            // A transparent corner so the matte shows through.
+            d.layers[0].transform = Transform::at(8.0, 6.0, 48.0, 40.0);
+            d.layers[0].transform.size = [48.0, 40.0];
+        }
+        w.write_with("export", case, label, d, vec![], json!({ "jpeg": { "quality": quality, "matte": matte } }))?;
     }
     Ok(())
 }

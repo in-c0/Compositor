@@ -1,0 +1,13 @@
+{
+  "feature": "export",
+  "input": "input.comp",
+  "jpeg": {
+    "matte": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "quality": 0.5
+  },
+  "label": "JPEG at 0.5 on black"
+}

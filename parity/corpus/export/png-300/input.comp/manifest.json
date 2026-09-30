@@ -1,0 +1,53 @@
+{
+  "activeLayerID" : "C9E2399A-A44F-419B-BB14-ADC6C2ACF56B",
+  "colorSpace" : "sRGB",
+  "documentID" : "1FAEA538-40A0-4A9C-A27B-8D72F0552CF5",
+  "format" : "com.compositor.project",
+  "height" : 23,
+  "layers" : [
+    {
+      "id" : "76FECDD5-50B9-46B0-9997-CBC13DB01B4A",
+      "imageFile" : "76FECDD5-50B9-46B0-9997-CBC13DB01B4A.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          37,
+          23
+        ]
+      }
+    },
+    {
+      "id" : "C9E2399A-A44F-419B-BB14-ADC6C2ACF56B",
+      "imageFile" : "C9E2399A-A44F-419B-BB14-ADC6C2ACF56B.png",
+      "isVisible" : true,
+      "name" : "Translucent",
+      "opacity" : 0.8,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          37,
+          23
+        ]
+      }
+    }
+  ],
+  "resolution" : 300,
+  "version" : 11,
+  "width" : 37
+}

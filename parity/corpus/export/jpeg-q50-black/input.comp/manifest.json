@@ -1,0 +1,73 @@
+{
+  "activeLayerID" : "B7E460FE-A448-4EF9-A3C6-8F3D8C007554",
+  "colorSpace" : "sRGB",
+  "documentID" : "2E4B0C63-9B24-4468-95FD-FD7091B7449A",
+  "format" : "com.compositor.project",
+  "height" : 40,
+  "layers" : [
+    {
+      "id" : "9C9E241A-28F4-41AF-9245-479EFAD3DA62",
+      "imageFile" : "9C9E241A-28F4-41AF-9245-479EFAD3DA62.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          8,
+          6
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          40
+        ]
+      }
+    },
+    {
+      "id" : "B51994F8-2712-4306-BE52-05AD7E7DD7B0",
+      "imageFile" : "B51994F8-2712-4306-BE52-05AD7E7DD7B0.png",
+      "isVisible" : true,
+      "name" : "Translucent",
+      "opacity" : 0.8,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          40
+        ]
+      }
+    },
+    {
+      "blendMode" : "Normal",
+      "id" : "B7E460FE-A448-4EF9-A3C6-8F3D8C007554",
+      "imageFile" : "B7E460FE-A448-4EF9-A3C6-8F3D8C007554.png",
+      "isVisible" : true,
+      "name" : "Hole",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          40
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 48
+}

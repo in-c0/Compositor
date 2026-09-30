@@ -1,0 +1,5 @@
+{
+  "feature": "export",
+  "input": "input.comp",
+  "label": "PNG at a fractional 96.5 ppi"
+}
