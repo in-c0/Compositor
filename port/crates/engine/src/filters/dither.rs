@@ -2,9 +2,8 @@
 //! `dither_dots` (Rendering/DitherPixels.c), whose stages are in `dither.wgsl`.
 //!
 //! Chunky pixels dither a copy reduced by the pixel size and blow the result back up. Core
-//! Graphics makes that copy with its high-quality interpolation, which isn't reproduced yet, so
-//! pixel sizes above 1 are unsupported for now. ASCII draws Core Text glyphs and the scanlines'
-//! glow is a Core Image blur; those aren't reproduced either.
+//! Graphics makes that copy with its High interpolation (`transform::high`). ASCII draws Core Text
+//! glyphs and the scanlines' glow is a Core Image blur; those aren't reproduced.
 
 use super::settings::{DitherColors, DitherSettings, DitherStyle};
 use super::{DOUBLE, FLOAT};
@@ -36,10 +35,18 @@ pub fn apply(gpu: &Gpu, image: &GpuImage, settings: &DitherSettings) -> Result<G
         return Err(RenderError::Unsupported("Dither's Density (powf)".into()));
     }
     let block = if s.style.uses_pixel_size() { s.pixel_size as u32 } else { 1 };
-    if block > 1 {
-        return Err(RenderError::Unsupported("Dither's pixel size (Core Graphics's high-quality reduction)".into()));
-    }
-    let dithered = dither(gpu, image, &s);
+    // Chunky pixels dither a copy Core Graphics draws with High at 1/block the size, top left.
+    let small;
+    let working = if block > 1 {
+        let pixels = image::RgbaImage::from_raw(image.width, image.height, gpu.download(image).map_err(RenderError::Failed)?).expect("image size");
+        let size = (image.width.div_ceil(block), image.height.div_ceil(block));
+        let rect = [0.0, 0.0, image.width as f64 / block as f64, image.height as f64 / block as f64];
+        small = crate::transform::high::draw_into(gpu, &pixels, size, rect, crate::transform::Quality::High);
+        &small
+    } else {
+        image
+    };
+    let dithered = dither(gpu, working, &s);
     if block == 1 {
         return Ok(dithered);
     }
@@ -197,9 +204,10 @@ impl Params {
         words.extend(self.dark.map(f32::to_bits));
         words.extend(self.light.map(f32::to_bits));
         let out = gpu.image(width, height);
-        let placeholder = gpu.bytes(&[0u8; 4]);
+        // Separate stand-ins: one binding is written, so they can't share a buffer.
+        let (no_tone, no_shifts) = (gpu.bytes(&[0u8; 4]), gpu.bytes(&[0u8; 4]));
         let pipeline = gpu.pipeline("filters.dither", &format!("{FLOAT}\n{DOUBLE}\n{}", include_str!("dither.wgsl")));
-        let buffers = [&image.buffer, &out.buffer, tone.unwrap_or(&placeholder), shifts.unwrap_or(&placeholder)];
+        let buffers = [&image.buffer, &out.buffer, tone.unwrap_or(&no_tone), shifts.unwrap_or(&no_shifts)];
         gpu.dispatch(&pipeline, bytemuck::cast_slice(&words), &buffers, grid.0, grid.1);
         out
     }

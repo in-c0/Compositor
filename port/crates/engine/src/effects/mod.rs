@@ -101,6 +101,20 @@ pub fn margin(e: &Effects) -> u32 {
     margin.ceil() as u32 + 2
 }
 
+/// `LayerEffectsRenderer.placed`: the layer's transform grown about its center by the effects'
+/// margin, so the `width` x `height` effects image lands where the layer is.
+pub fn placed(t: &comp_format::Transform, width: u32, height: u32, inset: u32) -> comp_format::Transform {
+    let (w, h, inset) = (width as f64, height as f64, inset as f64);
+    if w <= inset * 2.0 || h <= inset * 2.0 {
+        return *t;
+    }
+    let mut grown = *t;
+    grown.size = [t.size[0] * w / (w - inset * 2.0), t.size[1] * h / (h - inset * 2.0)];
+    let center = [t.origin[0] + t.size[0] / 2.0, t.origin[1] + t.size[1] / 2.0];
+    grown.origin = [center[0] - grown.size[0] / 2.0, center[1] - grown.size[1] / 2.0];
+    grown
+}
+
 /// `ShadowEffect.offset`: where the shadow falls, in layer pixels, y down. The light comes from
 /// `angle` degrees counterclockwise from the right, and the shadow falls away from it.
 fn offset(angle: f64, distance: f64) -> (f32, f32) {

@@ -104,7 +104,11 @@ fn placing(t: &Transform, map: &Affine) -> Transform {
 }
 
 /// `LayerRenderer.drawCoverage`: `mask` clipped to the layer's bounds at `t` and filled white, in
-/// a gray `width` x `height` context scaled by `scale` and moved by `offset`.
+/// a gray `width` x `height` context scaled by `scale` and moved by `offset`. The clip is the mask
+/// sampled and faded at its rectangle's edges as an image is; the fill's own edges cover by area
+/// (`min(255, floor(area × 256))`, as Core Graphics fills shapes), and the two multiply rounding
+/// to nearest. That is within a few levels on the edge pixels of rotated masks, not exact (see
+/// `parity/features.toml`).
 fn draw_coverage(mask: &GrayImage, t: &Transform, scale: [f64; 2], offset: [f64; 2], (width, height): (u32, u32)) -> Result<GrayImage> {
     let placement = Placement::in_context(t, scale, offset);
     let filter = match Quality::of(t.sampling) {
@@ -120,9 +124,54 @@ fn draw_coverage(mask: &GrayImage, t: &Transform, scale: [f64; 2], offset: [f64;
         }
     };
     let rect = placement.rect(1.0, 1.0);
-    let samples = clip::sample(mask, &placement, &rect, filter, t.sampling != Sampling::Nearest, (width, height));
-    let bytes = samples.into_iter().map(|(value, covered)| (value * covered / 255) as u8).collect();
+    let antialias = t.sampling != Sampling::Nearest;
+    let samples = clip::sample(mask, &placement, &rect, filter, antialias, (width, height));
+    let corners = placement.corners(&rect);
+    let bytes = samples
+        .into_iter()
+        .enumerate()
+        .map(|(i, (value, covered))| {
+            let clipped = value * covered / 255;
+            if !antialias || covered == 0 {
+                return clipped as u8;
+            }
+            // The white fill covers what the rectangle's outline covers of the pixel, in 1/256ths.
+            let (x, y) = ((i as u32 % width) as f64, (i as u32 / width) as f64);
+            let fill = ((area_in_pixel(&corners, x, y) * 256.0).floor() as u32).min(255);
+            ((clipped * fill + 127) / 255) as u8
+        })
+        .collect();
     Ok(GrayImage::from_raw(width, height, bytes).expect("mask size"))
+}
+
+/// The area of the convex quadrilateral `corners` inside the pixel at (`x`, `y`).
+fn area_in_pixel(corners: &[[f64; 2]; 4], x: f64, y: f64) -> f64 {
+    let mut poly: Vec<[f64; 2]> = corners.to_vec();
+    // Keep the side where `inside` holds of each of the pixel's four edges.
+    let edges: [(usize, f64, bool); 4] = [(0, x, true), (0, x + 1.0, false), (1, y, true), (1, y + 1.0, false)];
+    for (axis, at, above) in edges {
+        let inside = |p: &[f64; 2]| if above { p[axis] >= at } else { p[axis] <= at };
+        let mut out = Vec::with_capacity(poly.len() + 2);
+        for k in 0..poly.len() {
+            let (p, q) = (poly[k], poly[(k + 1) % poly.len()]);
+            if inside(&p) {
+                out.push(p);
+            }
+            if inside(&p) != inside(&q) {
+                let t = (at - p[axis]) / (q[axis] - p[axis]);
+                out.push([p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])]);
+            }
+        }
+        poly = out;
+        if poly.is_empty() {
+            return 0.0;
+        }
+    }
+    let twice: f64 = (0..poly.len()).map(|k| {
+        let (p, q) = (poly[k], poly[(k + 1) % poly.len()]);
+        p[0] * q[1] - q[0] * p[1]
+    }).sum();
+    twice.abs() / 2.0
 }
 
 /// `ImageResizer.resize` with `options`, then `applyImageSize`.

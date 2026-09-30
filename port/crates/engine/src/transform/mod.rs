@@ -6,15 +6,18 @@
 //! the references (the `transform/probe-*` cases isolate each part), and `resample.wgsl` spells it
 //! out: sample positions stepped in 32.32 fixed point, interpolation `.none` as the pixel under the
 //! position, `.low` as a two-pixel shift blend per axis, edges faded across the pixel's L1 width.
-//! `.high` is `.low` while enlarging and a box average while shrinking (`clip.rs`); large
-//! reductions start from vImage's Lanczos halvings (`halve.rs`).
+//! `.high` is `.low` while enlarging; shrinking an image it draws with `.low` from a copy it first
+//! resamples with Lanczos 2 (`high.rs`), and shrinking a clip mask it averages boxes (`clip.rs`).
+//! Large reductions start from vImage's Lanczos halvings (`halve.rs`). Image Size draws layers
+//! into a scaled context (`resize.rs`).
 
 pub mod clip;
 mod halve;
+pub mod high;
 mod layer;
 pub mod resize;
 
-pub use layer::{draw_image, draw_layer, needs_resampling};
+pub use layer::{draw_image, draw_layer, draw_premultiplied, needs_resampling};
 
 use crate::blend::{mode_index, opacity_table};
 use crate::gpu::{Gpu, GpuImage};
@@ -65,6 +68,9 @@ pub struct Placement {
     /// The context's own scale and offset before the layer's: canvas = document × scale + offset
     /// per axis (Image Size draws each layer into a scaled context).
     context: [f64; 4],
+    /// Whether sample positions start and step from values rounded to nearest rather than down,
+    /// as the draw from a copy High has shrunk does (`high.rs`).
+    pub(crate) nearest: bool,
     center: [f64; 2],
     cos: f64,
     sin: f64,
@@ -81,6 +87,7 @@ impl Placement {
         let radians = (t.rotation % 360.0).to_radians();
         Self {
             context: [1.0, 1.0, 0.0, 0.0],
+            nearest: false,
             center: [t.origin[0] + t.size[0] / 2.0, t.origin[1] + t.size[1] / 2.0],
             cos: radians.cos(),
             sin: radians.sin(),
@@ -103,7 +110,7 @@ impl Placement {
     }
 
     /// The drawing-space corners of `rect` on the canvas.
-    fn corners(&self, rect: &Rect) -> [[f64; 2]; 4] {
+    pub(crate) fn corners(&self, rect: &Rect) -> [[f64; 2]; 4] {
         let sx = if self.flip_x { -1.0 } else { 1.0 };
         let sy = if self.flip_y { 1.0 } else { -1.0 };
         let [kx, ky, ox, oy] = self.context;
@@ -234,9 +241,10 @@ impl Placement {
     }
 }
 
-/// `v` in 32.32 fixed point, rounded down, as the low and high words of a two's complement pair.
-fn fixed(v: f64) -> [u32; 2] {
-    let f = (v * 4294967296.0).floor() as i64;
+/// `v` in 32.32 fixed point, rounded down (or to nearest), as the low and high words of a two's
+/// complement pair.
+fn fixed(v: f64, nearest: bool) -> [u32; 2] {
+    let f = (v * 4294967296.0 + if nearest { 0.5 } else { 0.0 }).floor() as i64;
     [f as u32, (f >> 32) as u32]
 }
 
@@ -246,7 +254,7 @@ fn dda_block(p: &Placement, rect: &Rect, width: u32, height: u32) -> Vec<u8> {
     let d = p.dda(rect, width, height);
     let mut b = Vec::with_capacity(80);
     for v in [d.u0, d.u_dx, d.u_dy, d.v0, d.v_dx, d.v_dy] {
-        for w in fixed(v) {
+        for w in fixed(v, p.nearest) {
             b.extend_from_slice(&w.to_le_bytes());
         }
     }

@@ -35,7 +35,7 @@ name = "Transforms and distort"
 paths = ["port/crates/engine/src/transform/**"]
 gaps = [
     "`transform/rotate-45`: two pixels on the exact diagonal of a layer rotated 45 degrees take the other row as their heavy pixel on the Mac (a sample position exactly between two rows, which Core Graphics' own arithmetic puts a hair to one side). They differ by 1/255.",
-    "High-quality interpolation that shrinks an image along its height while enlarging it along its width (`transform/non-uniform`, `probe-high-image-*`) is pending. Measured so far: the shrinking axis maps pixel centers corner to corner ((n_in − 1)/(n_out − 1)) through a Lanczos-2-like kernel widened by the reduction, whose peak is flatter than Lanczos 2; the other axis is Low.",
+    "High-quality interpolation shrinking a rotated image, and a layer's own mask on an image High shrinks, are pending: the `cg-*` probes measure Core Graphics' High only for upright draws of images (`transform/high.rs`).",
     "Unlinked masks placed at a rotation (`transform/probe-high-rotate`), folder masks resampled over layers that are themselves transformed, and resampled masks on adjustment layers are pending: Core Graphics resamples a clip mask with the interpolation of whatever is drawn through it, measured so far only for layers drawn 1:1.",
     "An unlinked mask's background (white or black beyond its pixels) is read from the mask's own edge; the Mac reads a 96-pixel thumbnail, which only decides differently when the edge averages within a hair of half gray.",
 ]
@@ -54,19 +54,17 @@ gaps = [
 key = "filters"
 name = "Filters"
 # Filters reuse the adjustment kernels, and Remove Background's mask comes from `ml`.
-paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**"]
+# Dither's chunky pixels are reduced with Core Graphics' High (`transform/high.rs`).
+paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**", "port/crates/engine/src/transform/high.rs"]
 gaps = [
-    "Dither with a pixel size above 1 dithers a copy Core Graphics reduces with its high-quality interpolation, which isn't reproduced yet, so those cases are pending. The `probe-reduce-*` cases show the reduced image directly: by 2, it samples output pixel i at source pixel i × 63/31 (the corners line up, not the pixel edges) through a Catmull-Rom- or Lanczos-2-like kernel about 2 source pixels wide, but no fixed kernel matches it closer than 0.7 levels RMS (3 at most), and by 3 the mapping is different again. The dithering itself matches exactly at pixel size 1 (the other probes).",
     "Dither's ASCII style draws the system's bold monospaced font with Core Text, which the port doesn't have; its scanline glow is a Core Image blur of a Core Image scale. Both are pending.",
 ]
 
 [[feature]]
 key = "effects"
 name = "Layer effects"
-paths = ["port/crates/engine/src/effects/**"]
-gaps = [
-    "Effects on a layer drawn through a transform (rotated, scaled, flipped, off the pixel grid, or with a mask placed apart from it) are pending: the transform module resamples the layer's own pixels but doesn't draw its effects image through the transform yet, so those layers report not supported (`effects/rotated`, `effects/scaled`).",
-]
+# Effects on transformed layers are drawn through the transform module.
+paths = ["port/crates/engine/src/effects/**", "port/crates/engine/src/transform/**"]
 
 [[feature]]
 key = "psd"
@@ -81,9 +79,11 @@ gaps = [
 [[feature]]
 key = "document"
 name = "Crop, Canvas Size and Image Size"
-paths = ["port/crates/engine/src/document/**"]
+# Image Size re-rasterizes layers through the transform module.
+paths = ["port/crates/engine/src/document/**", "port/crates/engine/src/transform/**"]
 gaps = [
     "The Mac app drops layer effects when it crops or resizes a document (`CanvasResizer.swift` and `ImageResizer.swift` don't copy `effects`). The port matches this, because parity means drawing what the Mac draws.",
+    "Image Size redraws a rotated layer's mask as a white fill through the mask clipped to the layer's rectangle (`LayerRenderer.drawCoverage`). The port fades the clip's edges as it does an image's and covers the fill's edges by exact area; the edge pixels come out within 2 levels (44 of 6,400 mask pixels in `image-up-high`) and within 8 where the mask's own edge is sampled (6 of 400 in `image-down-smooth`), so those two cases' `#structure` checks, which compare masks byte for byte, fail. Two pixels the Mac covers alike by symmetry come out a level apart there, so the fill's coverage is not the exact area; it is not measured further. The flattened images match.",
 ]
 
 [[feature]]

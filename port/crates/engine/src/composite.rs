@@ -125,12 +125,11 @@ impl<'a> Compositor<'a> {
         };
         let t = &layer.transform;
         let (w, h) = asset.pixels.dimensions();
+        let effects = layer.effects.as_ref().and_then(effects::shown);
+        if effects.is_some() && crate::transform::needs_resampling(self.project, layer) {
+            return self.draw_with_effects(layer, &target, clip);
+        }
         if crate::transform::needs_resampling(self.project, layer) {
-            // The transform module draws the layer's own pixels only; its effects image isn't
-            // drawn through the transform yet.
-            if layer.effects.as_ref().and_then(effects::shown).is_some() {
-                return unsupported("layer effects on a transformed layer");
-            }
             let opacity = order::effective_opacity(layer, &self.by_id);
             return crate::transform::draw_layer(self.gpu, self.project, layer, &target, opacity, clip);
         }
@@ -142,7 +141,7 @@ impl<'a> Compositor<'a> {
         let opacity = order::effective_opacity(layer, &self.by_id);
         // With effects, the layer through its mask with its effects around it, drawn grown by the
         // effects' inset: for an upright 1:1 layer, the same draw moved up and left by the inset.
-        if let Some(effects) = layer.effects.as_ref().and_then(effects::shown) {
+        if let Some(effects) = effects {
             let built = effects::render(self.gpu, &pixels, own_mask.as_ref(), &effects);
             let inset = built.inset as i32;
             let draw = Draw { pixels: &built.image, premultiplied: true, offset: (offset.0 - inset, offset.1 - inset), mode, opacity, mask: None, clip };
@@ -150,6 +149,23 @@ impl<'a> Compositor<'a> {
         }
         let draw = Draw { pixels: &pixels, premultiplied: false, offset, mode, opacity, mask: own_mask.as_ref(), clip };
         Ok(blend::draw_upright(self.gpu, &target, &draw))
+    }
+
+    /// A transformed layer with effects: the effects image, made from the layer's pixels through
+    /// its mask in its own pixel grid, drawn through the transform grown by the effects' margin.
+    fn draw_with_effects(&self, layer: &LayerRecord, target: &GpuImage, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
+        let asset = &self.project.images[&layer.id];
+        let (w, h) = asset.pixels.dimensions();
+        let effects = layer.effects.as_ref().and_then(effects::shown).expect("shown effects");
+        let own_mask = mask::layer_coverage(self.project, layer, (w, h)).map_err(RenderError::Unsupported)?;
+        let own_mask = own_mask.map(|c| self.gpu.bytes(bytemuck::cast_slice(&c)));
+        let pixels = self.gpu.upload(w, h, asset.pixels.as_raw());
+        let built = effects::render(self.gpu, &pixels, own_mask.as_ref(), &effects);
+        let (bw, bh) = (built.image.width, built.image.height);
+        let image = image::RgbaImage::from_raw(bw, bh, self.gpu.download(&built.image)?).expect("effects image size");
+        let grown = effects::placed(&layer.transform, bw, bh, built.inset);
+        let opacity = order::effective_opacity(layer, &self.by_id);
+        crate::transform::draw_premultiplied(self.gpu, &image, &grown, target, layer.blend_mode(), opacity, clip)
     }
 
     /// `LiveMaskRenderer.adjust`: the adjustment runs on everything drawn so far, is blended in the
