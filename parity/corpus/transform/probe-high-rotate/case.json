@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "High resampling a mask placed rotated at a fractional position"
+}

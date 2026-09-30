@@ -329,6 +329,23 @@ fn transform_probes(w: &mut CaseWriter) -> Result<()> {
     masked(w, "probe-high-impulse", "High shrinking single white mask pixels: 64x64 at 40x40", dots, Transform::at(4.0, 4.0, 40.0, 40.0))?;
     masked(w, "probe-high-mixed", "High stretching a mask one way and shrinking it the other", gray_noise(32, 32, 72), Transform::at(2.0, 22.0, 60.0, 20.0))?;
     masked(w, "probe-high-grow", "High enlarging a mask: 16x16 at 37x37", gray_noise(16, 16, 73), Transform::at(5.0, 9.0, 37.0, 37.0))?;
+    masked(w, "probe-high-rotate", "High resampling a mask placed rotated at a fractional position", gray_noise(40, 50, 74), Transform { rotation: 15.0, ..Transform::at(10.5, 4.25, 40.0, 50.0) })?;
+    // 8 source pixels over 64 put every sample phase on an odd sixteenth: Low's rounding ties.
+    layer(w, "probe-low-8x", "Low at 8x: 8x8 at 64x64", images::noise(8, 8, 68, Alpha::Opaque), smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    // A masked layer, rotated and translucent, with a mask of another size than its pixels.
+    let mut d = w.doc("transform", "probe-mask-rotate", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    let id = d.image("Masked", images::noise(40, 40, 69, Alpha::Varied), LayerSpec { opacity: Some(0.6), transform: Some(smooth(10.0, 14.0, 44.0, 36.0, 25.0)), ..spec() });
+    d.mask(&id, gray_noise(24, 30, 75));
+    w.write("transform", "probe-mask-rotate", "A rotated translucent layer through a mask of another size", d, vec![])?;
+    // Folder masks drawn over the folder's own rectangle, which High resamples.
+    for (case, t) in [("probe-folder-shrink", Transform::at(8.0, 4.0, 48.0, 40.0)), ("probe-folder-rotate", Transform { rotation: 20.0, ..Transform::at(12.0, 12.0, 40.0, 40.0) })] {
+        let mut d = w.doc("transform", case, N, N);
+        let folder = d.group("Folder", LayerSpec { transform: Some(t), ..spec() });
+        d.mask(&folder, gray_noise(if case == "probe-folder-shrink" { 64 } else { 40 }, if case == "probe-folder-shrink" { 64 } else { 40 }, 76));
+        d.image("Inner", white(N, N), LayerSpec { parent: Some(folder), ..spec() });
+        w.write("transform", case, "A folder mask over the folder's own rectangle", d, vec![])?;
+    }
     Ok(())
 }
 
