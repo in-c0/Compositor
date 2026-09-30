@@ -8,6 +8,7 @@ use anyhow::{Context, Result, bail};
 use image::RgbaImage;
 use std::path::{Path, PathBuf};
 
+mod blend;
 mod experiments;
 
 pub struct Case {
