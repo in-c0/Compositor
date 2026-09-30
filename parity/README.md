@@ -92,3 +92,7 @@ cases = "type/*"
 max_channel_diff = 3
 reason = "Glyph edges come from a different rasterizer than Core Text; measured in PARITY.md."
 ```
+
+## PARITY.md
+
+CI builds PARITY.md from each run's results: per-feature status on both platforms, the overall percentage, known gaps and every tolerance override. Every run shows it in the job summary. After a run on `main`, CI also commits it to the `parity-report` branch, so that branch always holds the report for the newest `main`. `main` only accepts pull requests whose parity checks pass, so CI can't push the report there.
