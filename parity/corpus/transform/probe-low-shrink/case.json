@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Low shrinking: 64x64 at 47x47"
+}

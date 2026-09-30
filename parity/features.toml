@@ -33,6 +33,12 @@ paths = ["port/crates/engine/src/folder/**"]
 key = "transform"
 name = "Transforms and distort"
 paths = ["port/crates/engine/src/transform/**"]
+gaps = [
+    "`transform/rotate-45`: two pixels on the exact diagonal of a layer rotated 45 degrees take the other row as their heavy pixel on the Mac (a sample position exactly between two rows, which Core Graphics' own arithmetic puts a hair to one side). They differ by 1/255.",
+    "High-quality interpolation that shrinks an image along its height while enlarging it along its width (`transform/non-uniform`, `probe-high-image-*`) is pending. Measured so far: the shrinking axis maps pixel centers corner to corner ((n_in − 1)/(n_out − 1)) through a Lanczos-2-like kernel widened by the reduction, whose peak is flatter than Lanczos 2; the other axis is Low.",
+    "Unlinked masks placed at a rotation (`transform/probe-high-rotate`), folder masks resampled over layers that are themselves transformed, and resampled masks on adjustment layers are pending: Core Graphics resamples a clip mask with the interpolation of whatever is drawn through it, measured so far only for layers drawn 1:1.",
+    "An unlinked mask's background (white or black beyond its pixels) is read from the mask's own edge; the Mac reads a 96-pixel thumbnail, which only decides differently when the edge averages within a hair of half gray.",
+]
 
 [[feature]]
 key = "adjust"
@@ -53,6 +59,9 @@ gaps = [
 key = "effects"
 name = "Layer effects"
 paths = ["port/crates/engine/src/effects/**"]
+gaps = [
+    "Effects on a layer drawn through a transform (rotated, scaled, flipped, off the pixel grid, or with a mask placed apart from it) are pending: the transform module resamples the layer's own pixels but doesn't draw its effects image through the transform yet, so those layers report not supported (`effects/rotated`, `effects/scaled`).",
+]
 
 [[feature]]
 key = "psd"

@@ -125,14 +125,14 @@ impl<'a> Compositor<'a> {
         };
         let t = &layer.transform;
         let (w, h) = asset.pixels.dimensions();
-        let upright = t.rotation == 0.0
-            && !t.flip_x
-            && !t.flip_y
-            && t.size == [w as f64, h as f64]
-            && t.origin[0].fract() == 0.0
-            && t.origin[1].fract() == 0.0;
-        if !upright {
-            return unsupported("transformed layers");
+        if crate::transform::needs_resampling(self.project, layer) {
+            // The transform module draws the layer's own pixels only; its effects image isn't
+            // drawn through the transform yet.
+            if layer.effects.as_ref().and_then(effects::shown).is_some() {
+                return unsupported("layer effects on a transformed layer");
+            }
+            let opacity = order::effective_opacity(layer, &self.by_id);
+            return crate::transform::draw_layer(self.gpu, self.project, layer, &target, opacity, clip);
         }
         let own_mask = mask::layer_coverage(self.project, layer, (w, h)).map_err(RenderError::Unsupported)?;
         let own_mask = own_mask.map(|c| self.gpu.bytes(bytemuck::cast_slice(&c)));
@@ -180,6 +180,9 @@ impl<'a> Compositor<'a> {
         if opacity < 1.0 {
             adjusted = self.mix(&target, &adjusted, None, 0, opacity);
         }
+        if layer.mask_enabled() && crate::transform::clip::resampled(self.project, layer) {
+            return unsupported("adjustment layer masks resampled over other rectangles");
+        }
         let own = if layer.mask_enabled() {
             Some(mask::folder_coverage(self.project, layer, (self.width, self.height)).map_err(RenderError::Unsupported)?)
         } else {
@@ -214,6 +217,12 @@ impl<'a> Compositor<'a> {
         for folder in order::folders(layer, &self.by_id) {
             if !folder.mask_enabled() {
                 continue;
+            }
+            // A resampled folder mask is sampled as the layer inside draws (measured for layers
+            // drawn 1:1 and upright).
+            let child_resamples = layer.adjustment.is_some() || layer.transform.sampling == comp_format::Sampling::Nearest || crate::transform::needs_resampling(self.project, layer);
+            if child_resamples && crate::transform::clip::resampled(self.project, folder) {
+                return unsupported("folder masks resampled over transformed layers");
             }
             let coverage = mask::folder_coverage(self.project, folder, (self.width, self.height)).map_err(RenderError::Unsupported)?;
             combined = Some(match combined {

@@ -16,6 +16,7 @@ pub mod mask;
 pub mod ml;
 pub mod order;
 pub mod session;
+pub mod transform;
 
 #[derive(Debug)]
 pub enum RenderError {

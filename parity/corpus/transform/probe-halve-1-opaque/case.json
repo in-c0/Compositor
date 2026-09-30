@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "One Lanczos halving of opaque pixels, then a near copy"
+}

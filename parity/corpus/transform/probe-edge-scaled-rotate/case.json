@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "A white square scaled 2x and rotated 30 degrees"
+}

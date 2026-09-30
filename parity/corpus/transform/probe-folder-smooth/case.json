@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "A folder mask resampled over the folder's own rectangle"
+}

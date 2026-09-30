@@ -1,0 +1,74 @@
+{
+  "activeLayerID" : "D88C455C-5CBB-4487-8C06-ED86399C800C",
+  "colorSpace" : "sRGB",
+  "documentID" : "4DF8F002-988C-4503-816D-E43043306609",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "CD976427-2F33-4680-97F1-5D34F69A522E",
+      "imageFile" : "CD976427-2F33-4680-97F1-5D34F69A522E.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "F81DBFBC-7E10-47A7-A689-9E3E7CA9EAF2",
+      "isGroup" : true,
+      "isVisible" : true,
+      "maskFile" : "F81DBFBC-7E10-47A7-A689-9E3E7CA9EAF2.mask.png",
+      "name" : "Folder",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "D88C455C-5CBB-4487-8C06-ED86399C800C",
+      "imageFile" : "D88C455C-5CBB-4487-8C06-ED86399C800C.png",
+      "isVisible" : true,
+      "maskFile" : "D88C455C-5CBB-4487-8C06-ED86399C800C.mask.png",
+      "name" : "Inner",
+      "parentID" : "F81DBFBC-7E10-47A7-A689-9E3E7CA9EAF2",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          12,
+          10
+        ],
+        "rotation" : 20,
+        "sampling" : "Smooth",
+        "size" : [
+          40,
+          44
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

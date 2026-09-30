@@ -1,0 +1,72 @@
+{
+  "activeLayerID" : "E6877699-03D1-460C-9C43-0212A76B1835",
+  "colorSpace" : "sRGB",
+  "documentID" : "DB158A6B-C4A1-44D9-A7FB-60BE47DD895A",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "78FE8C62-9996-467F-8D2D-20EFC472B524",
+      "imageFile" : "78FE8C62-9996-467F-8D2D-20EFC472B524.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "DEACA99C-7CF9-4F5A-8E90-3209C9E21FBA",
+      "imageFile" : "DEACA99C-7CF9-4F5A-8E90-3209C9E21FBA.png",
+      "isVisible" : true,
+      "name" : "Base",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "E6877699-03D1-460C-9C43-0212A76B1835",
+      "imageFile" : "E6877699-03D1-460C-9C43-0212A76B1835.png",
+      "isVisible" : true,
+      "maskSourceID" : "DEACA99C-7CF9-4F5A-8E90-3209C9E21FBA",
+      "name" : "Clipped",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          10,
+          12
+        ],
+        "rotation" : -25,
+        "sampling" : "Smooth",
+        "size" : [
+          44,
+          40
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

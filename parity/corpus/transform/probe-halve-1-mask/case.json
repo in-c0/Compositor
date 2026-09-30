@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "A mask halved once with its layer, then a near copy"
+}
