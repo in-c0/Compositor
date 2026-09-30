@@ -1,0 +1,5 @@
+{
+  "feature": "export",
+  "input": "input.comp",
+  "label": "PNG at the default 72 ppi"
+}

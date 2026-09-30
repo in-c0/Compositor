@@ -70,6 +70,10 @@ gaps = [
 key = "export"
 name = "JPEG and PNG export"
 paths = ["port/crates/engine/src/export/**"]
+gaps = [
+    "PNG export matches the Mac exactly: pixels, and the sRGB, EXIF and pHYs metadata byte for byte.",
+    "JPEG export uses ImageIO's own quantization tables at every 0.01 quality step, its chroma subsampling (4:2:0, 4:4:4 at quality 1) and BT.601 conversion, but Apple's encoder itself isn't available on Windows. Decoded pixels differ by up to 4-5 levels on photographic content and up to 32 on per-pixel noise at low quality (see the export overrides). The JFIF/EXIF/Photoshop header segments Apple writes aren't reproduced yet.",
+]
 
 [[feature]]
 key = "selections"

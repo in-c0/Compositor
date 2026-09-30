@@ -11,6 +11,9 @@ pub struct CaseSpec {
     pub input: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ops: Vec<Value>,
+    /// Export JPEG options (`quality`, `matte`); the harness writes `<case>.jpg` when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jpeg: Option<Value>,
 }
 
 #[derive(Clone, Debug)]

@@ -34,6 +34,7 @@ struct CaseRenderer {
 
     private var pngURL: URL { output.appending(path: id + ".png") }
     private var projectURL: URL { output.appending(path: id + ".comp") }
+    private var jpegURL: URL { output.appending(path: id + ".jpg") }
 
     func render() async -> CaseResult {
         removeOutputs()
@@ -49,7 +50,7 @@ struct CaseRenderer {
     }
 
     private func removeOutputs() {
-        for url in [pngURL, projectURL] where FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+        for url in [pngURL, projectURL, jpegURL] where FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
             try? FileManager.default.removeItem(at: url)
         }
     }
@@ -84,6 +85,13 @@ struct CaseRenderer {
         try FileManager.default.createDirectory(at: pngURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try await ImageExporter.shared.exportPNG(snapshot, to: pngURL)
         var outputs = [id + ".png"]
+        if let options = spec.jpeg {
+            // File > Export JPEG: the same render, flattened onto the matte and encoded by ImageIO.
+            let raster = try await ImageExporter.shared.render(snapshot)
+            let result = try await ImageExporter.shared.jpeg(raster, options: options)
+            try result.data.write(to: jpegURL)
+            outputs.append(id + ".jpg")
+        }
         if !spec.ops.isEmpty || isPhotoshop {
             // The QuickLook preview the app adds on save is left out; loading ignores it.
             try await ProjectStore.shared.save(snapshot, to: projectURL)

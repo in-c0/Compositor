@@ -13,3 +13,5 @@ wgpu.workspace = true
 comp-format.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+png.workspace = true
+jpeg-encoder.workspace = true

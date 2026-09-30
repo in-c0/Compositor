@@ -9,9 +9,11 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1"
+png = "0.18"
+jpeg-encoder = "0.7"
 bytemuck = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 pollster = "1"
 rayon = "1"
 serde = { version = "1", features = ["derive"] }

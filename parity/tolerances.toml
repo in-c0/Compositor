@@ -32,3 +32,44 @@ cases = "blend/color-burn-alpha-60"
 max_channel_diff = 1
 max_pixels_over = 1
 reason = "One pixel where Core Image's GPU float arithmetic rounds a premultiplied Color Burn result the other way (off by 1 premultiplied, 2 after unpremultiplying): 1 of 4,096 pixels."
+
+# JPEG export: Apple's JPEG encoder (ImageIO/AppleJPEG) isn't available outside macOS. The port
+# encodes with the exact quantization tables and chroma subsampling ImageIO uses at each quality
+# step (read off the export/jpeg-table-NNN probes), BT.601 color conversion and box-averaged
+# chroma, as Apple's files show. What's left is Apple's own DCT and quantization rounding, which
+# moves decoded pixels by a few levels on photographic content and more on pure noise at low
+# quality. Limits are the measured maxima per case; the PNG export is exact.
+[[override]]
+cases = "export/jpeg-q100#jpeg"
+max_channel_diff = 4
+reason = "Different JPEG encoder than Apple's (same tables, 4:4:4): DCT rounding differs; measured max 4/255 on photo and noise content."
+
+[[override]]
+cases = "export/jpeg-q92-opaque#jpeg"
+max_channel_diff = 5
+reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): DCT and quantization rounding differ; measured max 5/255 on photographic content."
+
+[[override]]
+cases = "export/jpeg-q0#jpeg"
+max_channel_diff = 5
+reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): DCT and quantization rounding differ; measured max 5/255 on photographic content at quality 0."
+
+[[override]]
+cases = "export/jpeg-q85-white#jpeg"
+max_channel_diff = 18
+reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): on per-pixel random noise, coefficients near quantization boundaries round the other way; measured max 18/255."
+
+[[override]]
+cases = "export/jpeg-q70-red#jpeg"
+max_channel_diff = 18
+reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): on per-pixel random noise, coefficients near quantization boundaries round the other way; measured max 18/255."
+
+[[override]]
+cases = "export/jpeg-q50-black#jpeg"
+max_channel_diff = 32
+reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): on per-pixel random noise at quality 0.5, coefficients near quantization boundaries round the other way; measured max 32/255."
+
+[[override]]
+cases = "export/jpeg-table-*#jpeg"
+max_channel_diff = 27
+reason = "Different JPEG encoder than Apple's (same tables, checked exactly by #jpeg-tables): DCT and quantization rounding differ on these 16x16 probes; measured max 27/255, at the lowest qualities."

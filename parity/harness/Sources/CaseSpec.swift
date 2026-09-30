@@ -9,6 +9,8 @@ struct CaseSpec {
     /// Relative to the case folder.
     let input: String
     let ops: [ParityOp]
+    /// File > Export JPEG with these options, written as `<case>.jpg` beside the PNG.
+    let jpeg: JPEGOptions?
 
     static func load(from url: URL) throws -> CaseSpec {
         let data = try Data(contentsOf: url)
@@ -18,9 +20,21 @@ struct CaseSpec {
         let ops = try fields.optional("ops") { value, path in
             try JSONValue.array(value, path).enumerated().map { index, item in try ParityOp.parse(item, path: "\(path)[\(index)]") }
         } ?? []
+        let jpeg = try fields.optional("jpeg") { value, path -> JPEGOptions in
+            let options = try JSONFields(value, path: path)
+            var result = JPEGOptions()
+            if let quality = try options.optional("quality", JSONValue.number) { result.quality = quality }
+            if let matte = try options.optional("matte", { try JSONValue.numbers($0, count: 3, $1) }) {
+                result.red = matte[0]
+                result.green = matte[1]
+                result.blue = matte[2]
+            }
+            try options.rejectUnknown()
+            return result
+        }
         return CaseSpec(feature: try fields.optional("feature", JSONValue.string),
                         label: try fields.optional("label", JSONValue.string),
-                        input: input, ops: ops)
+                        input: input, ops: ops, jpeg: jpeg)
     }
 }
 
