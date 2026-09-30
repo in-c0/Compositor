@@ -1,0 +1,32 @@
+{
+  "activeLayerID" : "41E4946F-7CA3-4AAA-9355-48C3EF1A4BE6",
+  "colorSpace" : "sRGB",
+  "documentID" : "193F22F1-AB30-432B-BF25-C7F49489F24D",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "41E4946F-7CA3-4AAA-9355-48C3EF1A4BE6",
+      "imageFile" : "41E4946F-7CA3-4AAA-9355-48C3EF1A4BE6.png",
+      "isVisible" : true,
+      "maskFile" : "41E4946F-7CA3-4AAA-9355-48C3EF1A4BE6.mask.png",
+      "name" : "Masked",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          5,
+          9
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          37,
+          37
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

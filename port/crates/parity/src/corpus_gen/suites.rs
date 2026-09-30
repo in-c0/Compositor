@@ -346,6 +346,40 @@ fn transform_probes(w: &mut CaseWriter) -> Result<()> {
         d.image("Inner", white(N, N), LayerSpec { parent: Some(folder), ..spec() });
         w.write("transform", case, "A folder mask over the folder's own rectangle", d, vec![])?;
     }
+    // Folder masks enlarged with High, and shrunk with Smooth.
+    for (case, t, size) in [
+        ("probe-folder-grow", Transform::at(4.0, 6.0, 56.0, 52.0), 20),
+        ("probe-folder-smooth", Transform { sampling: Sampling::Smooth, ..Transform::at(8.0, 4.0, 48.0, 40.0) }, 64),
+    ] {
+        let mut d = w.doc("transform", case, N, N);
+        let folder = d.group("Folder", LayerSpec { transform: Some(t), ..spec() });
+        d.mask(&folder, gray_noise(size, size, 77));
+        d.image("Inner", white(N, N), LayerSpec { parent: Some(folder), ..spec() });
+        w.write("transform", case, "A folder mask resampled over the folder's own rectangle", d, vec![])?;
+    }
+    // High shrinking an image vertically while enlarging it horizontally, as `non-uniform` does.
+    layer(w, "probe-high-image-v", "High: 60x64 at 64x40", images::noise(60, 64, 78, Alpha::Opaque), Transform::at(0.0, 12.0, 64.0, 40.0))?;
+    let dots = RgbaImage::from_fn(60, 64, |x, y| {
+        let v = if x % 6 == 2 && y % 8 == 3 { 255 } else { 0 };
+        image::Rgba([v, v, v, 255])
+    });
+    layer(w, "probe-high-image-impulse", "High shrinking single white pixels vertically", dots, Transform::at(0.0, 12.0, 64.0, 40.0))?;
+    // A masked layer enlarged with High.
+    let mut d = w.doc("transform", "probe-mask-high-grow", N, N);
+    let id = d.image("Masked", images::noise(16, 16, 79, Alpha::Opaque), LayerSpec { transform: Some(Transform::at(5.0, 9.0, 37.0, 37.0)), ..spec() });
+    d.mask(&id, gray_noise(16, 16, 80));
+    w.write("transform", "probe-mask-high-grow", "A masked layer enlarged with High", d, vec![])?;
+    // An unlinked mask off the pixel grid, with a white border so what lies beyond it is white.
+    let bordered = GrayImage::from_fn(40, 50, |x, y| {
+        let edge = x == 0 || y == 0 || x == 39 || y == 49;
+        image::Luma([if edge { 255 } else { (images::hash(81 ^ (y * 40 + x)) >> 11) as u8 }])
+    });
+    masked(w, "probe-unlinked-fraction", "An unlinked mask at a fractional position and size", bordered, Transform::at(10.5, 3.25, 41.5, 50.75))?;
+    // A layer shrunk to a quarter with a mask of its size: the mask is halved as well.
+    let mut d = w.doc("transform", "probe-halve-mask", N, N);
+    let id = d.image("Masked", white(64, 64), LayerSpec { transform: Some(smooth(8.0, 8.0, 16.0, 16.0, 0.0)), ..spec() });
+    d.mask(&id, gray_noise(64, 64, 82));
+    w.write("transform", "probe-halve-mask", "A mask halved twice with its layer", d, vec![])?;
     Ok(())
 }
 
