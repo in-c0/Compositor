@@ -192,6 +192,7 @@ pub fn render_ui(states: &Path, corpus: &Path, out: &Path) -> Result<()> {
         whole.docs.push(crate::document::Doc::open(&corpus.join(case).join("input.comp"))?);
     }
     whole.docs[1].modified = true;
+    whole.rulers = true;
     whole.current = Some(0);
     let image = off.render(vec2(metric::WINDOW[0], metric::WINDOW[1]), |ui, _| ui::window(&mut whole, ui))?;
     for doc in &mut whole.docs {
