@@ -10,6 +10,7 @@
 
 mod color;
 mod develop;
+mod dng;
 mod exif;
 mod heic;
 mod jpeg;
