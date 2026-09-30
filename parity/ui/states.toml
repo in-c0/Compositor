@@ -1,0 +1,250 @@
+# UI states rendered on both sides for comparison: the Mac by `ParityHarness ui`, Windows by the
+# port's app in headless mode. Each state renders one view at its natural size, 1x scale, dark
+# appearance, with preferences reset to defaults. See docs/port/ui-inventory.md for the views.
+#
+# Fields:
+#   id        output name: <id>.png
+#   view      which view: window, tool-rail, tool-header, status-bar, layers-panel, sheet
+#   document  a corpus case whose input.comp is open (omit for no document)
+#   tool      the selected tool (tool names as in ToolDefaults / the tool rail)
+#   sheet     for view = "sheet": which sheet or floating panel
+#   layer     for layer-specific sheets: index of the layer to select, bottom = 0
+
+[[state]]
+id = "window/welcome"
+view = "window"
+
+[[state]]
+id = "window/document"
+view = "window"
+document = "blend/stack"
+tool = "move"
+
+[[state]]
+id = "tool-rail"
+view = "tool-rail"
+tool = "move"
+
+[[state]]
+id = "status-bar/brush"
+view = "status-bar"
+document = "blend/stack"
+tool = "brush"
+
+[[state]]
+id = "layers/stack"
+view = "layers-panel"
+document = "blend/stack"
+
+[[state]]
+id = "layers/folders-masks"
+view = "layers-panel"
+document = "masks/folder-mask"
+
+[[state]]
+id = "layers/clipping"
+view = "layers-panel"
+document = "clipping/stack"
+
+[[state]]
+id = "layers/adjustments"
+view = "layers-panel"
+document = "adjust/mod-mask"
+
+[[state]]
+id = "layers/effects"
+view = "layers-panel"
+document = "effects/all"
+
+# One tool header per tool.
+[[state]]
+id = "header/move"
+view = "tool-header"
+document = "blend/stack"
+tool = "move"
+
+[[state]]
+id = "header/brush"
+view = "tool-header"
+document = "blend/stack"
+tool = "brush"
+
+[[state]]
+id = "header/eraser"
+view = "tool-header"
+document = "blend/stack"
+tool = "eraser"
+
+[[state]]
+id = "header/spot-healing"
+view = "tool-header"
+document = "blend/stack"
+tool = "spot-healing"
+
+[[state]]
+id = "header/clone-stamp"
+view = "tool-header"
+document = "blend/stack"
+tool = "clone-stamp"
+
+[[state]]
+id = "header/marquee"
+view = "tool-header"
+document = "blend/stack"
+tool = "marquee"
+
+[[state]]
+id = "header/lasso"
+view = "tool-header"
+document = "blend/stack"
+tool = "lasso"
+
+[[state]]
+id = "header/magic"
+view = "tool-header"
+document = "blend/stack"
+tool = "magic"
+
+[[state]]
+id = "header/gradient"
+view = "tool-header"
+document = "blend/stack"
+tool = "gradient"
+
+[[state]]
+id = "header/type"
+view = "tool-header"
+document = "blend/stack"
+tool = "type"
+
+[[state]]
+id = "header/shape"
+view = "tool-header"
+document = "blend/stack"
+tool = "shape"
+
+[[state]]
+id = "header/crop"
+view = "tool-header"
+document = "blend/stack"
+tool = "crop"
+
+[[state]]
+id = "header/hand"
+view = "tool-header"
+document = "blend/stack"
+tool = "hand"
+
+[[state]]
+id = "header/eyedropper"
+view = "tool-header"
+document = "blend/stack"
+tool = "eyedropper"
+
+# Sheets and floating panels.
+[[state]]
+id = "sheet/new-canvas"
+view = "sheet"
+sheet = "new-canvas"
+
+[[state]]
+id = "sheet/canvas-size"
+view = "sheet"
+document = "blend/stack"
+sheet = "canvas-size"
+
+[[state]]
+id = "sheet/image-size"
+view = "sheet"
+document = "blend/stack"
+sheet = "image-size"
+
+[[state]]
+id = "sheet/trim"
+view = "sheet"
+document = "blend/stack"
+sheet = "trim"
+
+[[state]]
+id = "sheet/grid-settings"
+view = "sheet"
+document = "blend/stack"
+sheet = "grid-settings"
+
+[[state]]
+id = "sheet/export-jpeg"
+view = "sheet"
+document = "blend/stack"
+sheet = "export-jpeg"
+
+[[state]]
+id = "sheet/levels"
+view = "sheet"
+document = "blend/stack"
+sheet = "levels"
+layer = 0
+
+[[state]]
+id = "sheet/hue-saturation"
+view = "sheet"
+document = "blend/stack"
+sheet = "hue-saturation"
+layer = 0
+
+[[state]]
+id = "sheet/color-range"
+view = "sheet"
+document = "blend/stack"
+sheet = "color-range"
+
+[[state]]
+id = "sheet/layer-effects"
+view = "sheet"
+document = "effects/all"
+sheet = "layer-effects"
+layer = 0
+
+[[state]]
+id = "sheet/filter-gaussian-blur"
+view = "sheet"
+document = "blend/stack"
+sheet = "filter:Gaussian Blur"
+layer = 0
+
+[[state]]
+id = "sheet/filter-curves"
+view = "sheet"
+document = "blend/stack"
+sheet = "filter:Curves"
+layer = 0
+
+[[state]]
+id = "sheet/filter-dither"
+view = "sheet"
+document = "blend/stack"
+sheet = "filter:Dither"
+layer = 0
+
+[[state]]
+id = "sheet/filter-vignette"
+view = "sheet"
+document = "blend/stack"
+sheet = "filter:Vignette"
+layer = 0
+
+[[state]]
+id = "sheet/camera-raw"
+view = "sheet"
+document = "blend/stack"
+sheet = "filter:Camera Raw Filter"
+layer = 0
+
+[[state]]
+id = "sheet/color-picker"
+view = "sheet"
+sheet = "color-picker"
+
+[[state]]
+id = "sheet/keyboard-shortcuts"
+view = "sheet"
+sheet = "keyboard-shortcuts"
