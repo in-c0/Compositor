@@ -380,6 +380,13 @@ fn transform_probes(w: &mut CaseWriter) -> Result<()> {
     let id = d.image("Masked", white(64, 64), LayerSpec { transform: Some(smooth(8.0, 8.0, 16.0, 16.0, 0.0)), ..spec() });
     d.mask(&id, gray_noise(64, 64, 82));
     w.write("transform", "probe-halve-mask", "A mask halved twice with its layer", d, vec![])?;
+    // Just under half size: one halving, then Low so close to 1:1 that it copies pixels.
+    layer(w, "probe-halve-1", "One Lanczos halving, then a near copy", images::noise(64, 64, 83, Alpha::Varied), smooth(8.0, 8.0, 31.99, 31.99, 0.0))?;
+    layer(w, "probe-halve-1-opaque", "One Lanczos halving of opaque pixels, then a near copy", images::noise(64, 64, 84, Alpha::Opaque), smooth(8.0, 8.0, 31.99, 31.99, 0.0))?;
+    let mut d = w.doc("transform", "probe-halve-1-mask", N, N);
+    let id = d.image("Masked", white(64, 64), LayerSpec { transform: Some(smooth(8.0, 8.0, 31.99, 31.99, 0.0)), ..spec() });
+    d.mask(&id, gray_noise(64, 64, 85));
+    w.write("transform", "probe-halve-1-mask", "A mask halved once with its layer, then a near copy", d, vec![])?;
     Ok(())
 }
 
