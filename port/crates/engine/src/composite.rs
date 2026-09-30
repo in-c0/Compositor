@@ -58,7 +58,11 @@ impl<'a> Compositor<'a> {
             return Ok(target);
         }
         if layer.adjustment.is_some() {
-            return unsupported("adjustment layers");
+            // A clipped adjustment only ever draws inside its base's stack.
+            if layer.mask_source_id.is_some() {
+                return Ok(target);
+            }
+            return self.adjust(layer, target, clip);
         }
         let Some(children) = self.stacks.stacks.get(&layer.id) else {
             return self.draw(layer, target, clip);
@@ -70,10 +74,7 @@ impl<'a> Compositor<'a> {
         blend::unpremultiply_opaque(self.gpu, &surface);
         for child in children {
             let child = self.by_id[child.as_str()];
-            if child.adjustment.is_some() {
-                return unsupported("adjustment layers in clipping stacks");
-            }
-            surface = self.draw_own(child, surface, None)?;
+            surface = if child.adjustment.is_some() { self.adjust(child, surface, None)? } else { self.draw_own(child, surface, None)? };
         }
         blend::restore_alpha(self.gpu, &surface, &alpha);
         // The stack blends in its base's mode.
@@ -149,6 +150,62 @@ impl<'a> Compositor<'a> {
             clip,
         };
         Ok(blend::draw_upright(self.gpu, &target, &draw))
+    }
+
+    /// `LiveMaskRenderer.adjust`: the adjustment runs on everything drawn so far, is blended in the
+    /// layer's mode and mixed at its opacity, then copied back through its mask and `clip`.
+    fn adjust(&self, layer: &LayerRecord, target: GpuImage, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
+        let gpu = self.gpu;
+        let settings = layer.adjustment.as_ref().expect("an adjustment layer");
+        // Core Image's blurs aren't reproduced exactly yet (see feature/ci-blur).
+        if matches!(settings.kind, comp_format::AdjustmentKind::GaussianBlur | comp_format::AdjustmentKind::MotionBlur) {
+            return unsupported("Gaussian and Motion Blur adjustment layers");
+        }
+        let region = crate::adjust::Region::whole(&target);
+        let mut adjusted = crate::adjust::apply(gpu, &target, settings, region)?;
+        let mode = layer.blend_mode();
+        if mode != comp_format::BlendMode::Normal {
+            // Colors blend at full coverage, then the original alpha comes back, so soft edges
+            // don't thicken.
+            let base = gpu.copy(&target);
+            let alpha = blend::extract_alpha(gpu, &base);
+            blend::unpremultiply_opaque(gpu, &base);
+            blend::unpremultiply_opaque(gpu, &adjusted);
+            let draw = Draw { pixels: &adjusted, premultiplied: true, offset: (0, 0), mode, opacity: 1.0, mask: None, clip: None };
+            let blended = blend::draw_upright(gpu, &base, &draw);
+            blend::restore_alpha(gpu, &blended, &alpha);
+            adjusted = blended;
+        }
+        let opacity = order::effective_opacity(layer, &self.by_id);
+        if opacity < 1.0 {
+            adjusted = self.mix(&target, &adjusted, None, 0, opacity);
+        }
+        let own = if layer.mask_enabled() {
+            Some(mask::folder_coverage(self.project, layer, (self.width, self.height)).map_err(RenderError::Unsupported)?)
+        } else {
+            None
+        };
+        let own = own.map(|c| gpu.bytes(bytemuck::cast_slice(&c)));
+        let coverage = match (own.as_ref(), clip) {
+            (Some(a), Some(b)) => Some(mask::multiply(gpu, b, a, self.width, self.height)),
+            (Some(a), None) => Some(gpu.copy_buffer(a)),
+            (None, Some(b)) => Some(gpu.copy_buffer(b)),
+            (None, None) => None,
+        };
+        Ok(match coverage {
+            Some(c) => self.mix(&target, &adjusted, Some(&c), 1, 1.0),
+            None => adjusted,
+        })
+    }
+
+    fn mix(&self, original: &GpuImage, adjusted: &GpuImage, coverage: Option<&wgpu::Buffer>, step: u32, opacity: f64) -> GpuImage {
+        let gpu = self.gpu;
+        let pipeline = gpu.pipeline("adjust_mix", include_str!("adjust_mix.wgsl"));
+        let out = gpu.image(self.width, self.height);
+        let params = [self.width.to_le_bytes(), self.height.to_le_bytes(), step.to_le_bytes(), (opacity as f32).to_le_bytes()].concat();
+        let placeholder = gpu.bytes(&[0u8; 4]);
+        gpu.dispatch(&pipeline, &params, &[&original.buffer, &adjusted.buffer, coverage.unwrap_or(&placeholder), &out.buffer], self.width, self.height);
+        out
     }
 
     /// Every enclosing folder's enabled mask, multiplied together, as coverage per canvas pixel.
