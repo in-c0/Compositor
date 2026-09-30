@@ -158,3 +158,25 @@ cases = "import/heic-noise-rgba"
 max_channel_diff = 1
 max_pixels_over = 22
 reason = "HEIC with alpha: 1 premultiplied level at near-ties in the YCbCr conversion, up to 8 straight levels at low alpha; 22 of 4,096 pixels."
+
+# CIMotionBlur at angles other than 0 and 90 degrees rotates the image into the streak's frame
+# and back on the Mac's GPU. How that GPU rounds the rotated texture coordinates isn't
+# reproducible with IEEE float (many orderings tried), so a few pixels land a level or two off.
+# Measured on the hosted runner's Apple Paravirtual GPU; everything else in these cases is exact.
+[[override]]
+cases = "adjust/motion-45-20"
+max_channel_diff = 1
+max_pixels_over = 6
+reason = "Motion blur at 45 degrees: the Mac GPU's rounding of rotated texture coordinates isn't reproducible; 6 of 4,096 pixels are 2 levels off."
+
+[[override]]
+cases = "adjust/probe-motion-45-20"
+max_channel_diff = 1
+max_pixels_over = 6
+reason = "Motion blur at 45 degrees: the Mac GPU's rounding of rotated texture coordinates isn't reproducible; 6 pixels are 2 levels off."
+
+[[override]]
+cases = "adjust/probe-motion-45-40"
+max_channel_diff = 1
+max_pixels_over = 43
+reason = "Motion blur at 45 degrees, 40 px: the Mac GPU's rounding of rotated texture coordinates isn't reproducible; 43 of 16,384 pixels are up to 3 levels off."
