@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Curves with a 2-byte curve count instead of Photoshop's channel mask (the layout the Mac reader parses): an S curve on RGB, a lifted red"
+}

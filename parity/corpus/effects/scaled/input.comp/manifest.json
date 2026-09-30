@@ -1,0 +1,70 @@
+{
+  "activeLayerID" : "28902D94-2F5D-4149-AF8E-E9DCD14953E1",
+  "colorSpace" : "sRGB",
+  "documentID" : "E7231DE0-2A1D-460D-849C-BE1EF706EC0E",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "id" : "90680EE9-38D6-4720-8FDD-C60320C4096F",
+      "imageFile" : "90680EE9-38D6-4720-8FDD-C60320C4096F.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    },
+    {
+      "effects" : {
+        "shadow" : {
+          "angle" : 45,
+          "blue" : 0,
+          "blur" : 4,
+          "distance" : 6,
+          "green" : 0,
+          "opacity" : 0.6,
+          "red" : 0
+        },
+        "stroke" : {
+          "blue" : 0,
+          "green" : 0,
+          "inside" : false,
+          "opacity" : 1,
+          "red" : 0,
+          "size" : 4
+        }
+      },
+      "id" : "28902D94-2F5D-4149-AF8E-E9DCD14953E1",
+      "imageFile" : "28902D94-2F5D-4149-AF8E-E9DCD14953E1.png",
+      "isVisible" : true,
+      "name" : "Shape",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          8,
+          8
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          80,
+          80
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

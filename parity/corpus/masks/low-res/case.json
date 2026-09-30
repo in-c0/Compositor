@@ -1,0 +1,5 @@
+{
+  "feature": "masks",
+  "input": "input.comp",
+  "label": "A 16x16 mask stretched over a 64x64 layer"
+}

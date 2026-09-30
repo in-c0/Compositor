@@ -1,0 +1,15 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Lens Correction -40",
+  "ops": [
+    {
+      "kind": "Lens Correction",
+      "layer": "E18F1CCE-5F7A-49F6-B4B7-D04284B10F84",
+      "op": "filter",
+      "settings": {
+        "distortion": -40
+      }
+    }
+  ]
+}

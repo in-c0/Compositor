@@ -1,0 +1,140 @@
+{
+  "activeLayerID" : "C8E7BA8A-51BE-4D33-9D06-C7A5488B6F51",
+  "colorSpace" : "sRGB",
+  "documentID" : "8A17FA54-AB4E-44F5-A43E-D4600CA29796",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "AB33C7FD-3CB2-4F10-BC57-3BC576A4EC86",
+      "imageFile" : "AB33C7FD-3CB2-4F10-BC57-3BC576A4EC86.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Add Noise",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "noiseAmount" : 10,
+        "noiseGaussian" : false,
+        "noiseMonochromatic" : false,
+        "noiseSeed" : 1,
+        "saturation" : 0
+      },
+      "id" : "C8E7BA8A-51BE-4D33-9D06-C7A5488B6F51",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "Noise 10, uniform, color",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

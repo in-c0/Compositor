@@ -1,0 +1,13 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Image Size 50x70, Nearest",
+  "ops": [
+    {
+      "height": 70,
+      "op": "imageSize",
+      "sampling": "Nearest",
+      "width": 50
+    }
+  ]
+}

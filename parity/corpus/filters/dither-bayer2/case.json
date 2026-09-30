@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Bayer 2x2",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "C16AE954-CD77-4E6B-8653-ECD30CE834A6",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Bayer 2 × 2"
+        }
+      }
+    }
+  ]
+}

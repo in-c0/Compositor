@@ -1,0 +1,13 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Black & White filter, defaults",
+  "ops": [
+    {
+      "kind": "Black & White",
+      "layer": "F14D5656-C7E7-4FC7-871E-BD7D51207AAE",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

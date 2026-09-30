@@ -1,0 +1,5 @@
+{
+  "feature": "adjust",
+  "input": "input.comp",
+  "label": "Reds only: hue +30, saturation +20"
+}

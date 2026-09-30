@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone lines",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "E03B835F-679D-4768-AB3B-0C281A8D817C",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Halftone Lines"
+        }
+      }
+    }
+  ]
+}

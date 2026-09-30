@@ -1,0 +1,5 @@
+{
+  "feature": "clipping",
+  "input": "input.comp",
+  "label": "An Invert adjustment clipped to a base"
+}

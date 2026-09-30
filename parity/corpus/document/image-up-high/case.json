@@ -1,0 +1,13 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Image Size 128x128, High quality",
+  "ops": [
+    {
+      "height": 128,
+      "op": "imageSize",
+      "sampling": "High quality",
+      "width": 128
+    }
+  ]
+}

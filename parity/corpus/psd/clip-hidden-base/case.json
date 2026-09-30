@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A visible layer clipped to a hidden base"
+}

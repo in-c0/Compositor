@@ -1,0 +1,13 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Tonal Contrast, defaults",
+  "ops": [
+    {
+      "kind": "Tonal Contrast",
+      "layer": "D8913226-5458-41ED-9422-A3B8F1D6A8C2",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

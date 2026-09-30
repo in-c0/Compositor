@@ -1,0 +1,99 @@
+{
+  "activeLayerID" : "3738988E-0CD6-46CD-87F3-52CA6BA71B14",
+  "colorSpace" : "sRGB",
+  "documentID" : "1539EEA0-776B-4B51-9571-783E5FED4314",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "id" : "E721380F-C3FC-44ED-8A47-7A4B3DC529E4",
+      "imageFile" : "E721380F-C3FC-44ED-8A47-7A4B3DC529E4.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    },
+    {
+      "effects" : {
+        "colorOverlay" : {
+          "blue" : 0.3,
+          "green" : 0.7,
+          "opacity" : 0.4,
+          "red" : 0.2
+        },
+        "innerGlow" : {
+          "blue" : 1,
+          "green" : 1,
+          "opacity" : 0.5,
+          "red" : 1,
+          "size" : 4
+        },
+        "innerShadow" : {
+          "angle" : 90,
+          "blue" : 0,
+          "blur" : 3,
+          "distance" : 3,
+          "green" : 0,
+          "opacity" : 0.5,
+          "red" : 0
+        },
+        "outerGlow" : {
+          "blue" : 0.1,
+          "green" : 0.85,
+          "opacity" : 0.6,
+          "red" : 1,
+          "size" : 8
+        },
+        "shadow" : {
+          "angle" : 120,
+          "blue" : 0,
+          "blur" : 6,
+          "distance" : 6,
+          "green" : 0,
+          "opacity" : 0.6,
+          "red" : 0
+        },
+        "stroke" : {
+          "blue" : 0,
+          "green" : 0,
+          "inside" : false,
+          "opacity" : 1,
+          "red" : 0,
+          "size" : 3
+        }
+      },
+      "id" : "3738988E-0CD6-46CD-87F3-52CA6BA71B14",
+      "imageFile" : "3738988E-0CD6-46CD-87F3-52CA6BA71B14.png",
+      "isVisible" : true,
+      "name" : "Shape",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          16,
+          16
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

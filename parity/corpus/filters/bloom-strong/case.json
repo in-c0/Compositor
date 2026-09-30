@@ -1,0 +1,16 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Bloom / Glow 80, radius 10",
+  "ops": [
+    {
+      "kind": "Bloom / Glow",
+      "layer": "05B0DCE7-8F07-45B8-B59C-FFB6A715EC80",
+      "op": "filter",
+      "settings": {
+        "bloomAmount": 80,
+        "bloomRadius": 10
+      }
+    }
+  ]
+}

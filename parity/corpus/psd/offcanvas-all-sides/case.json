@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A 96 x 112 layer at (-16, -24), larger than the canvas on every side"
+}

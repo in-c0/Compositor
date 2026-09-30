@@ -1,0 +1,5 @@
+{
+  "feature": "blend",
+  "input": "input.comp",
+  "label": "Screen at 60% over a translucent backdrop"
+}

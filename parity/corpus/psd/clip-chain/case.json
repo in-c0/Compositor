@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Two layers clipped to the same base"
+}

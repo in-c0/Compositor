@@ -1,0 +1,157 @@
+{
+  "activeLayerID" : "2611DEE8-B52E-4706-BE31-FFC7E486D406",
+  "colorSpace" : "sRGB",
+  "documentID" : "A84EFC90-6724-4071-A6B9-D5E8693B2722",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "91FE6C5C-6A60-4233-BC86-C781707ED259",
+      "imageFile" : "91FE6C5C-6A60-4233-BC86-C781707ED259.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "967FD5A8-8CD4-41A5-9604-F3BAAEF67C90",
+      "imageFile" : "967FD5A8-8CD4-41A5-9604-F3BAAEF67C90.png",
+      "isVisible" : true,
+      "name" : "Base",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Invert",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "2611DEE8-B52E-4706-BE31-FFC7E486D406",
+      "imageFile" : null,
+      "isVisible" : true,
+      "maskSourceID" : "967FD5A8-8CD4-41A5-9604-F3BAAEF67C90",
+      "name" : "Invert",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

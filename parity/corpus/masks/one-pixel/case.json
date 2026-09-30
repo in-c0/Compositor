@@ -1,0 +1,5 @@
+{
+  "feature": "masks",
+  "input": "input.comp",
+  "label": "A uniform 1x1 mask at 50%"
+}

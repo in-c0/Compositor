@@ -1,0 +1,13 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Bloom / Glow, defaults",
+  "ops": [
+    {
+      "kind": "Bloom / Glow",
+      "layer": "B4FF0FCC-0F81-4AEE-AAED-ED9EE0E59D2F",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

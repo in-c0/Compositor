@@ -1,0 +1,152 @@
+{
+  "activeLayerID" : "0DB47DA9-34A1-42D3-AFC1-B1C305A60792",
+  "colorSpace" : "sRGB",
+  "documentID" : "50E78899-AC3B-43A4-AA6D-D2F23E7AC604",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "6FDA74D2-69BF-4FB7-A547-0A3DCC4B3B61",
+      "imageFile" : "6FDA74D2-69BF-4FB7-A547-0A3DCC4B3B61.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 30
+              },
+              {
+                "x" : 40,
+                "y" : 0
+              },
+              {
+                "x" : 90,
+                "y" : 200
+              },
+              {
+                "x" : 150,
+                "y" : 90
+              },
+              {
+                "x" : 200,
+                "y" : 255
+              },
+              {
+                "x" : 255,
+                "y" : 128
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Curves",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "0DB47DA9-34A1-42D3-AFC1-B1C305A60792",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "A steep many-point curve",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

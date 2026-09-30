@@ -1,0 +1,149 @@
+{
+  "activeLayerID" : "F28BC971-0A90-4D2E-928A-4162A488B6F8",
+  "colorSpace" : "sRGB",
+  "documentID" : "245D3DDC-1329-4242-8F45-9C2B51452863",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "6C5C66C0-EEC9-4366-9A18-3E61B248F7ED",
+      "imageFile" : "6C5C66C0-EEC9-4366-9A18-3E61B248F7ED.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "gradientMapSettings" : {
+          "highlights" : {
+            "blue" : 0.3,
+            "green" : 0.9,
+            "red" : 0.2
+          },
+          "reversed" : true,
+          "shadows" : {
+            "blue" : 0.5,
+            "green" : 0,
+            "red" : 0.5
+          }
+        },
+        "hue" : 0,
+        "kind" : "Gradient Map",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "F28BC971-0A90-4D2E-928A-4162A488B6F8",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "Reversed purple to green",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

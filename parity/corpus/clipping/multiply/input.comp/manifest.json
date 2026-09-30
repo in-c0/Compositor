@@ -1,0 +1,73 @@
+{
+  "activeLayerID" : "D0780634-6A07-4C6C-86CF-5602139396E2",
+  "colorSpace" : "sRGB",
+  "documentID" : "AF27A70E-D0B5-46A6-98F6-DD493776E1CC",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "2EBE13B6-858D-4EE4-82C6-DB89AB3B1195",
+      "imageFile" : "2EBE13B6-858D-4EE4-82C6-DB89AB3B1195.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "E73C9EEA-0782-4FEB-A628-0A7D4E6C2B5C",
+      "imageFile" : "E73C9EEA-0782-4FEB-A628-0A7D4E6C2B5C.png",
+      "isVisible" : true,
+      "name" : "Base",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Multiply",
+      "id" : "D0780634-6A07-4C6C-86CF-5602139396E2",
+      "imageFile" : "D0780634-6A07-4C6C-86CF-5602139396E2.png",
+      "isVisible" : true,
+      "maskSourceID" : "E73C9EEA-0782-4FEB-A628-0A7D4E6C2B5C",
+      "name" : "Clipped",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

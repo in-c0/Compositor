@@ -1,0 +1,145 @@
+{
+  "activeLayerID" : "B7ADF36B-85BF-4A68-A8F5-91DB044A07EC",
+  "colorSpace" : "sRGB",
+  "documentID" : "63309EEE-AE1E-4B1D-B595-E49793CB1C91",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "06625B58-7FC6-4449-B185-7F5380866A07",
+      "imageFile" : "06625B58-7FC6-4449-B185-7F5380866A07.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 64,
+                "y" : 40
+              },
+              {
+                "x" : 192,
+                "y" : 220
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Curves",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "B7ADF36B-85BF-4A68-A8F5-91DB044A07EC",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "Curves at 50% opacity",
+      "opacity" : 0.5,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

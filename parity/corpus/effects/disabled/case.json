@@ -1,0 +1,5 @@
+{
+  "feature": "effects",
+  "input": "input.comp",
+  "label": "A disabled stroke beside an enabled shadow"
+}

@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Color Balance filter, midtones toward red",
+  "ops": [
+    {
+      "kind": "Color Balance",
+      "layer": "52A2BF5C-65E9-46D7-BA2D-4442530B5705",
+      "op": "filter",
+      "settings": {
+        "colorBalance": {
+          "midCyanRed": 50
+        }
+      }
+    }
+  ]
+}

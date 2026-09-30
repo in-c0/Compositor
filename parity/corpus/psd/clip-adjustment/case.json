@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A Hue/Saturation adjustment clipped to a disc"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A 24 x 16 ramp mask at (16, 20) on a full-size layer; white outside it"
+}

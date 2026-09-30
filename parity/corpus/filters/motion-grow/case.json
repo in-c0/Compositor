@@ -1,0 +1,16 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Motion Blur -90 degrees, 6 px on a disc",
+  "ops": [
+    {
+      "kind": "Motion Blur",
+      "layer": "8683B293-2F3D-4518-8C34-993691398197",
+      "op": "filter",
+      "settings": {
+        "angle": -90,
+        "distance": 6
+      }
+    }
+  ]
+}

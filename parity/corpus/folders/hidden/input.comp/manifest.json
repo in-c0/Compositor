@@ -1,0 +1,73 @@
+{
+  "activeLayerID" : "90F306F5-2AB4-49DA-9E51-DDD168620B4C",
+  "colorSpace" : "sRGB",
+  "documentID" : "A2A50594-4D3D-4155-A003-06E6017CE8A4",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "05A3E4A8-A582-4C95-873D-3416CAFC1A2D",
+      "imageFile" : "05A3E4A8-A582-4C95-873D-3416CAFC1A2D.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "7EA1D785-BC1D-4EC6-9D80-8B40239261F5",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : false,
+      "name" : "Hidden folder",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "90F306F5-2AB4-49DA-9E51-DDD168620B4C",
+      "imageFile" : "90F306F5-2AB4-49DA-9E51-DDD168620B4C.png",
+      "isVisible" : true,
+      "name" : "Inside",
+      "parentID" : "7EA1D785-BC1D-4EC6-9D80-8B40239261F5",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

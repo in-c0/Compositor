@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Hue/Saturation on the reds, greens and a widened blues band only"
+}

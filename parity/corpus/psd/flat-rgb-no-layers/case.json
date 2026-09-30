@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "8-bit RGB with only the flattened image and no layer records; the Mac reader ignores the flattened image"
+}

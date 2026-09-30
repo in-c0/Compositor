@@ -1,0 +1,51 @@
+{
+  "activeLayerID" : "0444D750-7BEA-42D2-974A-E8F9E70A2306",
+  "colorSpace" : "sRGB",
+  "documentID" : "0CA6A9A5-9AB9-4BF2-89C1-08D3CFB06EE4",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "5F05D7FA-BC16-41F0-B4F2-002EC1BEAF5A",
+      "imageFile" : "5F05D7FA-BC16-41F0-B4F2-002EC1BEAF5A.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "0444D750-7BEA-42D2-974A-E8F9E70A2306",
+      "imageFile" : "0444D750-7BEA-42D2-974A-E8F9E70A2306.png",
+      "isVisible" : true,
+      "name" : "Moved",
+      "transform" : {
+        "flipX" : true,
+        "flipY" : false,
+        "origin" : [
+          8,
+          8
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          48
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone dots",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "06EE1A96-F067-42F4-89D7-BBF0DED076F1",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Halftone Dots"
+        }
+      }
+    }
+  ]
+}

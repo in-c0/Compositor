@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Levels at 50% through a 32 x 48 ramp mask, black outside it"
+}

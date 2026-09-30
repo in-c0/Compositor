@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Mac patterns",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "9E6A907A-066A-4221-8159-CE1558E42C2C",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Mac Patterns"
+        }
+      }
+    }
+  ]
+}

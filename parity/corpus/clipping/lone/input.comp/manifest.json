@@ -1,0 +1,92 @@
+{
+  "activeLayerID" : "5AB2A0C3-530B-4EAC-A27D-BB346909DBA6",
+  "colorSpace" : "sRGB",
+  "documentID" : "38F4AEDC-7686-4160-A44B-81BEEDBBA272",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "C54A06EC-4F89-49B4-807B-33A098786B96",
+      "imageFile" : "C54A06EC-4F89-49B4-807B-33A098786B96.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "3A3AF930-A2BD-47D6-A51A-C0B2DA8C14DC",
+      "imageFile" : "3A3AF930-A2BD-47D6-A51A-C0B2DA8C14DC.png",
+      "isVisible" : true,
+      "name" : "Base",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "1A06DA0F-C6DF-4759-A613-491069E28D04",
+      "imageFile" : "1A06DA0F-C6DF-4759-A613-491069E28D04.png",
+      "isVisible" : true,
+      "name" : "Between",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "5AB2A0C3-530B-4EAC-A27D-BB346909DBA6",
+      "imageFile" : "5AB2A0C3-530B-4EAC-A27D-BB346909DBA6.png",
+      "isVisible" : true,
+      "maskSourceID" : "3A3AF930-A2BD-47D6-A51A-C0B2DA8C14DC",
+      "name" : "Clipped",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

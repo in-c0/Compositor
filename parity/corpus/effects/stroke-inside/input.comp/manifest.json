@@ -1,0 +1,61 @@
+{
+  "activeLayerID" : "0C068748-1884-4421-8C95-25F7BA250175",
+  "colorSpace" : "sRGB",
+  "documentID" : "B0D6F5C1-B7A0-426E-8BF4-1E64D5248F98",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "id" : "D6DA5A9A-7F79-4672-B1FB-04413F07AF60",
+      "imageFile" : "D6DA5A9A-7F79-4672-B1FB-04413F07AF60.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    },
+    {
+      "effects" : {
+        "stroke" : {
+          "blue" : 0.1,
+          "green" : 0.1,
+          "inside" : true,
+          "opacity" : 0.7,
+          "red" : 0.9,
+          "size" : 5
+        }
+      },
+      "id" : "0C068748-1884-4421-8C95-25F7BA250175",
+      "imageFile" : "0C068748-1884-4421-8C95-25F7BA250175.png",
+      "isVisible" : true,
+      "name" : "Shape",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          16,
+          16
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

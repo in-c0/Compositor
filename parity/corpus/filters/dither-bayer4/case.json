@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Bayer 4x4",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "D3CA589D-A85F-4BCA-8EA7-007A4D94E139",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Bayer 4 × 4"
+        }
+      }
+    }
+  ]
+}

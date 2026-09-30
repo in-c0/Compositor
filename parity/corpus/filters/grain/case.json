@@ -1,0 +1,21 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Grain filter, amount 50",
+  "ops": [
+    {
+      "kind": "Grain",
+      "layer": "61EABB6F-17B0-4B16-B07D-DCB0610D698A",
+      "op": "filter",
+      "seed": 1,
+      "settings": {
+        "grain": {
+          "amount": 50,
+          "roughness": 50,
+          "seed": 0,
+          "size": 2
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "activeLayerID" : "FCF14D20-551F-4213-A07D-CF4AE22A4D3F",
+  "colorSpace" : "sRGB",
+  "documentID" : "98C14FEB-19F1-4FF3-8500-5573CA84C7A4",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "535107F9-E868-4461-BF0B-2E25B423C0DF",
+      "imageFile" : "535107F9-E868-4461-BF0B-2E25B423C0DF.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "4B640442-6798-4E31-BEA2-A4800AEF558D",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Outer",
+      "opacity" : 0.7,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "12182704-3F44-439A-B6E2-D9F409D84932",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Inner",
+      "opacity" : 0.6,
+      "parentID" : "4B640442-6798-4E31-BEA2-A4800AEF558D",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Overlay",
+      "id" : "FCF14D20-551F-4213-A07D-CF4AE22A4D3F",
+      "imageFile" : "FCF14D20-551F-4213-A07D-CF4AE22A4D3F.png",
+      "isVisible" : true,
+      "name" : "Deep",
+      "parentID" : "12182704-3F44-439A-B6E2-D9F409D84932",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

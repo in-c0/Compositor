@@ -1,0 +1,24 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Vignette 80, red, midpoint 30, roundness -50, feather 20",
+  "ops": [
+    {
+      "kind": "Vignette",
+      "layer": "A8954628-A29A-44C7-9FB6-ACC47066E856",
+      "op": "filter",
+      "settings": {
+        "vignetteAmount": 80,
+        "vignetteColor": {
+          "blue": 0.1,
+          "green": 0.1,
+          "red": 0.8
+        },
+        "vignetteFeather": 20,
+        "vignetteHighlights": 0,
+        "vignetteMidpoint": 30,
+        "vignetteRoundness": -50
+      }
+    }
+  ]
+}

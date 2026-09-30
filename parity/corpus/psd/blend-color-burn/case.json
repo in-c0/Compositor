@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Color Burn ('idiv') at 60% over a photo"
+}

@@ -1,0 +1,67 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Curves filter, an S curve",
+  "ops": [
+    {
+      "kind": "Curves",
+      "layer": "D0736497-7CCC-4149-B760-E866B04D2A1E",
+      "op": "filter",
+      "settings": {
+        "curves": {
+          "channel": "RGB",
+          "channels": [
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 64,
+                "y": 40
+              },
+              {
+                "x": 192,
+                "y": 220
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

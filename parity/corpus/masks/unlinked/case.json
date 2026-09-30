@@ -1,0 +1,5 @@
+{
+  "feature": "masks",
+  "input": "input.comp",
+  "label": "An unlinked mask moved apart from its layer"
+}

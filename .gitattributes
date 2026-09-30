@@ -1,0 +1,2 @@
+# Corpus files are compared byte for byte across machines; never convert line endings.
+parity/corpus/** -text

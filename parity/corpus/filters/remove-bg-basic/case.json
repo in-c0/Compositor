@@ -1,0 +1,15 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Remove Background, Basic",
+  "ops": [
+    {
+      "kind": "Remove Background",
+      "layer": "4D28CF37-087A-4D37-B550-9F59AF6AEFE9",
+      "op": "filter",
+      "settings": {
+        "backgroundQuality": "Basic"
+      }
+    }
+  ]
+}

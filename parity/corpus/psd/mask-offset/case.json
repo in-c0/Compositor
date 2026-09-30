@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A 48 x 48 layer at (8, 8) with a 40 x 30 mask at (30, -6), partly outside both the layer and the canvas"
+}

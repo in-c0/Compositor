@@ -1,0 +1,5 @@
+{
+  "feature": "blend",
+  "input": "input.comp",
+  "label": "Difference at 100% over a translucent backdrop"
+}

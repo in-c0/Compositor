@@ -1,0 +1,5 @@
+{
+  "feature": "clipping",
+  "input": "input.comp",
+  "label": "A clipped layer separated from its base by another layer"
+}

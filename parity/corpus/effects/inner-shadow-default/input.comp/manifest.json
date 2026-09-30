@@ -1,0 +1,42 @@
+{
+  "activeLayerID" : "21E1F263-E5CB-407E-851B-2E50F19F32A2",
+  "colorSpace" : "sRGB",
+  "documentID" : "39D18043-22DC-459C-AADD-22A8C98E8283",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "effects" : {
+        "innerShadow" : {
+          "angle" : 90,
+          "blue" : 0,
+          "blur" : 10,
+          "distance" : 10,
+          "green" : 0,
+          "opacity" : 0.5,
+          "red" : 0
+        }
+      },
+      "id" : "21E1F263-E5CB-407E-851B-2E50F19F32A2",
+      "imageFile" : "21E1F263-E5CB-407E-851B-2E50F19F32A2.png",
+      "isVisible" : true,
+      "name" : "Shape",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          16,
+          16
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

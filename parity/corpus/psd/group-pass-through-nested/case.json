@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Two nested pass-through folders, a Multiply layer at 70% in the inner one"
+}

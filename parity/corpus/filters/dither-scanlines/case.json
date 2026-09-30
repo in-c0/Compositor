@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, scanlines",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "BAD876DA-EC82-4840-AA45-F74BDAD944E5",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Scanlines (CRT)"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "masks",
+  "input": "input.comp",
+  "label": "A mask with 60% opacity and Multiply"
+}
