@@ -4,6 +4,7 @@
 use comp_format::Project;
 use image::RgbaImage;
 
+pub mod adjust;
 pub mod blend;
 pub mod composite;
 pub mod gpu;
