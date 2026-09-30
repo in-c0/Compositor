@@ -1,0 +1,22 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, scanlines without glow, dots 60, wobble 4, spacing 6, Original",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "96110FDA-F13B-4127-999F-3B65E898047D",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Original",
+          "dots": 60,
+          "glow": 0,
+          "lineSpacing": 6,
+          "style": "Scanlines (CRT)",
+          "wobble": 4
+        }
+      }
+    }
+  ]
+}

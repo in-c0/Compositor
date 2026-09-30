@@ -1,0 +1,21 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone dots, pixel size 1, cell 6, angle 30, dark on light",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "301DB409-6609-4C67-879D-3DE1A020AF76",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "angle": 30,
+          "cellSize": 6,
+          "lightOnDark": false,
+          "pixelSize": 1,
+          "style": "Halftone Dots"
+        }
+      }
+    }
+  ]
+}

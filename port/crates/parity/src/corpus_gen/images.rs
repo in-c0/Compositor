@@ -49,6 +49,18 @@ pub enum Alpha {
     Varied,
 }
 
+/// `noise` with every color channel squeezed into 140…255, so a Dither with full contrast turns
+/// every pixel's tone white; Mac Patterns in Original colors then shows the pixels it dithered.
+pub fn bright_noise(w: u32, h: u32, seed: u32, alpha: Alpha) -> RgbaImage {
+    let mut img = noise(w, h, seed, alpha);
+    for p in img.pixels_mut() {
+        for c in 0..3 {
+            p[c] = 140 + ((p[c] as u32 * 115 + 127) / 255) as u8;
+        }
+    }
+    img
+}
+
 /// A picture-like image: a hue sweep left to right, dark to light top to bottom, with a
 /// neutral gray strip along the bottom. Adjustments are easiest to read on this.
 pub fn photo(w: u32, h: u32) -> RgbaImage {

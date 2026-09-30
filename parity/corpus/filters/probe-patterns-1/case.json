@@ -1,0 +1,18 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Mac patterns, pixel size 1",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "0D9E1F99-A071-47FE-9933-0D2053278FDC",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "pixelSize": 1,
+          "style": "Mac Patterns"
+        }
+      }
+    }
+  ]
+}

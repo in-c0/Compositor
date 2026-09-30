@@ -1,0 +1,19 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone diamonds, pixel size 1, angle -20",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "F763F501-82C4-4E49-B8BB-0C490E65F9C1",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "angle": -20,
+          "pixelSize": 1,
+          "style": "Halftone Diamonds"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither's reduction by 3, shown through Mac Patterns",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "55E06559-A317-45F8-8890-BB99B2F5D349",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Original",
+          "contrast": 100,
+          "pixelSize": 3,
+          "style": "Mac Patterns"
+        }
+      }
+    }
+  ]
+}
