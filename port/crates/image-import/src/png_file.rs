@@ -31,7 +31,7 @@ pub(crate) fn decode(data: &[u8]) -> Result<Source> {
         if colors == 1 { Space::Gray(Curve::Srgb) } else { Space::Srgb }
     } else if let Some(gamma) = info.gama_chunk {
         if colors == 1 {
-            Space::Gray(Curve::Gamma(1.0 / gamma.into_value() as f64))
+            Space::Gray(Curve::GammaToe(1.0 / gamma.into_value() as f64))
         } else {
             let chromaticities = info.chrm_chunk.map(|c| {
                 let xy = |p: (png::ScaledFloat, png::ScaledFloat)| [p.0.into_value() as f64, p.1.into_value() as f64];

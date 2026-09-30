@@ -13,6 +13,9 @@ use crate::{ImportError, Result};
 pub(crate) enum Curve {
     Srgb,
     Gamma(f64),
+    /// A power law with a straight line from black up to 1/32, as ImageIO builds the curve for a
+    /// PNG's gAMA chunk (fitted on import/png-gamma18 and png-gamma-chrm).
+    GammaToe(f64),
     /// ICC `para` parameters (function type 0-4).
     Parametric(Vec<f64>),
     /// ICC `curv` table, linearly interpolated.
@@ -24,6 +27,9 @@ impl Curve {
         match self {
             Curve::Srgb => srgb_to_linear(v),
             Curve::Gamma(g) => signed_pow(v, *g),
+            Curve::GammaToe(g) => {
+                if v.abs() < 1.0 / 32.0 { v * (1.0f64 / 32.0).powf(g - 1.0) } else { signed_pow(v, *g) }
+            }
             Curve::Parametric(p) => parametric(p, v),
             Curve::Table(t) => {
                 if t.len() < 2 {
@@ -138,7 +144,7 @@ impl Space {
 
     /// PNG's gAMA and cHRM, as ImageIO turns them into a color space.
     pub fn from_gamma(gamma: f64, chromaticities: Option<[[f64; 2]; 4]>) -> Space {
-        let curve = Curve::Gamma(1.0 / gamma);
+        let curve = Curve::GammaToe(1.0 / gamma);
         match chromaticities {
             None => Space::Matrix { curves: [curve.clone(), curve.clone(), curve], to_srgb: IDENTITY },
             Some([w, r, g, b]) => {
