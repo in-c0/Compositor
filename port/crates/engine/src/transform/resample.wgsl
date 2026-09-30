@@ -8,8 +8,9 @@
 // - Interpolation .none takes the image pixel under the position, clamped to the image.
 // - Interpolation .low blends at most two pixels per axis, vertically first, then horizontally.
 //   The nearer pixel is the "heavy" one; the other adds in with a shift: heavy − (heavy >> k) +
-//   (light >> k), k = 4, 3, 2 or 1 as the distance from the heavy pixel's center reaches 1/16,
-//   3/16, 5/16 or 7/16 of a pixel (none below 1/16). The image is clamped at its edges.
+//   (light >> k): the phase past the first pixel's center, rounded half up to eighths, is 1 to 3
+//   eighths from the heavy pixel for k = 4 to 2, and a half for k = 1 (none at 0). The heavy pixel
+//   is the first below a phase of one half. The image is clamped at its edges.
 // - With antialiasing, each edge of the image rectangle fades linearly across the canvas pixel's
 //   width measured along the edge's normal (|cos| + |sin|); the four edges multiply, and the
 //   coverage is ceil(product × 256) − 1, at most 255. In a pixel that an edge only partly covers, the
@@ -101,17 +102,17 @@ fn nearest(p: vec2<u32>) -> Taps {
 }
 
 fn low(p: vec2<u32>) -> Taps {
-    // The position less half a pixel: which pixel centers it lies between.
+    // The position less half a pixel: which pixel centers it lies between, and the phase past the
+    // first, rounded half up to eighths.
     let s = add64(p, vec2<u32>(0x80000000u, 0xffffffffu));
     let i = bitcast<i32>(s.y);
+    let eighths = ((s.x >> 28u) + 1u) >> 1u;
     var t = Taps(i, i + 1, 0u);
-    var d = s.x;
+    var reach = eighths;
     if s.x >= 0x80000000u {
         t = Taps(i + 1, i, 0u);
-        d = 0u - s.x;
+        reach = 8u - eighths;
     }
-    // 1/16, 3/16, 5/16 and 7/16 of a pixel.
-    let reach = u32(d >= 0x10000000u) + u32(d >= 0x30000000u) + u32(d >= 0x50000000u) + u32(d >= 0x70000000u);
     if reach > 0u {
         t.shift = 5u - reach;
     }
