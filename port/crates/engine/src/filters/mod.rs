@@ -296,14 +296,16 @@ fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuIm
             Err(why) => return unsupported(&why),
         },
         FilterKind::BloomGlow => {
-            // `CIBloom`: its Gaussian blur, then the composite in `bloom.wgsl`. Core Image keeps the
-            // blur in floats; `adjust::blur` rounds it to bytes first.
-            let blurred = match adjust::gaussian::gaussian(gpu, image, s.bloom_radius) {
+            // `CIBloom`: its Gaussian blur, kept in floats as Core Image keeps it, then the
+            // composite in `bloom.wgsl`. Rounding the blur to bytes first moves the faint edge of
+            // the glow, and with it the bounds the layer is trimmed to.
+            let blurred = match adjust::gaussian::gaussian_plane(gpu, image, s.bloom_radius) {
                 Ok(blurred) => blurred,
                 Err(why) => return unsupported(&why),
             };
             let intensity = (s.bloom_amount / 50.0) as f32;
-            kernel(gpu, "filters.bloom", include_str!("bloom.wgsl"), image, &[intensity.to_bits()], &[&blurred.buffer])
+            let words = [intensity.to_bits(), blurred.stride, blurred.offset];
+            kernel(gpu, "filters.bloom", include_str!("bloom.wgsl"), image, &words, &[&blurred.buffer])
         }
         FilterKind::TonalContrast => {
             // The base is the layer blurred by Core Image and stored as bytes.

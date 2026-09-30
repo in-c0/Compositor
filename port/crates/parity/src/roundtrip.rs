@@ -80,9 +80,17 @@ pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, ref
         message: None,
         heatmap: None,
     };
-    match compare_projects(&engine::session::normalize(port), &mac, layer_limit) {
+    let port = engine::session::normalize(port);
+    match compare_projects(&port, &mac, layer_limit) {
         Ok(()) => result.status = Status::Pass,
-        Err(e) => result.message = Some(format!("{e:#}")),
+        Err(e) => {
+            result.message = Some(format!("{e:#}"));
+            // PARITY_DUMP_STRUCTURE=<dir> saves the port's side of a failing check for diffing.
+            if let Some(dir) = std::env::var_os("PARITY_DUMP_STRUCTURE") {
+                let path = Path::new(&dir).join(format!("{}.comp", id.replace('/', "__")));
+                let _ = comp_format::save(&port, &path);
+            }
+        }
     }
     Some(result)
 }

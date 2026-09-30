@@ -111,6 +111,33 @@ pub fn gaussian(gpu: &Gpu, image: &GpuImage, sigma: f64) -> Result<GpuImage, Str
     Ok(Mps { gpu }.run(image, passes, pad))
 }
 
+/// The blur before it's stored as bytes: `buffer` holds a premultiplied float pixel per texel, 0...1,
+/// with the image's pixel (x, y) at `(y + offset) * stride + x + offset`.
+pub struct Plane32 {
+    pub buffer: wgpu::Buffer,
+    pub stride: u32,
+    pub offset: u32,
+}
+
+/// `gaussian`, kept in floats as Core Image keeps a blur that feeds another filter (σ above 0.4,
+/// where Metal Performance Shaders blur).
+pub fn gaussian_plane(gpu: &Gpu, image: &GpuImage, sigma: f64) -> Result<Plane32, String> {
+    if let Some(why) = unsupported(sigma) {
+        return Err(why);
+    }
+    if sigma <= 0.4 {
+        return Err(format!("Gaussian σ {sigma} kept in floats (Core Image's 3×3 path)"));
+    }
+    let pad = (3.0 * sigma).ceil() as u32;
+    let mps = Mps { gpu };
+    let (plane, offset) = if sigma <= 1.12 {
+        mps.convolve_plane(image, &convolution_weights(sigma), pad)
+    } else {
+        mps.run_plane(image, mps_passes(sigma).expect("checked above"), pad)
+    };
+    Ok(Plane32 { stride: plane.width, buffer: plane.buffer, offset })
+}
+
 /// `CIConvolutionProcessor`'s kernel: the Gaussian's mass over each step out to 2 (σ ≤ 0.7) or
 /// 3, the tail shared evenly among the taps, as floats and then halfs.
 fn convolution_weights(sigma: f64) -> Vec<f32> {
@@ -227,11 +254,15 @@ impl Mps<'_> {
 
     /// `CIConvolutionProcessor`: the padded image through `kNx1` (rows) then `k1xN` (columns).
     fn convolve(&self, image: &GpuImage, weights: &[f32], pad: u32) -> GpuImage {
+        let (plane, offset) = self.convolve_plane(image, weights, pad);
+        self.store(&plane, image.width, image.height, offset)
+    }
+
+    fn convolve_plane(&self, image: &GpuImage, weights: &[f32], pad: u32) -> (Plane, u32) {
         let (w, h) = (image.width, image.height);
         let src = self.load(image, pad);
         let rows = self.pass(OP_CONVOLVE, ROWS, &src, w, pad as i32, 1, weights, 0.0);
-        let columns = self.pass(OP_CONVOLVE, COLUMNS, &rows, h, pad as i32, 1, weights, 0.0);
-        self.store(&columns, w, h, 0)
+        (self.pass(OP_CONVOLVE, COLUMNS, &rows, h, pad as i32, 1, weights, 0.0), 0)
     }
 
     /// The image padded by `pad` in half floats, as Core Image hands it to a processor.
@@ -253,6 +284,12 @@ impl Mps<'_> {
     }
 
     fn run(&self, image: &GpuImage, passes: &[MpsPass], pad: u32) -> GpuImage {
+        let (plane, offset) = self.run_plane(image, passes, pad);
+        self.store(&plane, image.width, image.height, offset)
+    }
+
+    /// The blurred plane, and the offset of the image's first pixel along each axis.
+    fn run_plane(&self, image: &GpuImage, passes: &[MpsPass], pad: u32) -> (Plane, u32) {
         let (w, h) = (image.width, image.height);
         // Index 0 is the padding's corner.
         let mut cur = self.load(image, pad);
@@ -284,7 +321,7 @@ impl Mps<'_> {
             }
         }
         // Without a pyramid the plane still has its padding.
-        self.store(&cur, w, h, if finished { 0 } else { pad })
+        (cur, if finished { 0 } else { pad })
     }
 }
 

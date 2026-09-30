@@ -180,3 +180,9 @@ cases = "adjust/probe-motion-45-40"
 max_channel_diff = 1
 max_pixels_over = 43
 reason = "Motion blur at 45 degrees, 40 px: the Mac GPU's rounding of rotated texture coordinates isn't reproducible; 43 of 16,384 pixels are up to 3 levels off."
+
+[[override]]
+cases = "filters/motion-30"
+max_channel_diff = 1
+max_pixels_over = 1
+reason = "Motion blur at 30 degrees: the Mac GPU's rounding of rotated texture coordinates isn't reproducible. 1 of 7,040 layer pixels, past the canvas edge, is 1 level off premultiplied (3 in straight blue at alpha 79)."
