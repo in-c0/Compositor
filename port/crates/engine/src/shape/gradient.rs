@@ -118,7 +118,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     }
     let region = [canvas[0] - committed[0], canvas[1] - committed[1], cw, ch];
     // Document coordinates of the committed grid's top-left corner.
-    let offset = [(ox + ex0 + committed[0]) as f64, (oy + ey0 + committed[1]) as f64];
+    let offset = [ox + ex0 + committed[0], oy + ey0 + committed[1]];
     let mut pixels = super::raster::gradient_over(gpu, &base, committed[2] as u32, committed[3] as u32, region, offset, &fill)?;
     // `brush_alpha_bounds`: trimmed to the pixels that aren't transparent.
     let (cwid, chei) = (committed[2] as usize, committed[3] as usize);
@@ -143,7 +143,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     unpremultiply(&mut pixels);
     let image = image::RgbaImage::from_raw(crop[2] as u32, crop[3] as u32, pixels).expect("cropped size");
     let layer = &mut project.manifest.layers[index];
-    layer.transform.origin = [offset[0] + crop[0] as f64, offset[1] + crop[1] as f64];
+    layer.transform.origin = [(offset[0] + crop[0] as i64) as f64, (offset[1] + crop[1] as i64) as f64];
     layer.transform.size = [crop[2] as f64, crop[3] as f64];
     layer.image_file = Some(format!("{}.png", layer.id));
     // The layer is rebuilt from its pixels: no longer a live shape or text.

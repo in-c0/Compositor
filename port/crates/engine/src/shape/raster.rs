@@ -7,7 +7,7 @@
 //! the line (a zero-length line's with a line at 45 degrees).
 
 use super::Result;
-use super::gradient::Fill;
+use super::gradient::{Fill, Shape};
 use crate::RenderError;
 use crate::gpu::Gpu;
 use comp_format::{ShapeKind, ShapeStyle};
@@ -140,8 +140,60 @@ pub fn shape_image(gpu: &Gpu, style: &ShapeStyle, size: [f64; 2]) -> Result<imag
     Ok(image::RgbaImage::from_raw(width, height, pixels).expect("image size"))
 }
 
-/// `fill` drawn over `base` (premultiplied, `width` x `height`) inside `region`, whose top-left
-/// pixel sits at `offset` on the document.
-pub fn gradient_over(_gpu: &Gpu, _base: &[u8], _width: u32, _height: u32, _region: [i64; 4], _offset: [f64; 2], _fill: &Fill) -> Result<Vec<u8>> {
-    Err(RenderError::Unsupported("drawing gradients".into()))
+/// Core Graphics' 16 x 16 gradient dither thresholds, in 256ths, row by row.
+const DITHER: [u32; 256] = [
+    244, 188, 16, 150, 107, 199, 156, 243, 118, 176, 46, 154, 202, 7, 136, 216,
+    158, 64, 132, 249, 217, 72, 27, 135, 3, 98, 237, 110, 38, 180, 104, 78,
+    42, 206, 92, 51, 5, 184, 112, 229, 205, 53, 144, 220, 84, 254, 196, 28,
+    114, 172, 226, 121, 164, 79, 61, 171, 31, 191, 74, 22, 168, 60, 148, 234,
+    139, 13, 99, 197, 21, 142, 253, 125, 88, 159, 248, 128, 210, 120, 11, 90,
+    69, 247, 36, 151, 238, 45, 209, 8, 231, 101, 17, 65, 177, 33, 224, 185,
+    201, 161, 213, 57, 85, 179, 109, 187, 41, 149, 198, 93, 239, 106, 155, 47,
+    19, 75, 117, 1, 134, 223, 67, 137, 77, 215, 49, 165, 4, 81, 251, 131,
+    97, 175, 235, 189, 105, 25, 167, 241, 12, 119, 227, 113, 143, 193, 55, 218,
+    29, 145, 62, 37, 203, 255, 52, 153, 32, 181, 59, 23, 207, 39, 126, 182,
+    89, 240, 122, 160, 83, 129, 211, 95, 195, 133, 87, 245, 170, 71, 232, 15,
+    204, 44, 221, 10, 183, 30, 73, 111, 233, 0, 157, 103, 9, 138, 108, 152,
+    166, 102, 68, 115, 246, 147, 225, 173, 43, 63, 200, 222, 76, 190, 50, 252,
+    2, 194, 140, 208, 58, 6, 100, 18, 141, 250, 123, 26, 162, 34, 214, 86,
+    54, 230, 24, 82, 169, 127, 192, 219, 163, 80, 186, 94, 242, 116, 174, 146,
+    124, 96, 178, 40, 236, 48, 91, 35, 66, 212, 14, 130, 56, 228, 70, 20,
+];
+
+/// `fill` drawn over `base` (premultiplied, `width` x `height`) inside `region` (x, y, width,
+/// height in the grid), whose top-left pixel sits at document pixel `offset`. Returns the
+/// premultiplied result.
+pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i64; 4], offset: [i64; 2], fill: &Fill) -> Result<Vec<u8>> {
+    let (dx, dy) = (fill.end[0] - fill.start[0], fill.end[1] - fill.start[1]);
+    let length = dx.hypot(dy);
+    // The table's slots: 16 per 16 pixels of length, rounded up past it, less the two ends.
+    let slots = 16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0;
+    let (kind, base_point, step) = match fill.shape {
+        Shape::Radial => (2u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [slots / length, 0.0]),
+        Shape::Linear => {
+            let l2 = dx * dx + dy * dy;
+            let (px, py) = (offset[0] as f64 + 0.5 - fill.start[0], offset[1] as f64 + 0.5 - fill.start[1]);
+            let kind = if dx == 0.0 { 1 } else { 0 };
+            (kind, [(px * dx + py * dy) / l2 * slots, 0.0], [dx / l2 * slots, dy / l2 * slots])
+        }
+    };
+    let premultiplied = |c: [f64; 4]| [c[0] * c[3] * 255.0, c[1] * c[3] * 255.0, c[2] * c[3] * 255.0, c[3] * 255.0];
+    let alpha = (fill.opacity.clamp(0.0, 1.0) * 255.0 + 0.5).floor() as u32;
+    let mut params: Vec<u8> = Vec::with_capacity(96);
+    for v in [width, height, kind, alpha] {
+        params.extend_from_slice(&v.to_le_bytes());
+    }
+    for v in [region[0], region[1], region[2], region[3], offset[0], offset[1]] {
+        params.extend_from_slice(&(v as i32).to_le_bytes());
+    }
+    let floats = [base_point[0], base_point[1], step[0], step[1], slots, 0.0];
+    for v in floats.iter().chain(premultiplied(fill.colors[0]).iter()).chain(premultiplied(fill.colors[1]).iter()) {
+        params.extend_from_slice(&(*v as f32).to_le_bytes());
+    }
+    let pipeline = gpu.pipeline("shape_gradient", include_str!("gradient.wgsl"));
+    let layer = gpu.upload(width, height, base);
+    let out = gpu.image(width, height);
+    let dither = gpu.bytes(bytemuck::cast_slice(&DITHER));
+    gpu.dispatch(&pipeline, &params, &[&dither, &layer.buffer, &out.buffer], width, height);
+    Ok(gpu.download(&out)?)
 }
