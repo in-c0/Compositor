@@ -1,0 +1,91 @@
+{
+  "activeLayerID" : "E580D544-EF6D-4827-AD64-E70BE26D2FCA",
+  "colorSpace" : "sRGB",
+  "documentID" : "67523B35-DA6D-4A4F-A211-6BA62DFAB8DF",
+  "format" : "com.compositor.project",
+  "height" : 96,
+  "layers" : [
+    {
+      "id" : "322DEE8A-DEAC-4EBD-8417-24D7D3F29FAA",
+      "imageFile" : "322DEE8A-DEAC-4EBD-8417-24D7D3F29FAA.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    },
+    {
+      "effects" : {
+        "shadow" : {
+          "angle" : 60,
+          "blue" : 0,
+          "blur" : 3,
+          "distance" : 5,
+          "green" : 0,
+          "opacity" : 0.7,
+          "red" : 0
+        },
+        "stroke" : {
+          "blue" : 0.1,
+          "green" : 0.1,
+          "inside" : false,
+          "opacity" : 1,
+          "red" : 0.9,
+          "size" : 3
+        }
+      },
+      "id" : "947619AE-6A7E-4E5B-BBC1-A2FAF3C9B3A5",
+      "imageFile" : "947619AE-6A7E-4E5B-BBC1-A2FAF3C9B3A5.png",
+      "isVisible" : true,
+      "name" : "Base",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          24,
+          24
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          48,
+          48
+        ]
+      }
+    },
+    {
+      "id" : "E580D544-EF6D-4827-AD64-E70BE26D2FCA",
+      "imageFile" : "E580D544-EF6D-4827-AD64-E70BE26D2FCA.png",
+      "isVisible" : true,
+      "maskSourceID" : "947619AE-6A7E-4E5B-BBC1-A2FAF3C9B3A5",
+      "name" : "Clipped",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          96,
+          96
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 96
+}

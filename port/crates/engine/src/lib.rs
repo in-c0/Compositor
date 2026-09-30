@@ -8,6 +8,7 @@ pub mod adjust;
 pub mod blend;
 pub mod composite;
 pub mod document;
+pub mod effects;
 pub mod export;
 pub mod gpu;
 pub mod mask;

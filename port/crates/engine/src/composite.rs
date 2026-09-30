@@ -5,7 +5,7 @@
 use crate::blend::{self, Draw};
 use crate::gpu::{Gpu, GpuImage};
 use crate::order::{self, Stacks};
-use crate::{RenderError, mask};
+use crate::{RenderError, effects, mask};
 use comp_format::{LayerRecord, Project};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -120,9 +120,6 @@ impl<'a> Compositor<'a> {
 
     /// `LayerRenderer.draw` for one layer, in its own mode and opacity, through its own mask.
     fn draw_own(&self, layer: &LayerRecord, target: GpuImage, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
-        if layer.effects.is_some() {
-            return unsupported("layer effects");
-        }
         let Some(asset) = self.project.images.get(&layer.id) else {
             return Ok(target);
         };
@@ -140,15 +137,18 @@ impl<'a> Compositor<'a> {
         let own_mask = mask::layer_coverage(self.project, layer, (w, h)).map_err(RenderError::Unsupported)?;
         let own_mask = own_mask.map(|c| self.gpu.bytes(bytemuck::cast_slice(&c)));
         let pixels = self.gpu.upload(w, h, asset.pixels.as_raw());
-        let draw = Draw {
-            pixels: &pixels,
-            premultiplied: false,
-            offset: (t.origin[0] as i32, t.origin[1] as i32),
-            mode: layer.blend_mode(),
-            opacity: order::effective_opacity(layer, &self.by_id),
-            mask: own_mask.as_ref(),
-            clip,
-        };
+        let offset = (t.origin[0] as i32, t.origin[1] as i32);
+        let mode = layer.blend_mode();
+        let opacity = order::effective_opacity(layer, &self.by_id);
+        // With effects, the layer through its mask with its effects around it, drawn grown by the
+        // effects' inset: for an upright 1:1 layer, the same draw moved up and left by the inset.
+        if let Some(effects) = layer.effects.as_ref().and_then(effects::shown) {
+            let built = effects::render(self.gpu, &pixels, own_mask.as_ref(), &effects);
+            let inset = built.inset as i32;
+            let draw = Draw { pixels: &built.image, premultiplied: true, offset: (offset.0 - inset, offset.1 - inset), mode, opacity, mask: None, clip };
+            return Ok(blend::draw_upright(self.gpu, &target, &draw));
+        }
+        let draw = Draw { pixels: &pixels, premultiplied: false, offset, mode, opacity, mask: own_mask.as_ref(), clip };
         Ok(blend::draw_upright(self.gpu, &target, &draw))
     }
 
