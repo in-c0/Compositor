@@ -1,0 +1,5 @@
+{
+  "feature": "blend",
+  "input": "input.comp",
+  "label": "Color Burn at 100% over a opaque backdrop"
+}

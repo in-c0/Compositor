@@ -1,0 +1,13 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Image Size 32x32, Smooth",
+  "ops": [
+    {
+      "height": 32,
+      "op": "imageSize",
+      "sampling": "Smooth",
+      "width": 32
+    }
+  ]
+}

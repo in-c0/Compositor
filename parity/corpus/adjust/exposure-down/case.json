@@ -1,0 +1,5 @@
+{
+  "feature": "adjust",
+  "input": "input.comp",
+  "label": "Exposure -1, offset +0.05, gamma 0.8"
+}

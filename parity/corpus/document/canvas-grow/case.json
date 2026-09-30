@@ -1,0 +1,16 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Canvas Size 96x80, content moved (16, 8)",
+  "ops": [
+    {
+      "height": 80,
+      "offset": [
+        16,
+        8
+      ],
+      "op": "canvasSize",
+      "width": 96
+    }
+  ]
+}

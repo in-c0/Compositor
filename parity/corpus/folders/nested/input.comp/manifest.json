@@ -1,0 +1,119 @@
+{
+  "activeLayerID" : "F1E3BFF5-DB52-4EA2-8EF8-8CAA1B40B7AA",
+  "colorSpace" : "sRGB",
+  "documentID" : "B0F94CC8-F427-46FA-8E56-B3360604FF2E",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "AFA6CB33-77E7-42B4-AF18-56D7E446CDE3",
+      "imageFile" : "AFA6CB33-77E7-42B4-AF18-56D7E446CDE3.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "AE7D8D91-D083-4498-9E6B-9C39B5E32C6E",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Outer",
+      "opacity" : 0.7,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "923FC3E6-6E8D-4D0E-A29A-197AE5ED4C08",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Inner",
+      "opacity" : 0.6,
+      "parentID" : "AE7D8D91-D083-4498-9E6B-9C39B5E32C6E",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Overlay",
+      "id" : "78EF5F09-6E6B-49B7-92EA-DBECCC44B440",
+      "imageFile" : "78EF5F09-6E6B-49B7-92EA-DBECCC44B440.png",
+      "isVisible" : true,
+      "name" : "Deep",
+      "parentID" : "923FC3E6-6E8D-4D0E-A29A-197AE5ED4C08",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "F1E3BFF5-DB52-4EA2-8EF8-8CAA1B40B7AA",
+      "imageFile" : "F1E3BFF5-DB52-4EA2-8EF8-8CAA1B40B7AA.png",
+      "isVisible" : true,
+      "name" : "Shallow",
+      "parentID" : "AE7D8D91-D083-4498-9E6B-9C39B5E32C6E",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

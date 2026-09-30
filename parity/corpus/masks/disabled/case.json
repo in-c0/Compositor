@@ -1,0 +1,5 @@
+{
+  "feature": "masks",
+  "input": "input.comp",
+  "label": "A disabled mask has no effect"
+}

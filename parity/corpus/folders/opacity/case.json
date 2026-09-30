@@ -1,0 +1,5 @@
+{
+  "feature": "folders",
+  "input": "input.comp",
+  "label": "A folder at 50% multiplies into each child"
+}

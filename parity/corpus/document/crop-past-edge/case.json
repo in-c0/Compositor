@@ -1,0 +1,16 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Crop a rectangle that runs past the canvas",
+  "ops": [
+    {
+      "op": "crop",
+      "rect": [
+        32,
+        -8,
+        48,
+        48
+      ]
+    }
+  ]
+}

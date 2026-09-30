@@ -1,0 +1,97 @@
+{
+  "activeLayerID" : "E55B8A61-CEF5-439C-A35E-C3640D0837C5",
+  "colorSpace" : "sRGB",
+  "documentID" : "2BB87925-10EA-41C5-9A3D-548780E92E52",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "8953E9FB-81A8-40B0-9518-7F35932430A9",
+      "imageFile" : "8953E9FB-81A8-40B0-9518-7F35932430A9.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "F8079328-DC0C-45F1-ACE2-D8B5E2B149D0",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "maskFile" : "F8079328-DC0C-45F1-ACE2-D8B5E2B149D0.mask.png",
+      "name" : "Folder",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "5B927A15-30F5-4109-A5CE-7746F0CC1C6A",
+      "imageFile" : "5B927A15-30F5-4109-A5CE-7746F0CC1C6A.png",
+      "isVisible" : true,
+      "maskFile" : "5B927A15-30F5-4109-A5CE-7746F0CC1C6A.mask.png",
+      "name" : "Inner",
+      "parentID" : "F8079328-DC0C-45F1-ACE2-D8B5E2B149D0",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Screen",
+      "id" : "E55B8A61-CEF5-439C-A35E-C3640D0837C5",
+      "imageFile" : "E55B8A61-CEF5-439C-A35E-C3640D0837C5.png",
+      "isVisible" : true,
+      "name" : "Inner 2",
+      "parentID" : "F8079328-DC0C-45F1-ACE2-D8B5E2B149D0",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

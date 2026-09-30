@@ -1,0 +1,10 @@
+# Per-feature tolerance overrides. The default is 1/255 per channel and can't be changed here.
+#
+# Each override needs a `reason` that explains the difference and where it is measured, and
+# PARITY.md lists every override. Add one only for a gap we understand and can't close, such as a
+# different font rasterizer. Never add one to make a failing case pass.
+#
+# [[override]]
+# cases = "type/*"
+# max_channel_diff = 3
+# reason = "Glyph edges come from a different rasterizer than Core Text; measured in PARITY.md."

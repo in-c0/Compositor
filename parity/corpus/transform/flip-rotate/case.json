@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Flipped horizontally and rotated 20 degrees"
+}

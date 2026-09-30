@@ -1,0 +1,148 @@
+{
+  "activeLayerID" : "94818001-C79D-4C51-8C3E-8E88ED63B040",
+  "colorSpace" : "sRGB",
+  "documentID" : "145A6D82-4CF9-42C3-88B9-CD39D085E76C",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "ED7DCE66-E82F-462B-8E7F-E527EA298A26",
+      "imageFile" : "ED7DCE66-E82F-462B-8E7F-E527EA298A26.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorBalanceSettings" : {
+          "highlightCyanRed" : 20,
+          "highlightMagentaGreen" : -70,
+          "highlightYellowBlue" : -30,
+          "midCyanRed" : 0,
+          "midMagentaGreen" : 0,
+          "midYellowBlue" : 0,
+          "preserveLuminosity" : false,
+          "shadowCyanRed" : 0,
+          "shadowMagentaGreen" : 0,
+          "shadowYellowBlue" : 0
+        },
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Color Balance",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "94818001-C79D-4C51-8C3E-8E88ED63B040",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "Color Balance: highlights, luminosity not preserved",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

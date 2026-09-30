@@ -1,0 +1,5 @@
+{
+  "feature": "blend",
+  "input": "input.comp",
+  "label": "Hard Mix at 100% over a opaque backdrop"
+}

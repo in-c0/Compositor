@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "128x128 drawn at 64x64, smooth"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "effects",
+  "input": "input.comp",
+  "label": "Drop shadow at 45 degrees, 8 px, no blur"
+}

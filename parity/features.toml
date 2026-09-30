@@ -1,0 +1,103 @@
+# The features PARITY.md reports on, in the order they are ported.
+#
+# `key` is the corpus folder whose cases count toward the feature. `paths` are the port sources
+# that can only affect this feature: a change there re-runs just its cases, and a change to port
+# code no feature claims re-runs everything. `gaps` are known differences, each explained.
+
+[[feature]]
+key = "format"
+name = ".comp read and write"
+paths = ["port/crates/comp-format/**"]
+
+[[feature]]
+key = "blend"
+name = "Layer compositing and blend modes"
+paths = ["port/crates/engine/src/blend/**"]
+
+[[feature]]
+key = "masks"
+name = "Layer and folder masks"
+paths = ["port/crates/engine/src/mask/**"]
+
+[[feature]]
+key = "clipping"
+name = "Clipping masks"
+paths = ["port/crates/engine/src/clip/**"]
+
+[[feature]]
+key = "folders"
+name = "Folders"
+paths = ["port/crates/engine/src/folder/**"]
+
+[[feature]]
+key = "transform"
+name = "Transforms and distort"
+paths = ["port/crates/engine/src/transform/**"]
+
+[[feature]]
+key = "adjust"
+name = "Adjustment layers"
+paths = ["port/crates/engine/src/adjust/**"]
+
+[[feature]]
+key = "filters"
+name = "Filters"
+paths = ["port/crates/engine/src/filters/**"]
+
+[[feature]]
+key = "effects"
+name = "Layer effects"
+paths = ["port/crates/engine/src/effects/**"]
+
+[[feature]]
+key = "psd"
+name = "PSD and PSB import and export"
+paths = ["port/crates/engine/src/psd/**", "port/crates/psd/**"]
+
+[[feature]]
+key = "document"
+name = "Crop, Canvas Size and Image Size"
+paths = ["port/crates/engine/src/document/**"]
+gaps = [
+    "The Mac app drops layer effects when it crops or resizes a document (`CanvasResizer.swift` and `ImageResizer.swift` don't copy `effects`). The port matches this, because parity means drawing what the Mac draws.",
+]
+
+[[feature]]
+key = "export"
+name = "JPEG and PNG export"
+paths = ["port/crates/engine/src/export/**"]
+
+[[feature]]
+key = "selections"
+name = "Selections: marquee, lasso, wand, color range"
+paths = ["port/crates/engine/src/select/**"]
+
+[[feature]]
+key = "painting"
+name = "Painting and retouching tools"
+paths = ["port/crates/engine/src/paint/**"]
+
+[[feature]]
+key = "shapes"
+name = "Gradient and shape"
+paths = ["port/crates/engine/src/shape/**"]
+
+[[feature]]
+key = "type"
+name = "Type"
+paths = ["port/crates/engine/src/type/**"]
+
+[[feature]]
+key = "raw"
+name = "RAW and HEIC import"
+paths = ["port/crates/engine/src/raw/**"]
+
+[[feature]]
+key = "ml"
+name = "Select Subject, Remove Background, Content-Aware Fill"
+paths = ["port/crates/engine/src/ml/**"]
+
+[[feature]]
+key = "ui"
+name = "Panels, sheets, tool headers and menus"
+paths = ["port/crates/app/**"]

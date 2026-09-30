@@ -1,0 +1,16 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Crop to 40x32 at (8, 8)",
+  "ops": [
+    {
+      "op": "crop",
+      "rect": [
+        8,
+        8,
+        40,
+        32
+      ]
+    }
+  ]
+}

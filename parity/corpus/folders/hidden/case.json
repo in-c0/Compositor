@@ -1,0 +1,5 @@
+{
+  "feature": "folders",
+  "input": "input.comp",
+  "label": "A hidden folder hides its visible children"
+}

@@ -1,0 +1,117 @@
+{
+  "activeLayerID" : "227FDC6C-FA13-4774-996C-485ACC67CE89",
+  "colorSpace" : "sRGB",
+  "documentID" : "5D4BA0CA-5439-4FE4-BE6B-6F9531A94EC2",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "240F4DA7-836F-488E-B0E7-43D16EC86626",
+      "imageFile" : "240F4DA7-836F-488E-B0E7-43D16EC86626.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Screen",
+      "id" : "87E86321-8D29-4AD2-9E45-201817AAB9F9",
+      "imageFile" : "87E86321-8D29-4AD2-9E45-201817AAB9F9.png",
+      "isVisible" : true,
+      "name" : "Screen",
+      "opacity" : 0.7,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Color",
+      "id" : "C6BDEAAA-2801-4DF0-B370-C90B15BA64EC",
+      "imageFile" : "C6BDEAAA-2801-4DF0-B370-C90B15BA64EC.png",
+      "isVisible" : true,
+      "name" : "Color",
+      "opacity" : 0.5,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "blendMode" : "Hard Mix",
+      "id" : "F35D0568-D405-4956-AEE0-306D12B5B9EF",
+      "imageFile" : "F35D0568-D405-4956-AEE0-306D12B5B9EF.png",
+      "isVisible" : true,
+      "name" : "Hard Mix",
+      "opacity" : 0.3,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "227FDC6C-FA13-4774-996C-485ACC67CE89",
+      "imageFile" : "227FDC6C-FA13-4774-996C-485ACC67CE89.png",
+      "isVisible" : false,
+      "name" : "Hidden",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

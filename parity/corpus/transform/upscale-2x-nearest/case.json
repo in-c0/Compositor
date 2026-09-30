@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "16x16 drawn at 32x32, nearest"
+}
