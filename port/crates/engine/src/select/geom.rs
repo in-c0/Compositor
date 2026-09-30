@@ -339,10 +339,11 @@ pub fn subtracting(a: &Region, b: &Region) -> Result<Region, Unmatched> {
 /// for a closed outline: the band within `half` of each edge, with a round join on the outside of
 /// every corner. Core Graphics draws each join as one cubic arc, however sharp the corner. The
 /// pieces overlap, as a stroke's outline does; the winding rule of the path operation that uses
-/// them fills them together, so each arc is cut only there. Core Graphics strokes a curve with
-/// offset curves, which the port doesn't draw yet.
+/// them fills them together, so each arc is cut only there. How Core Graphics strokes a curve
+/// isn't known yet: stroking its flattened chords lands within 2/255 of the Mac on most
+/// ellipses but 4/255 off on a small one, so curved outlines are refused.
 pub fn stroke_band(region: &Region, half: f64) -> Result<Region, Unmatched> {
-    if region.iter().flatten().any(|s| !matches!(s, Seg::Line(..))) && std::env::var_os("SELECTION_CURVE_STROKE").is_none() {
+    if region.iter().flatten().any(|s| !matches!(s, Seg::Line(..))) {
         return Err("Expand and Contract on a curved outline");
     }
     let mut pieces: Region = Vec::new();
