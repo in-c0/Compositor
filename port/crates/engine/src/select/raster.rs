@@ -97,11 +97,13 @@ fn edges(selection: &Selection, antialias: bool, height: u32) -> Vec<[f32; 4]> {
 /// Sub-steps per pixel along an edge's major axis.
 const STEPS: f64 = 16.0;
 
-/// An edge as the Mac's rasterizer walks it, fitted to its coverage. In device space (y up, the
-/// bitmap's own), an edge is stepped from its lower end along its major axis in 1/16 px steps,
-/// the minor coordinate advancing by a 16.16 fixed-point step truncated toward zero. Every
-/// stepped point lies on one line, so the edge becomes at most three segments: from its start to
-/// the first 1/16 step, the stepped line, and from the last step to its true end.
+/// An edge as the Mac's rasterizer walks it, fitted to its coverage, as the straight pieces it
+/// fills each pixel with. In device space (y up, the bitmap's own), an edge is stepped from its
+/// lower end along its major axis in 1/16 px steps, the minor coordinate advancing by a 16.16
+/// fixed-point step truncated toward zero, so it drifts from the true line. Within each pixel the
+/// edge is taken as straight between where it enters and leaves: at a pixel boundary across the
+/// major axis the drifted position, at one across the minor axis the true line's crossing, and
+/// the true end points.
 fn stepped(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
     // Device space.
     let (mut p0, mut p1) = ([a[0], height - a[1]], [b[0], height - b[1]]);
@@ -123,14 +125,26 @@ fn stepped(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
     let step = if u1 > u0 { 1.0 } else { -1.0 };
     let dq = (slope * step / STEPS * 65536.0).trunc() / 65536.0;
     let n0 = if step > 0.0 { (u0 * STEPS).ceil() } else { (u0 * STEPS).floor() };
-    let n1 = if step > 0.0 { (u1 * STEPS).floor() } else { (u1 * STEPS).ceil() };
-    let count = (n1 - n0) * step;
-    let mut points = vec![p0];
-    if count >= 0.0 {
-        let (us, vs) = (n0 / STEPS, v0 + (n0 / STEPS - u0) * slope);
-        points.push(point(us, vs));
-        points.push(point(n1 / STEPS, vs + count * dq));
+    let vs = v0 + (n0 / STEPS - u0) * slope;
+    // (distance from the start along the major axis, point)
+    let mut events: Vec<(f64, [f64; 2])> = Vec::new();
+    let (lo, hi) = (u0.min(u1), u0.max(u1));
+    let mut m = lo.floor() + 1.0;
+    while m < hi {
+        let k = ((m * STEPS - n0) * step).round();
+        events.push(((m - u0).abs(), point(m, vs + k * dq)));
+        m += 1.0;
     }
+    let (vlo, vhi) = (v0.min(v1), v0.max(v1));
+    let mut m = vlo.floor() + 1.0;
+    while m < vhi {
+        let uu = u0 + (m - v0) / slope;
+        events.push(((uu - u0).abs(), point(uu, m)));
+        m += 1.0;
+    }
+    events.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let mut points = vec![p0];
+    points.extend(events.into_iter().map(|e| e.1));
     points.push(p1);
     points.dedup();
     if reversed {
