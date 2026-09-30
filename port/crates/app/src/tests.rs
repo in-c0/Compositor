@@ -341,3 +341,65 @@ fn canvas_size_runs_the_canvas_size_op() {
     assert_eq!((doc.project.manifest.width, doc.project.manifest.height), (80, 64));
     assert_eq!(doc.project.manifest.layers[0].transform.origin, [8.0, 0.0], "anchored in the center");
 }
+
+#[test]
+fn importing_an_image_adds_a_centered_layer_and_a_psd_opens_its_report_or_a_tab() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "move");
+    let n = app.doc().unwrap().project.manifest.layers.len();
+    app.import_path(&corpus().join("import/png-rgba8/input.png"));
+    assert!(app.alert.is_none(), "{:?}", app.alert.as_ref().map(|a| &a.message));
+    let doc = app.doc().unwrap();
+    assert_eq!(doc.project.manifest.layers.len(), n + 1);
+    assert_eq!(doc.undo_title(), Some("Import Images"));
+    let layer = doc.active_layer().unwrap();
+    let t = layer.transform;
+    assert_eq!(t.origin, [(32.0 - t.size[0] / 2.0).floor(), (32.0 - t.size[1] / 2.0).floor()], "centered on the canvas");
+    // A Photoshop file with nothing to convert into the open project: a folder named after it.
+    let tabs = app.docs.len();
+    app.import_path(&corpus().join("psd/adj-levels/input.psd"));
+    match &app.sheet {
+        Some(ui::dialogs::Sheet::Psd { conversions, .. }) => assert!(!conversions.is_empty()),
+        _ => {
+            assert!(app.alert.is_none(), "{:?}", app.alert.as_ref().map(|a| &a.message));
+            assert_eq!(app.docs.len(), tabs);
+            let folder = app.doc().unwrap().active_layer().unwrap();
+            assert!(folder.is_group() && folder.name == "input");
+        }
+    }
+}
+
+#[test]
+fn export_jpeg_encodes_through_the_engine() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "move");
+    app.run(&egui::Context::default(), Command::ExportJpeg);
+    frame(&off, &mut app, &[]);
+    assert!(matches!(app.sheet, Some(ui::dialogs::Sheet::ExportJpeg(_))), "the sheet stays open with its preview");
+    let escape = egui::Event::Key { key: egui::Key::Escape, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE };
+    frame(&off, &mut app, &[(1, escape)]);
+    assert!(app.sheet.is_none());
+}
+
+#[test]
+fn a_polygonal_lasso_closes_on_return_and_the_wand_selects_by_color() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "lasso");
+    app.settings.lasso = crate::tools::LassoKind::Polygonal;
+    let click = |p: Pos2| vec![(1, egui::Event::PointerMoved(p)), (1, button(p, true, egui::Modifiers::NONE)), (2, button(p, false, egui::Modifiers::NONE))];
+    for p in [[10.0, 10.0], [50.0, 12.0], [30.0, 50.0]] {
+        let at = at(&app, p);
+        frame(&off, &mut app, &click(at));
+    }
+    assert_eq!(app.polygon.as_ref().map(|p| p.points.len()), Some(3));
+    let enter = egui::Event::Key { key: egui::Key::Enter, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE };
+    frame(&off, &mut app, &[(1, enter)]);
+    let doc = app.doc_mut().unwrap();
+    assert_eq!(doc.undo_title(), Some("Polygonal Lasso"));
+    assert!(ui::selection::contains(doc, [30.0, 25.0]));
+    let mut app = open(&off, "selections/wand-ring", "wand");
+    let at = at(&app, [2.0, 2.0]);
+    frame(&off, &mut app, &click(at));
+    assert!(app.alert.is_none(), "{:?}", app.alert.as_ref().map(|a| &a.message));
+    assert_eq!(app.doc().unwrap().undo_title(), Some("Magic Wand"));
+}
