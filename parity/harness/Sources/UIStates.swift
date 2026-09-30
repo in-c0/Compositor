@@ -163,6 +163,11 @@ nonisolated struct UIOptions: Sendable {
         let flags = ["--states", "--corpus", "--out", "--main-menu", "--state", "--result"]
         while index < arguments.count {
             let flag = arguments[index]
+            // `-Name value` pairs are defaults for this process's argument domain (see UIRunner.childDefaults).
+            if flag.hasPrefix("-"), !flag.hasPrefix("--"), index + 1 < arguments.count {
+                index += 2
+                continue
+            }
             guard flags.contains(flag) else { throw UsageError(message: "unknown option “\(flag)”") }
             guard index + 1 < arguments.count else { throw UsageError(message: "\(flag) needs a value") }
             let value = arguments[index + 1]

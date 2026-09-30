@@ -16,6 +16,11 @@ final class UIRunner {
     /// state (or an earlier run, or a person) left behind changes how the views draw.
     static var defaultsDomain: String { Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName }
 
+    /// System preferences pinned for the children through their argument domain, which outranks the Mac's own
+    /// settings. Scroll bars are overlay scrollers, as on a Mac with a trackpad, so a scroll view's width doesn't
+    /// depend on whether the machine has a mouse plugged in.
+    static let childDefaults: KeyValuePairs<String, String> = ["AppleShowScrollBars": "WhenScrolling"]
+
     func run() async {
         let entries: [UIStateEntry]
         do {
@@ -116,6 +121,7 @@ final class UIRunner {
                              "--corpus", options.corpus.path(percentEncoded: false),
                              "--out", options.output.path(percentEncoded: false),
                              "--result", resultURL.path(percentEncoded: false)] + extra
+            + Self.childDefaults.flatMap { ["-" + $0.key, $0.value] }
         var environment = ProcessInfo.processInfo.environment
         // ToolDefaults uses its compiled defaults, not the tool.* preferences, when this is set.
         environment["XCTestConfigurationFilePath"] = environment["XCTestConfigurationFilePath"] ?? "/dev/null"
@@ -167,8 +173,22 @@ enum UIChild {
         // Snapshots draw the canvas with Core Graphics anyway; this keeps the Metal view from ever being made.
         UserDefaults.standard.register(defaults: ["CompositorCPUCanvas": true])
         NSApp.finishLaunching()
-        NSApp.activate()
+        activate()
         await settle(0.3)
+    }
+
+    /// Makes this process the active app, so its windows can be key. `NSApp.activate()` only asks, and a process
+    /// started from a shell has no active app to hand over to it, so it stays in the background and every window
+    /// draws as inactive. The older `activateIgnoringOtherApps:` still takes activation; it's deprecated, so it's
+    /// called through the runtime rather than by name.
+    private static func activate() {
+        let selector = NSSelectorFromString("activateIgnoringOtherApps:")
+        guard NSApp.responds(to: selector) else {
+            NSApp.activate()
+            return
+        }
+        typealias Activate = @convention(c) (NSApplication, Selector, Bool) -> Void
+        unsafeBitCast(NSApp.method(for: selector), to: Activate.self)(NSApp, selector, true)
     }
 
     static func renderState(_ options: UIOptions) async {
@@ -227,6 +247,8 @@ nonisolated struct UIInfo: Encodable {
     let toolDefaultsPinned: Bool
     /// The defaults domain emptied before each state.
     let defaultsDomain: String
+    /// System preferences set for every state, such as AppleShowScrollBars.
+    let systemDefaults: [String: String]
     let editorSize: [Double]
     let states: [UIStateResult]
 }
@@ -246,6 +268,7 @@ nonisolated struct UIInfo: Encodable {
                       scale: 1, appearance: "darkAqua", accentColor: accent,
                       appleAccentColor: UserDefaults.standard.object(forKey: "AppleAccentColor").map { "\($0)" },
                       toolDefaultsPinned: true, defaultsDomain: UIRunner.defaultsDomain,
+                      systemDefaults: Dictionary(uniqueKeysWithValues: UIRunner.childDefaults.map { ($0.key, $0.value) }),
                       editorSize: [editorContentSize.width, editorContentSize.height], states: states)
     }
 }
