@@ -16,8 +16,9 @@
 //   coverage byte is ceil(product × 256) − 1, at most 255. Where an edge only partly covers a
 //   pixel, the image isn't interpolated across that edge: that axis takes its heavy pixel alone.
 // - Without antialiasing (Nearest), a pixel is drawn when the rectangle overlaps it at all.
-// - A mask clipped through its own rectangle is sampled the same way. Its coverage combines with
-//   the edges' as floor(floor(mask × mask edges / 255) × image edges / 255).
+// - A mask clipped through its own rectangle is sampled the same way. Coverages stack as
+//   floor(round(floor(mask × mask edges / 255) × clip / 255) × image edges / 255), a clip being
+//   one from outside the layer (a folder's mask, a clipping base's coverage).
 
 struct Dda {
     // Position at the center of canvas pixel (0, 0), and its steps per canvas pixel right and down,
@@ -250,21 +251,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let f = e.fade;
     let source = sample_image(taps(u, f.x < 1.0 || f.z < 1.0), taps(v, f.y < 1.0 || f.w < 1.0));
-    let covered = e.covered;
-    var coverage = covered;
+    // The clips in the order Core Graphics stacks them: the mask within its own rectangle, then
+    // any clip from outside the layer, then the image's own edges.
+    var coverage = 255u;
     if params.has_mask != 0u {
         let m = params.mask_dda;
         let mu = position(m.u0, m.u_dx, m.u_dy, id.x, id.y);
         let mv = position(m.v0, m.v_dx, m.v_dy, id.x, id.y);
         let me = edges(mu, mv, m, params.canvas_width + params.canvas_height, id.x, id.y);
         let mf = me.fade;
-        let mask_covered = me.covered;
         let value = sample_mask(taps(mu, mf.x < 1.0 || mf.z < 1.0), taps(mv, mf.y < 1.0 || mf.w < 1.0));
-        coverage = (value * mask_covered / 255u) * covered / 255u;
+        coverage = value * me.covered / 255u;
     }
     if params.has_clip != 0u {
         coverage = div255(coverage * clip[index]);
     }
+    coverage = coverage * e.covered / 255u;
     var pixel = scale_premultiplied(source);
     if coverage != 255u {
         pixel = div255v(pixel * coverage);
