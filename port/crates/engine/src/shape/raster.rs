@@ -169,12 +169,11 @@ pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i
     // The table's slots: 16 per 16 pixels of length, rounded up past it, less the two ends.
     let slots = 16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0;
     let (kind, base_point, step) = match fill.shape {
-        Shape::Radial => (2u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [slots / length, 0.0]),
+        Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [slots / length, 0.0]),
         Shape::Linear => {
             let l2 = dx * dx + dy * dy;
             let (px, py) = (offset[0] as f64 + 0.5 - fill.start[0], offset[1] as f64 + 0.5 - fill.start[1]);
-            let kind = if dx == 0.0 { 1 } else { 0 };
-            (kind, [(px * dx + py * dy) / l2 * slots, 0.0], [dx / l2 * slots, dy / l2 * slots])
+            (0, [(px * dx + py * dy) / l2 * slots, 0.0], [dx / l2 * slots, dy / l2 * slots])
         }
     };
     let premultiplied = |c: [f64; 4]| [c[0] * c[3] * 255.0, c[1] * c[3] * 255.0, c[2] * c[3] * 255.0, c[3] * 255.0];
