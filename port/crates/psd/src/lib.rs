@@ -10,13 +10,24 @@
 //!
 //! [`write_flat`] writes layerless files in other color modes and depths, for checking how
 //! readers treat files they can't import.
+//!
+//! [`import`] reads Photoshop files the way Compositor's Mac app opens them, into a project.
 
+mod adjustments;
+pub mod import;
+#[cfg(test)]
+mod import_tests;
 mod packbits;
+pub mod reader;
 #[cfg(test)]
 mod tests;
+mod text;
+mod vector;
 mod zlib;
 
+pub use import::{Conversion, Import, import, import_file};
 pub use packbits::{pack_bits, unpack_bits};
+pub use reader::ImportError;
 
 use anyhow::{Result, bail, ensure};
 use image::{GrayImage, RgbaImage};

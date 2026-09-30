@@ -5,6 +5,7 @@ mod cases;
 mod compare;
 mod corpus_gen;
 mod export_check;
+mod projects;
 mod report;
 mod roundtrip;
 
@@ -63,6 +64,17 @@ enum Command {
         #[arg(long, default_value = "local")]
         commit: String,
     },
+    /// Compare the project the port imports from each Photoshop case with the Mac's `.comp`.
+    CompareProjects {
+        #[arg(long, default_value = "parity/corpus")]
+        corpus: PathBuf,
+        /// References from the Mac harness: `<case id>.comp` and `harness-info.json`.
+        #[arg(long)]
+        refs: PathBuf,
+        /// Case id globs; every Photoshop case when omitted.
+        #[arg(long = "case")]
+        cases: Vec<String>,
+    },
     /// Print the case globs a change since `base` can affect, one per line (`*` for all).
     Affected {
         #[arg(long)]
@@ -87,6 +99,7 @@ fn main() -> Result<()> {
             std::fs::write(out, report::parity_markdown(&features, &runs, &tolerances.overrides, &commit))?;
             Ok(())
         }
+        Command::CompareProjects { corpus, refs, cases } => projects::compare_projects(&corpus, &refs, &cases),
         Command::Affected { base, features, corpus } => {
             for line in affected::affected(&base, &report::FeatureList::load(&features)?, &corpus)? {
                 println!("{line}");

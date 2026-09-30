@@ -327,6 +327,7 @@ dependencies = [
  "jpeg-encoder",
  "png",
  "pollster",
+ "psd",
  "serde_json",
  "uuid",
  "wgpu",
@@ -955,7 +956,9 @@ name = "psd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "comp-format",
  "image",
+ "uuid",
 ]
 
 [[package]]
