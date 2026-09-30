@@ -126,6 +126,11 @@ impl<'a> Compositor<'a> {
         let t = &layer.transform;
         let (w, h) = asset.pixels.dimensions();
         if crate::transform::needs_resampling(self.project, layer) {
+            // The transform module draws the layer's own pixels only; its effects image isn't
+            // drawn through the transform yet.
+            if layer.effects.as_ref().and_then(effects::shown).is_some() {
+                return unsupported("layer effects on a transformed layer");
+            }
             let opacity = order::effective_opacity(layer, &self.by_id);
             return crate::transform::draw_layer(self.gpu, self.project, layer, &target, opacity, clip);
         }

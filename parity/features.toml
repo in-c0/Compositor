@@ -59,6 +59,9 @@ gaps = [
 key = "effects"
 name = "Layer effects"
 paths = ["port/crates/engine/src/effects/**"]
+gaps = [
+    "Effects on a layer drawn through a transform (rotated, scaled, flipped, off the pixel grid, or with a mask placed apart from it) are pending: the transform module resamples the layer's own pixels but doesn't draw its effects image through the transform yet, so those layers report not supported (`effects/rotated`, `effects/scaled`).",
+]
 
 [[feature]]
 key = "psd"
