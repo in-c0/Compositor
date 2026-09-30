@@ -8,6 +8,7 @@ mod export_check;
 mod projects;
 mod report;
 mod roundtrip;
+mod selection;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -142,6 +143,14 @@ fn run(
         .collect();
     let mut results: Vec<CaseResult> =
         cases.par_iter().map(|case| run_case(&renderer, case, refs, out, &tolerances, rejected.get(&case.id))).collect();
+    // Cases that make a selection: compare its coverage too, unless the Mac refused the case.
+    results.extend(
+        cases
+            .par_iter()
+            .filter(|case| selection::applies(case) && !rejected.contains_key(&case.id))
+            .map(|case| selection::check(&renderer, case, refs, out, &tolerances))
+            .collect::<Vec<_>>(),
+    );
     let scratch = out.join("roundtrip");
     std::fs::create_dir_all(&scratch)?;
     results.extend(cases.par_iter().filter_map(|case| roundtrip::check(&case.id, refs, &scratch)).collect::<Vec<_>>());
@@ -300,6 +309,14 @@ fn render_case(renderer: &engine::Renderer, case: &cases::Case) -> Result<image:
 
 /// The case's input, opened (or imported) and with its ops applied.
 fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp_format::Project, engine::RenderError> {
+    build_session(renderer, case).map(|(project, _)| project)
+}
+
+/// [`build_project`], with the selection the ops leave, which isn't part of the project.
+fn build_session(
+    renderer: &engine::Renderer,
+    case: &cases::Case,
+) -> Result<(comp_format::Project, Option<engine::select::Selection>), engine::RenderError> {
     let input = case.input_path();
     let ext = input.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     let mut project = match ext.as_str() {
@@ -307,6 +324,14 @@ fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp
         "psd" | "psb" => renderer.import_psd(&input)?,
         _ => renderer.import_image(&input, case.spec.raw.as_ref())?,
     };
+<<<<<<< HEAD
     renderer.apply_ops(&mut project, &case.spec.ops)?;
     Ok(project)
+=======
+    let mut selection = None;
+    for op in &case.spec.ops {
+        renderer.apply_op_with_selection(&mut project, &mut selection, op)?;
+    }
+    Ok((project, selection))
+>>>>>>> f1863e6 (Make selections on the GPU the way the Mac does)
 }

@@ -16,6 +16,7 @@ pub mod mask;
 pub mod ml;
 pub mod order;
 pub mod paint;
+pub mod select;
 pub mod session;
 pub mod transform;
 
@@ -65,21 +66,39 @@ impl Renderer {
     }
 
     /// Applies a case's operations to `project` in order. Painting ops share a `paint::Session`,
-    /// as strokes in one Mac session share the brush settings and Clone Stamp's source.
+    /// as strokes in one Mac session share the brush settings and Clone Stamp's source, and every
+    /// op sees the selection the ops before it made.
     pub fn apply_ops(&self, project: &mut Project, ops: &[serde_json::Value]) -> Result<(), RenderError> {
         let mut painting = paint::Session::default();
+        let mut selection = None;
         for op in ops {
             match op.get("op").and_then(|v| v.as_str()) {
                 Some("stroke") => paint::apply(&self.gpu, project, &mut painting, op)?,
-                _ => self.apply_op(project, op)?,
+                _ => self.apply_op_with_selection(project, &mut selection, op)?,
             }
         }
         Ok(())
     }
 
     /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`) to `project`.
+    /// The selection ops leave the project as it is (the selection isn't part of it) and are
+    /// checked here; to keep the selection they make, use [`Renderer::apply_op_with_selection`].
     pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
+        self.apply_op_with_selection(project, &mut None, op)
+    }
+
+    /// [`Renderer::apply_op`], with the session's selection alongside the project: the selection
+    /// ops (`select::OPS`) make and change it.
+    pub fn apply_op_with_selection(
+        &self,
+        project: &mut Project,
+        selection: &mut Option<select::Selection>,
+        op: &serde_json::Value,
+    ) -> Result<(), RenderError> {
         let name = op.get("op").and_then(|v| v.as_str()).unwrap_or("unknown");
+        if select::OPS.contains(&name) {
+            return select::apply(&self.gpu, project, selection, op);
+        }
         if name == "filter" {
             return filters::apply(&self.gpu, project, op);
         }
@@ -119,6 +138,14 @@ impl Renderer {
         let canvas = composite::Compositor::new(&self.gpu, project).render()?;
         let rgb = export::flatten_on_matte(&self.gpu, &canvas, matte)?;
         Ok(export::jpeg(&rgb, canvas.width, canvas.height, quality)?)
+    }
+
+    /// The selection's coverage at document size, one byte per pixel, as the Mac's
+    /// `DocumentSelection.coverage` draws it.
+    pub fn selection_coverage(&self, project: &Project, selection: &select::Selection) -> Result<image::GrayImage, RenderError> {
+        let (width, height) = (project.manifest.width as u32, project.manifest.height as u32);
+        let bytes = select::coverage(&self.gpu, selection, width, height)?;
+        Ok(image::GrayImage::from_raw(width, height, bytes).expect("canvas size"))
     }
 
     /// Imports a Photoshop file as the Mac app's File > Open does.

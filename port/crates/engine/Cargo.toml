@@ -17,6 +17,7 @@ png.workspace = true
 jpeg-encoder.workspace = true
 psd.workspace = true
 image-import.workspace = true
+i_overlay = "9.0.0"
 # Remove Background's subject mask (`src/ml`); without it that filter reports itself unsupported.
 tract-onnx = { version = "0.23", optional = true }
 
