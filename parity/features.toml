@@ -94,6 +94,13 @@ gaps = [
 key = "selections"
 name = "Selections: marquee, lasso, wand, color range"
 paths = ["port/crates/engine/src/select/**"]
+gaps = [
+    "Object Selection uses Vision's foreground instance mask, which has no port; those cases are pending.",
+    "When a later Add or Subtract cuts a curve piece that an earlier step already cut, the Mac's second cut isn't reproduced (6/255 on 13 of 4096 pixels in `add-subtract-chain`); the port reports it as unsupported.",
+    "Expand and Contract on a curved outline: Core Graphics strokes curves with offset curves, the port strokes their flattened chords (2/255 on 2 of 4096 pixels in `expand-ellipse`); reported as unsupported.",
+    "Core Graphics steps each edge in 1/16 px steps with a truncated 16.16 slope; the port's model of it is off by 2/255 on one pixel where two long, shallow edges meet (`polygon-triangle`, `contract-triangle`).",
+    "Contract around a staircase's inside corners (`wand-contract`) is 4/255 off on one pixel where a join arc is cut by the neighboring edges' bands.",
+]
 
 [[feature]]
 key = "painting"

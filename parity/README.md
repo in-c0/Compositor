@@ -113,7 +113,7 @@ Each state runs in its own process. A state that fails, crashes or takes longer 
 
 Both images are 8-bit RGBA with straight alpha, as PNG stores them. A case passes when every channel of every pixel is within the tolerance: by default 1 in 255. Where both pixels are fully transparent, their color channels are not compared, because a transparent pixel has no visible color.
 
-A case with `<case>.selection.png` gets a second check, `<case>#selection`, comparing the port's selection coverage with it byte for byte, held to the same 1 in 255. It fails when only one side has a selection.
+A case with selection ops gets a second check, `<case>#selection`, which compares the port's selection coverage with `<case>.selection.png` byte for byte, held to the same 1 in 255. It passes when neither side ends with a selection and fails when only one does.
 
 A case can have one of four results:
 
