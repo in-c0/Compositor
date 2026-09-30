@@ -160,7 +160,7 @@ fn pair(x: f32, o: f32, row: i32) -> vec4<f32> {
 }
 
 fn mad4(a: vec4<f32>, b: f32, c: vec4<f32>) -> vec4<f32> {
-    return fma(a, vec4<f32>(b), c);
+    return mul_add4(a, vec4<f32>(b), c);
 }
 
 // `_gaussianReduce2` and `_gaussianReduce4` along the row. The weights buffer holds the center
@@ -225,14 +225,14 @@ fn upsample(xi: i32, row: i32) -> vec4<f32> {
     let o = f32(params.src_origin);
     let sa = samplef(keep(pa - o), row);
     let sb = samplef(keep(pb - o), row);
-    return fma(sb, vec4<f32>(wb), keep4(sa * wa));
+    return mul_add4(sb, vec4<f32>(wb), keep4(sa * wa));
 }
 
 fn store(i: u32, v: vec4<f32>) {
     if (params.out_kind == 0u) {
         dstf[i] = vec4<f32>(half_trunc(v.x), half_trunc(v.y), half_trunc(v.z), half_trunc(v.w));
     } else {
-        let b = clamp(floor(fma(v, vec4<f32>(255.0), vec4<f32>(0.5))), vec4<f32>(0.0), vec4<f32>(255.0));
+        let b = clamp(floor(mul_add4(v, vec4<f32>(255.0), vec4<f32>(0.5))), vec4<f32>(0.0), vec4<f32>(255.0));
         dst8[i] = pack(vec4<u32>(b));
     }
 }

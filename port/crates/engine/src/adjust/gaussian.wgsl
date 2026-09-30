@@ -127,7 +127,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     if (params.op == 4u) {
         let v = src[(id.y + params.count) * params.src_w + id.x + params.count];
-        dst8[id.y * params.out_w + id.x] = pack(vec4<u32>(clamp(floor(fma(v, vec4<f32>(255.0), vec4<f32>(0.5))), vec4<f32>(0.0), vec4<f32>(255.0))));
+        dst8[id.y * params.out_w + id.x] = pack(vec4<u32>(clamp(floor(mul_add4(v, vec4<f32>(255.0), vec4<f32>(0.5))), vec4<f32>(0.0), vec4<f32>(255.0))));
         return;
     }
     // `kNx1`/`k1xN`, Metal Performance Shaders' separable convolution in half floats: taps on
@@ -166,7 +166,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let b = select(0.0, weights[t + 1u], t + 1u < n);
                 let w = keep(weights[t] + b);
                 let o = keep(div(b, w) + (f32(t) + 0.5));
-                acc = fma(pair(p, o, id.x, id.y), vec4<f32>(w), acc);
+                acc = mul_add4(pair(p, o, id.x, id.y), vec4<f32>(w), acc);
             }
         }
         // `Fn`: taps on 0, ±1, ±2…, read in pairs.
@@ -180,7 +180,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     w = keep(weights[t] + weights[t + 1u]);
                     o = keep(div(weights[t + 1u], w) + f32(t));
                 }
-                acc = fma(pair(p, o, id.x, id.y), vec4<f32>(w), acc);
+                acc = mul_add4(pair(p, o, id.x, id.y), vec4<f32>(w), acc);
             }
         }
         // `UlP3F3`: grow by `level` from three texels with Metal Performance Shaders' weights.
@@ -220,7 +220,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let l = texel(base - 1, id.x, id.y);
             let c = texel(base, id.x, id.y);
             let r = texel(base + 1, id.x, id.y);
-            acc = fma(r, vec4<f32>(wr), fma(l, vec4<f32>(wl), keep4(c * wm)));
+            acc = mul_add4(r, vec4<f32>(wr), mul_add4(l, vec4<f32>(wl), keep4(c * wm)));
         }
     }
     dst[id.y * params.out_w + id.x] = vec4<f32>(half_trunc(acc.x), half_trunc(acc.y), half_trunc(acc.z), half_trunc(acc.w));

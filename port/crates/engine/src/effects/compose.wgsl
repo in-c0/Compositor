@@ -42,13 +42,13 @@ var<private> alpha: f32;
 fn over(c: vec3<f32>, coverage: f32) {
     let rest = keep(1.0 - coverage);
     let painted = vec3<f32>(keep(c.x * coverage), keep(c.y * coverage), keep(c.z * coverage));
-    color = fma(color, vec3<f32>(rest), painted);
-    alpha = keep(fma(alpha, rest, coverage));
+    color = mul_add3(color, vec3<f32>(rest), painted);
+    alpha = keep(mul_add(alpha, rest, coverage));
 }
 
 // `uchar(clamp(v, 0, 1) * 255 + 0.5)`.
 fn byte(v: f32) -> u32 {
-    return u32(floor(fma(clamp(v, 0.0, 1.0), 255.0, 0.5)));
+    return u32(floor(mul_add(clamp(v, 0.0, 1.0), 255.0, 0.5)));
 }
 
 @compute @workgroup_size(8, 8)
@@ -74,8 +74,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = unpack(pixels[index]);
     let source = vec4<f32>(div(f32(p.x), 255.0), div(f32(p.y), 255.0), div(f32(p.z), 255.0), div(f32(p.w), 255.0));
     let rest = keep(1.0 - source.w);
-    color = fma(color, vec3<f32>(rest), source.xyz);
-    alpha = keep(fma(alpha, rest, source.w));
+    color = mul_add3(color, vec3<f32>(rest), source.xyz);
+    alpha = keep(mul_add(alpha, rest, source.w));
     if (has(4u)) {
         over(params.overlay.xyz, clamp(shape[index] * params.overlay.w, 0.0, 1.0));
     }

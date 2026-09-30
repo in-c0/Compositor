@@ -1,28 +1,10 @@
 // Exact float pieces that don't lean on the GPU's `fma`, which some adapters (Microsoft's WARP,
-// the software renderer CI's Windows runners use) compute unfused. Products are split
-// Veltkamp–Dekker style instead. Needs `keep`, `two_sum`, `fast_two_sum`, `up` and `down` from
-// adjust/float.wgsl.
-
-fn split(a: f32) -> vec2<f32> {
-    let c = keep(4097.0 * a);
-    let hi = keep(c - keep(c - a));
-    return vec2<f32>(hi, keep(a - hi));
-}
-
-// a · b exactly, as a rounded product and its error.
-fn exact_product(a: f32, b: f32) -> vec2<f32> {
-    let p = keep(a * b);
-    let sa = split(a);
-    let sb = split(b);
-    let e = keep(keep(keep(keep(sa.x * sb.x) - p) + keep(sa.x * sb.y)) + keep(sa.y * sb.x)) + keep(sa.y * sb.y);
-    return vec2<f32>(p, keep(e));
-}
+// the software renderer CI's Windows runners use) compute unfused. Built on `exact_product`,
+// `fma_exact`, `keep`, `two_sum`, `fast_two_sum`, `up` and `down` from adjust/float.wgsl.
 
 // a · b + c with one rounding, as Metal's fused multiply-add.
 fn fused(a: f32, b: f32, c: f32) -> f32 {
-    let p = exact_product(a, b);
-    let s = two_sum(p.x, c);
-    return keep(s.x + keep(s.y + p.y));
+    return fma_exact(a, b, c);
 }
 
 // a - q · b, exactly enough to tell which neighbor of q is nearest a / b.

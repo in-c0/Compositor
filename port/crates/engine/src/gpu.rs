@@ -9,6 +9,10 @@ pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pipelines: Mutex<HashMap<&'static str, Arc<wgpu::ComputePipeline>>>,
+    /// Whether the adapter's `fma` rounds once, as Metal's does. Microsoft's WARP, the software
+    /// adapter on CI's Windows runners, computes it as a product and a sum; kernels that include
+    /// adjust/float.wgsl then build it from exact pieces instead (its `FMA_FUSED` constant).
+    fma_fused: bool,
 }
 
 /// An image on the GPU: one `u32` per pixel, RGBA8 packed with R in the low byte.
@@ -40,7 +44,9 @@ impl Gpu {
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
+            // COMPOSITOR_WARP=1 picks the software adapter (WARP on Windows), as CI's hosted
+            // Windows runners have, to check results there locally.
+            force_fallback_adapter: std::env::var_os("COMPOSITOR_WARP").is_some(),
             compatible_surface: None,
             ..Default::default()
         }))
@@ -55,14 +61,38 @@ impl Gpu {
             ..Default::default()
         }))
         .context("creating the GPU device")?;
-        Ok(Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()) })
+        Ok(Self::with_probe(instance, adapter, device, queue))
     }
 
     /// Wraps a device someone else created, such as the app window's, so the engine renders on the
     /// same device that presents. The device should have been requested with `adapter.limits()`,
     /// as `new` does, or large canvases can exceed its buffer limits.
     pub fn from_parts(instance: wgpu::Instance, adapter: wgpu::Adapter, device: wgpu::Device, queue: wgpu::Queue) -> Self {
-        Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()) }
+        Self::with_probe(instance, adapter, device, queue)
+    }
+
+    fn with_probe(instance: wgpu::Instance, adapter: wgpu::Adapter, device: wgpu::Device, queue: wgpu::Queue) -> Self {
+        let mut gpu = Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()), fma_fused: true };
+        gpu.fma_fused = gpu.probe_fma();
+        gpu
+    }
+
+    /// Whether `fma` is fused here: (1 + 2⁻¹²)² − (1 + 2⁻¹¹) is 2⁻²⁴ with one rounding and 0 with
+    /// two. If the probe can't run, the adapter is assumed to fuse, as every hardware one measured does.
+    fn probe_fma(&self) -> bool {
+        let pipeline = self.pipeline("gpu.probe_fma", include_str!("shaders/probe_fma.wgsl"));
+        let values = [f32::from_bits(0x3f80_0800), f32::from_bits(0x3f80_0800), -f32::from_bits(0x3f80_1000), 0.0];
+        let image = self.upload(4, 1, bytemuck::cast_slice(&values));
+        self.dispatch(&pipeline, &[0u8; 4], &[&image.buffer], 1, 1);
+        match self.download(&image) {
+            Ok(bytes) => bytemuck::cast_slice::<u8, f32>(&bytes)[3] != 0.0,
+            Err(_) => true,
+        }
+    }
+
+    /// See the `fma_fused` field.
+    pub fn fma_fused(&self) -> bool {
+        self.fma_fused
     }
 
     pub fn image(&self, width: u32, height: u32) -> GpuImage {
@@ -148,6 +178,8 @@ impl Gpu {
         cache
             .entry(name)
             .or_insert_with(|| {
+                let fused = if self.fma_fused { 1.0 } else { 0.0 };
+                let constants = if source.contains("override FMA_FUSED") { vec![("FMA_FUSED", fused)] } else { Vec::new() };
                 let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some(name),
                     source: wgpu::ShaderSource::Wgsl(format!("{}\n{}", include_str!("shaders/common.wgsl"), source).into()),
@@ -157,7 +189,7 @@ impl Gpu {
                     layout: None,
                     module: &module,
                     entry_point: Some("main"),
-                    compilation_options: Default::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions { constants: &constants, ..Default::default() },
                     cache: None,
                 }))
             })

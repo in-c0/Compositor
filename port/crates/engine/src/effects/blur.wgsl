@@ -38,7 +38,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         } else {
             value = source[sample * params.width + id.x];
         }
-        total = keep(fma(weight, value, total));
+        total = keep(mul_add(weight, value, total));
         weight_sum = keep(weight_sum + weight);
     }
     // `div` needs a positive numerator; a sum of non-negative terms is zero or positive.
