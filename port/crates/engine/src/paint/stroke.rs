@@ -289,10 +289,8 @@ impl Stroke {
         let columns = (self.width + TILE - 1) / TILE;
         let grid = Rect::new(0.0, 0.0, self.width as f64, self.height as f64);
         for s in segments {
-            let (x0, x1) = (s[0].min(s[2]) as f64, s[0].max(s[2]) as f64);
-            let (y0, y1) = (s[1].min(s[3]) as f64, s[1].max(s[3]) as f64);
-            let bx = Rect::new(x0, y0, (s[2] - s[0]).abs() as f64, (s[3] - s[1]).abs() as f64);
-            let _ = (x1, y1);
+            // The segment's box in the kernel's floats, then widened in CGFloat.
+            let bx = Rect::new(s[0].min(s[2]) as f64, s[1].min(s[3]) as f64, (s[2] - s[0]).abs() as f64, (s[3] - s[1]).abs() as f64);
             let Some(bx) = bx.inset(-reach, -reach).intersection(&self.canvas) else { continue };
             if bx.is_empty() {
                 continue;
@@ -318,8 +316,7 @@ impl Stroke {
     /// The tip's coverage over the grid, one byte per pixel.
     fn coverage(&self, gpu: &Gpu) -> Result<Vec<u32>> {
         let (segments, ends) = self.path.settled();
-        let source = format!("{}
-{}", include_str!("../adjust/float.wgsl"), include_str!("coverage.wgsl"));
+        let source = format!("{}\n{}", include_str!("../adjust/float.wgsl"), include_str!("coverage.wgsl"));
         let pipeline = gpu.pipeline("paint_coverage", &source);
         let s = &self.settings;
         let spacing = 0.25f64.max(s.diameter * if s.hardness >= 1.0 { 0.015 } else { 0.025 });
@@ -367,21 +364,6 @@ impl Stroke {
             allocated = allocated.union(&self.tile_rect(key));
         }
         let coverage = self.coverage(gpu)?;
-        if let Ok(dir) = std::env::var("PAINT_DUMP") {
-            // Fitting aid: the grid's size, origin, coverage and base, raw.
-            let mut out = Vec::new();
-            for v in [self.width as u32, self.height as u32, self.tx as i32 as u32, self.ty as i32 as u32] {
-                out.extend_from_slice(&v.to_le_bytes());
-            }
-            out.extend_from_slice(bytemuck::cast_slice(&coverage));
-            out.extend_from_slice(bytemuck::cast_slice(&self.base));
-            let (segments, ends) = self.path.settled();
-            out.extend_from_slice(&(segments.len() as u32).to_le_bytes());
-            out.extend_from_slice(bytemuck::cast_slice(&segments));
-            out.extend_from_slice(&(ends.len() as u32).to_le_bytes());
-            out.extend_from_slice(bytemuck::cast_slice(&ends));
-            let _ = std::fs::write(std::path::Path::new(&dir).join(format!("{}.bin", self.layer)), out);
-        }
         let painted = if self.settings.healing {
             self.heal(&coverage, &keys)
         } else {
@@ -501,9 +483,6 @@ impl Stroke {
         let at = |x: u32, y: u32| grid[((y as i64 + cy) * w + x as i64 + cx) as usize];
         if self.mask {
             let image = GrayImage::from_fn(cw, ch, |x, y| image::Luma([at(x, y) as u8]));
-            if let Ok(dir) = std::env::var("PAINT_DUMP") {
-                let _ = image.save(std::path::Path::new(&dir).join(format!("{}.mask.png", self.layer)));
-            }
             project.masks.insert(self.layer.clone(), comp_format::Asset::new(image));
             let layer = &mut project.manifest.layers[index];
             // Grown past its layer, or already placed on its own: the mask keeps its place on the document.
@@ -512,9 +491,6 @@ impl Stroke {
             }
         } else {
             let image = RgbaImage::from_fn(cw, ch, |x, y| image::Rgba(unpremultiply(at(x, y))));
-            if let Ok(dir) = std::env::var("PAINT_DUMP") {
-                let _ = image.save(std::path::Path::new(&dir).join(format!("{}.png", self.layer)));
-            }
             project.images.insert(self.layer.clone(), comp_format::Asset::new(image));
             let layer = &mut project.manifest.layers[index];
             layer.transform = transform;
@@ -539,7 +515,6 @@ impl Stroke {
                 }
             }
         }
-        let _ = self.mask_background;
         Ok(())
     }
 
