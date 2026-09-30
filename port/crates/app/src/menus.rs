@@ -401,6 +401,95 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
     ]
 }
 
+/// A chord from `ShortcutDefinition.all`: `key` as the Mac stores it, modifier bits Command 1,
+/// Option 2, Control 4, Shift 8. Labeled the Mac's way there and with Ctrl/Alt/Shift elsewhere.
+fn chord_label(key: &str, modifiers: u8) -> String {
+    let mac = cfg!(target_os = "macos");
+    let name = match key {
+        "\u{7f}" => if mac { "Delete" } else { "Backspace" }.to_string(),
+        "\r" => if mac { "Return" } else { "Enter" }.to_string(),
+        "\u{1b}" => "Esc".into(),
+        "\t" => "Tab".into(),
+        " " => "Space".into(),
+        "left" => "←".into(),
+        "right" => "→".into(),
+        "up" => "↑".into(),
+        "down" => "↓".into(),
+        other => other.to_uppercase(),
+    };
+    if mac {
+        let mut s = String::new();
+        for (bit, glyph) in [(4, "⌃"), (2, "⌥"), (8, "⇧"), (1, "⌘")] {
+            if modifiers & bit != 0 {
+                s.push_str(glyph);
+            }
+        }
+        return s + &name;
+    }
+    let mut parts: Vec<String> = Vec::new();
+    for (bit, word) in [(1, "Ctrl"), (2, "Alt"), (8, "Shift")] {
+        if modifiers & bit != 0 {
+            parts.push(word.into());
+        }
+    }
+    parts.push(name);
+    parts.join("+")
+}
+
+/// The Keyboard Shortcuts panel's rows, grouped as `ShortcutDefinition.all` groups them.
+pub fn shortcut_list() -> Vec<(&'static str, Vec<(String, String)>)> {
+    let menus: &[(&str, &str, u8)] = &[
+        ("Undo", "z", 1), ("Redo", "z", 9), ("New Canvas", "n", 1), ("Open Project", "o", 1), ("Save", "s", 1),
+        ("Save As", "s", 9), ("Export PNG", "e", 9), ("Export JPEG", "s", 11), ("Close Project", "w", 1),
+        ("Fit Canvas", "0", 1), ("Actual Pixels", "1", 1), ("Zoom In", "=", 1), ("Zoom Out", "-", 1),
+        ("Show Transform Controls", "h", 1), ("Hide Compositor", "h", 3), ("Cut", "x", 1), ("Copy", "c", 1),
+        ("Copy Merged", "c", 9), ("Paste", "v", 1), ("Fill with Foreground", "\u{7f}", 2),
+        ("Fill with Background", "\u{7f}", 1), ("Content-Aware Fill", "\u{7f}", 8), ("Select All", "a", 1),
+        ("Deselect", "d", 1), ("Inverse Selection", "i", 9), ("Select Subject", "a", 3), ("Curves", "m", 1),
+        ("Levels", "l", 1), ("Hue/Saturation", "u", 1), ("Invert Pixels / Mask", "i", 1), ("Canvas Size", "c", 3),
+        ("Image Size", "i", 3), ("Transform Layer / Selection", "t", 1), ("Duplicate / Layer via Copy", "j", 1),
+        ("Toggle Clipping Mask", "g", 3), ("Group Layers", "g", 1), ("Ungroup Layers", "g", 9),
+        ("New Blank Layer", "n", 9), ("Move Layer Up", "]", 1), ("Move Layer Down", "[", 1), ("Merge Layers", "e", 1),
+        ("Show Grid", "'", 1), ("Show Guides", ";", 1), ("Show Rulers", "r", 1), ("Snap", ";", 9), ("Lock Guides", ";", 3),
+    ];
+    let mut canvas: Vec<(String, String)> = [
+        ("Select tool", "a"), ("Move / Transform tool", "v"), ("Hand tool", "h"), ("Zoom tool", "z"), ("Brush tool", "b"),
+        ("Eraser", "e"), ("Spot Healing", "j"), ("Clone Stamp", "s"), ("Type tool", "t"), ("Gradient tool", "g"),
+        ("Shape tool", "u"), ("Eyedropper tool", "i"), ("Marquee / cycle shape", "m"), ("Magic", "w"),
+        ("Lasso / cycle mode", "l"), ("Blur / Smudge / Liquify", "r"), ("Crop tool", "c"),
+        ("Swap foreground/background", "x"), ("Reset colors", "d"), ("Cycle tool mode", "\t"),
+        ("Temporary Hand tool (hold)", " "), ("Delete selection / layer / effect / lasso point", "\u{7f}"),
+        ("Apply current canvas operation", "\r"), ("Cancel current canvas operation", "\u{1b}"),
+        ("Decrease brush size", "["), ("Increase brush size", "]"),
+    ]
+    .iter()
+    .map(|(t, k)| (t.to_string(), chord_label(k, 0)))
+    .collect();
+    for (t, k) in [("Decrease brush hardness", "["), ("Increase brush hardness", "]"), ("Previous blend mode", "-"), ("Next blend mode", "="), ("Cycle shape kind", "u")] {
+        canvas.push((t.into(), chord_label(k, 8)));
+    }
+    for digit in 0..=9 {
+        canvas.push((format!("Opacity digit {digit} (type two for exact %)"), chord_label(&digit.to_string(), 0)));
+    }
+    for (direction, key) in [("Left", "left"), ("Right", "right"), ("Up", "up"), ("Down", "down")] {
+        canvas.push((format!("Nudge {direction} 1 px"), chord_label(key, 0)));
+        canvas.push((format!("Nudge {direction} 10 px"), chord_label(key, 8)));
+        canvas.push((format!("Move selected pixels {direction} 1 px"), chord_label(key, 1)));
+        canvas.push((format!("Move selected pixels {direction} 10 px"), chord_label(key, 9)));
+    }
+    canvas.push(("Toggle Levels preview".into(), chord_label("p", 2)));
+    let mut text = vec![("Finish editing text".to_string(), chord_label("\r", 1))];
+    for (title, key) in [("Decrease tracking", "left"), ("Increase tracking", "right"), ("Decrease leading", "up"), ("Increase leading", "down")] {
+        text.push((title.into(), chord_label(key, 2)));
+        text.push((format!("{title} by 10"), chord_label(key, 10)));
+    }
+    vec![
+        ("Menus", menus.iter().map(|(t, k, m)| (t.to_string(), chord_label(k, *m))).collect()),
+        ("Canvas & Layers", canvas),
+        ("Text Editing", text),
+    ]
+}
+
 /// What the Layers list's context menu needs about the row it opened on.
 pub struct RowState {
     pub is_folder: bool,

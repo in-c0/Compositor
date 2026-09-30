@@ -9,6 +9,9 @@ use crate::widgets::{self as w, ButtonStyle, SwatchStyle};
 use eframe::egui::{self, Align, CornerRadius, Layout, Rect, Sense, Ui, vec2};
 
 pub fn tool_header(app: &mut App, ui: &mut Ui, rect: Rect) {
+    let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+    ui.style_mut().text_styles.insert(egui::TextStyle::Button, theme::regular(12.0));
+    let ui = &mut ui;
     let pad = theme::metric::HEADER_PADDING;
     let inner = rect.shrink2(vec2(pad, 0.0));
     match app.tool {

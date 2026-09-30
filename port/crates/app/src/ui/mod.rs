@@ -2,6 +2,7 @@
 
 pub mod headers;
 pub mod layers;
+pub mod sheets;
 
 use crate::app::App;
 use crate::document::{CRISP_ZOOM, PIXEL_GRID_ZOOM};

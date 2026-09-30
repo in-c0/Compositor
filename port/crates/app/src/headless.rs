@@ -249,10 +249,18 @@ fn render_state(off: &Offscreen, state: &State, corpus: &Path, out: &Path) -> Re
         }
         "tool-header" => off.render(vec2(editor.x, metric::TOOL_HEADER), |ui, rect| ui::headers::tool_header(&mut app, ui, rect))?,
         "layers-panel" => off.render(vec2(metric::LAYERS_DEFAULT, 600.0), |ui, rect| ui::layers::panel(&mut app, ui, rect))?,
-        "sheet" => match state.sheet.as_deref() {
-            Some("new-canvas") => off.render(vec2(500.0, ui::welcome_height()), |ui, rect| ui::welcome(&mut app, ui, rect))?,
-            _ => return Ok(None),
-        },
+        "sheet" => {
+            let sheet = state.sheet.as_deref().unwrap_or("");
+            let Some(width) = ui::sheets::width(sheet) else { return Ok(None) };
+            // The sheet's natural height: lay it out once in a tall frame, then render at that size.
+            let mut sheet_state = ui::sheets::SheetState::new(&app);
+            let mut height = 0.0f32;
+            off.render(vec2(width, 1600.0), |ui, rect| height = ui::sheets::draw(&mut app, &mut sheet_state, ui, rect, sheet))?;
+            let mut sheet_state = ui::sheets::SheetState::new(&app);
+            off.render(vec2(width, height.ceil()), |ui, rect| {
+                ui::sheets::draw(&mut app, &mut sheet_state, ui, rect, sheet);
+            })?
+        }
         other => anyhow::bail!("unknown view `{other}`"),
     };
     for doc in &mut app.docs {

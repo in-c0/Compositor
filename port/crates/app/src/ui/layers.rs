@@ -53,7 +53,7 @@ fn appearance_controls(app: &mut App, ui: &mut Ui, rect: Rect) {
     let mut changed_mode = false;
     w::row(ui, row1, 8.0, |ui| {
         w::text(ui, "Blend", theme::regular(10.0), color::label());
-        let width = ui.available_width();
+        let width = w::fill_width(ui, 0.0, 0);
         changed_mode = w::popup(ui, "blend-mode", &mut mode, &BLEND_GROUPS, BlendMode::name, Some(width), enabled);
     });
     let row2 = Rect::from_min_size(pos2(inner.min.x, row1.max.y + 8.0), vec2(inner.width(), 22.0));
@@ -63,9 +63,10 @@ fn appearance_controls(app: &mut App, ui: &mut Ui, rect: Rect) {
     w::row(ui, row2, 6.0, |ui| {
         let scrubbed = w::scrub_label(ui, "Opacity", theme::regular(10.0), color::label(), &mut pct, 1.0, 0.0..=100.0, enabled);
         dragging |= scrubbed.dragged();
-        let slider_width = ui.available_width() - 6.0 - 44.0 - 2.0 - 10.0;
+        let percent = ui.painter().layout_no_wrap("%".into(), theme::regular(10.0), color::label()).size().x;
+        let slider_width = w::fill_width(ui, 44.0 + 2.0 + percent, 1);
         let mut fraction = pct / 100.0;
-        let slider = w::slider(ui, &mut fraction, 0.0..=1.0, slider_width.max(20.0), enabled);
+        let slider = w::slider(ui, &mut fraction, 0.0..=1.0, slider_width, enabled);
         if slider.changed() {
             pct = fraction * 100.0;
         }

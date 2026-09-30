@@ -11,6 +11,19 @@ pub fn rgb(c: [f32; 3]) -> Color32 {
     Color32::from_rgb((c[0] * 255.0).round() as u8, (c[1] * 255.0).round() as u8, (c[2] * 255.0).round() as u8)
 }
 
+/// The font controls use here: 12 points in the tool header (`ToolHeaderStyle.controlFont`),
+/// the 13-point system font elsewhere. Set through the `Button` text style.
+pub fn control_font(ui: &Ui) -> FontId {
+    ui.style().text_styles.get(&egui::TextStyle::Button).cloned().unwrap_or_else(|| theme::regular(13.0))
+}
+
+/// The width left for a control that fills a row, given what follows it: `trailing` points of
+/// fixed-width items and `gaps` of them (egui leaves the spacing after each item, so every item
+/// after the filling one costs one spacing).
+pub fn fill_width(ui: &Ui, trailing: f32, gaps: usize) -> f32 {
+    (ui.available_width() - trailing - ui.spacing().item_spacing.x * gaps as f32).max(20.0)
+}
+
 /// A non-interactive label.
 pub fn text(ui: &mut Ui, s: impl Into<String>, font: FontId, color: Color32) -> Response {
     let galley = ui.painter().layout_no_wrap(s.into(), font, color);
@@ -24,9 +37,9 @@ pub fn title(ui: &mut Ui, s: &str) -> Response {
     text(ui, s, theme::semibold(13.0), color::label())
 }
 
-/// A control label at the header size (12 pt).
+/// A control label in the control font.
 pub fn label(ui: &mut Ui, s: &str) -> Response {
-    text(ui, s, theme::regular(12.0), color::label())
+    text(ui, s, control_font(ui), color::label())
 }
 
 pub fn secondary(ui: &mut Ui, s: &str, size: f32) -> Response {
@@ -51,7 +64,7 @@ pub fn scrub_label(ui: &mut Ui, s: &str, font: FontId, color: Color32, value: &m
 
 /// The Mac's checkbox: 14 pt rounded box, accent when on, then the title.
 pub fn checkbox(ui: &mut Ui, value: &mut bool, title: &str) -> Response {
-    let font = theme::regular(12.0);
+    let font = control_font(ui);
     let galley = ui.painter().layout_no_wrap(title.to_string(), font, color::label());
     let size = vec2(14.0 + 6.0 + galley.size().x, metric::CONTROL_HEIGHT);
     let (rect, mut response) = ui.allocate_exact_size(size, Sense::click());
@@ -75,7 +88,7 @@ pub fn checkbox(ui: &mut Ui, value: &mut bool, title: &str) -> Response {
 
 /// A segmented picker (`.pickerStyle(.segmented)`), capsule track with a lighter selected pill.
 pub fn segmented<T: Copy + PartialEq>(ui: &mut Ui, value: &mut T, all: &[T], title: impl Fn(T) -> &'static str) -> Response {
-    let font = theme::regular(12.0);
+    let font = control_font(ui);
     let galleys: Vec<_> = all.iter().map(|v| ui.painter().layout_no_wrap(title(*v).to_string(), font.clone(), color::label())).collect();
     let widths: Vec<f32> = galleys.iter().map(|g| g.size().x + 22.0).collect();
     let total = widths.iter().sum::<f32>() + 4.0;
@@ -161,16 +174,17 @@ pub fn number_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &m
     let id = ui.make_persistent_id(id_salt);
     let buf_id = id.with("text");
     let focused = ui.memory(|m| m.has_focus(id));
+    let font = control_font(ui);
     let mut buf = if focused { ui.data(|d| d.get_temp::<String>(buf_id)).unwrap_or_else(|| fmt(*value)) } else { fmt(*value) };
-    let response = field_frame(ui, width, enabled, |ui, rect| {
+    let response = field_frame(ui, width, enabled, |ui| {
         let edit = egui::TextEdit::singleline(&mut buf)
             .id(id)
             .frame(egui::Frame::NONE)
-            .font(theme::regular(12.0))
+            .font(font)
             .horizontal_align(if right { Align::Max } else { Align::Min })
             .vertical_align(Align::Center)
             .margin(egui::Margin::symmetric(0, 0));
-        ui.add_enabled_ui(enabled, |ui| ui.put(rect.shrink2(vec2(6.0, 2.0)), edit)).inner
+        ui.add_enabled_ui(enabled, |ui| ui.add_sized(ui.available_size(), edit)).inner
     });
     let mut response = response;
     if response.changed() {
@@ -192,7 +206,7 @@ pub fn number_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &m
 /// A rounded-border text field for free text, with an optional placeholder.
 pub fn text_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &mut String, width: f32, placeholder: &str, font: FontId) -> Response {
     let id = ui.make_persistent_id(id_salt);
-    field_frame(ui, width, true, |ui, rect| {
+    field_frame(ui, width, true, |ui| {
         let edit = egui::TextEdit::singleline(value)
             .id(id)
             .frame(egui::Frame::NONE)
@@ -200,16 +214,18 @@ pub fn text_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &mut
             .hint_text(placeholder)
             .vertical_align(Align::Center)
             .margin(egui::Margin::symmetric(0, 0));
-        ui.put(rect.shrink2(vec2(6.0, 2.0)), edit)
+        ui.add_sized(ui.available_size(), edit)
     })
 }
 
-fn field_frame(ui: &mut Ui, width: f32, enabled: bool, content: impl FnOnce(&mut Ui, Rect) -> Response) -> Response {
+fn field_frame(ui: &mut Ui, width: f32, enabled: bool, content: impl FnOnce(&mut Ui) -> Response) -> Response {
     let (rect, _) = ui.allocate_exact_size(vec2(width, metric::CONTROL_HEIGHT), Sense::hover());
     let p = ui.painter();
     p.rect_filled(rect, 5.0, color::field());
     p.rect_stroke(rect, 5.0, Stroke::new(1.0, color::field_border()), StrokeKind::Inside);
-    let response = content(ui, rect);
+    // The text sits in a child so the row's cursor stays where the frame left it.
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect.shrink2(vec2(6.0, 2.0))).layout(egui::Layout::left_to_right(Align::Center)));
+    let response = content(&mut child);
     if !enabled {
         ui.painter().rect_filled(rect, 5.0, theme::gray(0.14).gamma_multiply(0.4));
     }
@@ -247,7 +263,7 @@ pub fn button(ui: &mut Ui, title: &str, size: f32, style: ButtonStyle, enabled: 
 /// A pop-up button (`NSPopUpButton` / `.pickerStyle(.menu)`): capsule, title, up-down chevrons.
 /// `width` fixes the button's width; `None` fits the title. Returns true when the value changed.
 pub fn popup<T: Copy + PartialEq>(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &mut T, groups: &[&[T]], title: impl Fn(T) -> &'static str, width: Option<f32>, enabled: bool) -> bool {
-    let font = theme::regular(12.0);
+    let font = control_font(ui);
     let galley = ui.painter().layout_no_wrap(title(*value).to_string(), font.clone(), color::label());
     let w = width.unwrap_or(galley.size().x + 34.0);
     let (rect, response) = ui.allocate_exact_size(vec2(w, metric::CONTROL_HEIGHT), if enabled { Sense::click() } else { Sense::hover() });
@@ -318,10 +334,18 @@ pub fn vdivider(ui: &mut Ui, height: f32) {
 
 /// A field followed by its unit, two points apart (`unitSuffix`).
 pub fn unit(ui: &mut Ui, s: &str) {
+    // The row already left its spacing after the field; the unit draws back over all but 2 points.
     let spacing = ui.spacing().item_spacing.x;
-    ui.spacing_mut().item_spacing.x = 2.0;
-    text(ui, s, theme::regular(12.0), color::label());
-    ui.spacing_mut().item_spacing.x = spacing;
+    let galley = ui.painter().layout_no_wrap(s.to_string(), control_font(ui), color::label());
+    let size = vec2((galley.size().x + 2.0 - spacing).max(0.0), galley.size().y);
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+    ui.painter().galley(pos2(rect.min.x - spacing + 2.0, rect.min.y), galley, color::label());
+}
+
+/// The width `unit` takes in a row.
+pub fn unit_width(ui: &Ui, s: &str) -> f32 {
+    let galley = ui.painter().layout_no_wrap(s.to_string(), control_font(ui), color::label());
+    (galley.size().x + 2.0 - ui.spacing().item_spacing.x).max(0.0)
 }
 
 /// Lays `content` out left to right in `rect`, centered vertically, `spacing` apart.
