@@ -56,16 +56,6 @@ impl Tool {
             _ => 0,
         }
     }
-
-    /// The Mac's `NavigationTool`: Eraser is Brush in Erase mode, Smudge and Liquify are Blur's modes.
-    fn navigation(self) -> u8 {
-        match self {
-            Tool::Brush | Tool::Eraser => 0,
-            Tool::Heal => 1,
-            Tool::Clone => 2,
-            Tool::Blur | Tool::Smudge | Tool::Liquify => 3,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -118,7 +108,6 @@ struct Op {
     mask: bool,
     points: Vec<Point>,
     shift: bool,
-    source: Option<Point>,
 }
 
 fn point(v: &Value) -> Option<Point> {
@@ -181,13 +170,12 @@ impl Session {
         if let Some(v) = settings.get("sampleAll").and_then(|v| v.as_bool()) {
             self.sample_all = v;
         }
-        let source = op.get("source").and_then(point);
-        if let Some(s) = source {
+        if let Some(s) = op.get("source").and_then(point) {
             // `setCloneSource`: a new source starts a new alignment.
             self.clone_source = Some(s);
             self.clone_offset = None;
         }
-        Ok(Op { tool, layer, mask, points, shift: op.get("shift").and_then(|v| v.as_bool()).unwrap_or(false), source })
+        Ok(Op { tool, layer, mask, points, shift: op.get("shift").and_then(|v| v.as_bool()).unwrap_or(false) })
     }
 
     /// `cloneStrokeOffset(at:)`.
@@ -200,14 +188,12 @@ impl Session {
 /// Applies one `stroke` op to `project`, as the harness drives the Mac's mouse handlers.
 pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value) -> Result<()> {
     let op = session.prepare(op)?;
-    let _ = op.source;
-    let Some(layer) = project.manifest.layers.iter().find(|l| l.id == op.layer) else {
+    if !project.manifest.layers.iter().any(|l| l.id == op.layer) {
         return failed(format!("there's no layer {}", op.layer));
-    };
+    }
     if op.mask && !project.masks.contains_key(&op.layer) {
         return failed("the layer has no mask to paint");
     }
-    let _ = layer;
     let tip = session.tips[op.tool.family()];
     // mouseDown: a Shift-click paints on from the last stroke's end, on the same target.
     let shift_from = session.last_point.as_ref().filter(|(_, id, mask)| *id == op.layer && *mask == op.mask).map(|(p, _, _)| *p);
@@ -224,7 +210,8 @@ pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value
         let mut points = vec![first];
         points.extend(rest.iter().copied());
         points.push(*op.points.last().unwrap());
-        session.last_point = Some((first, op.layer.clone(), false));
+        // `continueBrush` moves `lastBrushPoint` to every point of a warp.
+        session.last_point = Some((*points.last().unwrap(), op.layer.clone(), false));
         return warp::apply(gpu, project, &op.layer, op.tool == Tool::Smudge, tip, &points);
     }
     if op.mask && !matches!(op.tool, Tool::Brush | Tool::Eraser | Tool::Blur) {
@@ -248,7 +235,6 @@ pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value
         healing: op.tool == Tool::Heal,
         healing_mode: session.healing_mode,
     };
-    let _ = op.tool.navigation();
     let mut stroke = stroke::Stroke::new(project, &op.layer, op.mask, settings, op.tool == Tool::Brush || op.tool == Tool::Eraser)?;
     if let Some(offset) = offset {
         stroke.set_clone(gpu, project, offset, session.sample_all)?;
