@@ -287,7 +287,19 @@ pub fn command(app: &mut App, command: Command) {
             }
         }
         Command::ContentAwareFill => {
-            app.alert("Couldn’t fill", "The port can’t run Content-Aware Fill yet: the engine's filters don't take a selection.".into())
+            // `beginFilter(.contentAwareFill)` then OK: the fill has no settings, so it's applied at once.
+            let engine = app.gfx.engine.clone();
+            let Some(doc) = app.doc_mut() else { return };
+            let Some(id) = doc.active.clone() else { return };
+            let mut selection = doc.selection.clone();
+            let op = json!({ "op": "filter", "layer": id, "kind": "Content-Aware Fill", "settings": {} });
+            if let Err(e) = doc.apply("Content-Aware Fill", |p| engine.apply_op_with_selection(p, &mut selection, &op)) {
+                let message = match e {
+                    engine::RenderError::Unsupported(what) => format!("The port can’t fill this exactly yet: {what}."),
+                    engine::RenderError::Failed(e) => format!("{e:#}"),
+                };
+                app.alert("Couldn’t fill", message);
+            }
         }
         _ => {}
     }

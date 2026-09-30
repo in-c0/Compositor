@@ -57,9 +57,10 @@ Menu items whose feature doesn't exist yet are in place but disabled, so the men
 
 A few things work in the app but aren't what the Mac does exactly, because the engine has no operation for them yet:
 
-- The engine's filters and strokes don't take a selection, so the app limits them to the selection itself, blending the result over the layer through the selection's coverage. This isn't checked against the Mac, and it only works on layers placed 1:1 and upright.
+- The filter sheets run the engine's filters without the selection, and the engine's strokes don't take one, so the app limits them to the selection itself, blending the result over the layer through the selection's coverage. This isn't checked against the Mac, and it only works on layers placed 1:1 and upright.
+- Content-Aware Fill runs the engine's fill on the selection at once. The Mac opens its filter panel first, which has no settings for it, and waits for OK.
 - Image > Invert and Edit > Fill run the Mac's arithmetic in the app; Levels and Hue/Saturation on a layer's pixels run the adjustment layers' kernels over them. No parity case covers these yet.
-- Select > Subject and the Magic tool's Object mode, and Content-Aware Fill, report that the engine can't do them yet. So does Image Size on a layer whose mask it would redraw at a rotation.
+- Select > Subject and the Magic tool's Object mode report that the engine can't do them yet. So does Image Size on a layer whose mask it would redraw at a rotation.
 - The Gradient, Shape and Type tools show their headers but say they aren't available when used: their engine code isn't on this branch yet.
 
 When a project uses something the compositor can't draw yet, the canvas stays empty and a badge at the bottom says what isn't supported. When an operation can't be done exactly, the app says so instead of doing it approximately.

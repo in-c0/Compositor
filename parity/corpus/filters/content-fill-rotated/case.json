@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill on a layer rotated 30 degrees",
+  "ops": [
+    {
+      "from": [
+        22.0,
+        20.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        40.0,
+        36.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "B007F6E1-7D76-4A10-B517-A7B1CC8987E8",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

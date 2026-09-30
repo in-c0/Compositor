@@ -222,11 +222,11 @@ mod tests {
             }
         }
         assert_eq!(content_fill(&mut pixels, w * 4, &mask, w, w as i32, h as i32), 1);
-        let mut matching = 0;
+        let mut matching = 0u32;
         for y in 26..36 {
             for x in 32..44 {
                 let want = if (x / 4) % 2 == 0 { 51 } else { 204 };
-                matching += (pixels[(y * w + x) * 4] as i32 - want).abs() <= 1 && pixels[(y * w + x) * 4 + 1] == want as u8;
+                matching += ((pixels[(y * w + x) * 4] as i32 - want).abs() <= 1 && pixels[(y * w + x) * 4 + 1] == want as u8) as u32;
             }
         }
         assert!(matching >= 114, "matched {matching} of 120");

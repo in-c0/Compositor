@@ -897,6 +897,16 @@ fn content_fill(w: &mut CaseWriter) -> Result<()> {
     let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { flip_x: true, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
     w.write(F, "content-fill-flipped", "Content-Aware Fill on a layer flipped horizontally", d, vec![marquee("Rectangle", [16.0, 22.0], [30.0, 40.0]), fill(&id)])?;
 
+    // Layers scaled or rotated: the selection is resampled onto the layer's grid by Core Graphics'
+    // clip, which the port hasn't measured yet.
+    let mut d = w.doc(F, "content-fill-scaled", N, N);
+    let id = d.image("Photo", images::photo(32, 32), at(0.0, 0.0, N, N));
+    w.write(F, "content-fill-scaled", "Content-Aware Fill on a layer drawn at twice its size", d, vec![marquee("Rectangle", [21.0, 19.0], [37.0, 33.0]), fill(&id)])?;
+
+    let mut d = w.doc(F, "content-fill-rotated", N, N);
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: 30.0, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
+    w.write(F, "content-fill-rotated", "Content-Aware Fill on a layer rotated 30 degrees", d, vec![marquee("Rectangle", [22.0, 20.0], [40.0, 36.0]), fill(&id)])?;
+
     // Everything selected leaves nothing to copy from: the Mac reports it and changes nothing.
     let mut d = w.doc(F, "content-fill-no-source", N, N);
     let id = d.image("Photo", textured(), spec());
