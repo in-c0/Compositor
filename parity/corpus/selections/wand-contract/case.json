@@ -1,0 +1,18 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the photo, then Contract 2",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        20.0,
+        20.0
+      ]
+    },
+    {
+      "contract": 2,
+      "op": "modifySelection"
+    }
+  ]
+}

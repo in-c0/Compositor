@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand, not contiguous: every cell of that color",
+  "ops": [
+    {
+      "contiguous": false,
+      "op": "wand",
+      "point": [
+        12.5,
+        3.5
+      ],
+      "tolerance": 0
+    }
+  ]
+}

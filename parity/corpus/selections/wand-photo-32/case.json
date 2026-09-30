@@ -1,0 +1,14 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the photo, Tolerance 32",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        20.0,
+        20.0
+      ]
+    }
+  ]
+}

@@ -18,6 +18,7 @@ pub fn all(w: &mut CaseWriter) -> Result<()> {
     document(w)?;
     filters(w)?;
     export(w)?;
+    selections(w)?;
     Ok(())
 }
 
@@ -813,4 +814,315 @@ fn export(w: &mut CaseWriter) -> Result<()> {
         w.write_with("export", &case, &format!("JPEG quantization tables at quality {quality}"), d, vec![], json!({ "jpeg": { "quality": quality } }))?;
     }
     Ok(())
+}
+
+/// Selections, compared through `<case>.selection.png` (the coverage the Mac rasterizes at
+/// document size) as well as the flattened image, which selecting leaves alone.
+fn selections(w: &mut CaseWriter) -> Result<()> {
+    use serde_json::Value;
+    const F: &str = "selections";
+    let marquee = |shape: &str, from: [f64; 2], to: [f64; 2]| json!({ "op": "marquee", "shape": shape, "from": from, "to": to });
+    let with = |mut op: Value, key: &str, value: Value| {
+        op[key] = value;
+        op
+    };
+    let lasso = |kind: &str, points: &[[f64; 2]]| json!({ "op": "lasso", "kind": kind, "points": points });
+    let polygon = |points: &[[f64; 2]]| lasso("Polygonal", points);
+    let modify = |kind: &str, amount: u32| json!({ "op": "modifySelection", kind: amount });
+    let add = |op: Value| with(op, "mode", json!("Add"));
+    let subtract = |op: Value| with(op, "mode", json!("Subtract"));
+    let aliased = |op: Value| with(op, "antialias", json!(false));
+    let rect = || marquee("Rectangle", [10.0, 12.0], [50.0, 40.0]);
+    let ellipse = || marquee("Ellipse", [8.0, 10.0], [56.0, 50.0]);
+    let triangle = || polygon(&[[10.5, 5.25], [58.75, 30.5], [12.2, 59.9]]);
+    // Trigonometry differs in the last bits between platforms; 1/64 px steps keep the corpus the same everywhere.
+    let q = |v: f64| (v * 64.0).round() / 64.0;
+    // A wobbly loop, as a freehand drag records it: fractional points about a pixel apart.
+    let wobble: Vec<[f64; 2]> = (0..90)
+        .map(|i| {
+            let t = i as f64 / 90.0 * std::f64::consts::TAU;
+            let r = 20.0 + 3.5 * (5.0 * t).sin();
+            [q(32.3 + r * t.cos()), q(31.7 + r * t.sin() * 0.9)]
+        })
+        .collect();
+    let star: Vec<[f64; 2]> = (0..5)
+        .map(|i| {
+            let t = (i as f64 * 144.0 - 90.0).to_radians();
+            [q(32.0 + 27.5 * t.cos()), q(33.0 + 27.5 * t.sin())]
+        })
+        .collect();
+
+    // Shape tools on a plain photo. The pixels don't matter to these; only the outline does.
+    let shapes: Vec<(&str, &str, Vec<Value>)> = vec![
+        ("rect", "Rectangular Marquee (10, 12) to (50, 40)", vec![rect()]),
+        ("rect-fractional", "Rectangular Marquee between fractional points, snapped to whole pixels", vec![marquee("Rectangle", [10.3, 12.6], [49.4, 40.5])]),
+        ("rect-reversed", "Rectangular Marquee dragged up and to the left", vec![marquee("Rectangle", [50.0, 40.0], [10.0, 12.0])]),
+        ("rect-square", "Rectangular Marquee with Shift, a square", vec![with(marquee("Rectangle", [8.0, 8.0], [40.0, 30.0]), "square", json!(true))]),
+        ("rect-past-canvas", "Rectangular Marquee running past the canvas, clipped to it", vec![marquee("Rectangle", [-10.0, -5.0], [30.0, 80.0])]),
+        ("rect-thin", "A one-pixel-wide Rectangular Marquee", vec![marquee("Rectangle", [20.0, 4.0], [21.0, 60.0])]),
+        ("ellipse", "Elliptical Marquee, anti-aliased", vec![ellipse()]),
+        ("ellipse-aliased", "Elliptical Marquee without anti-aliasing", vec![aliased(ellipse())]),
+        ("ellipse-circle", "Elliptical Marquee with Shift, a circle", vec![with(marquee("Ellipse", [16.0, 16.0], [47.0, 45.0]), "square", json!(true))]),
+        ("ellipse-small", "A 5x3 Elliptical Marquee", vec![marquee("Ellipse", [30.0, 30.0], [35.0, 33.0])]),
+        ("ellipse-small-aliased", "A 5x3 Elliptical Marquee without anti-aliasing", vec![aliased(marquee("Ellipse", [30.0, 30.0], [35.0, 33.0]))]),
+        ("ellipse-wide", "A long, flat Elliptical Marquee", vec![marquee("Ellipse", [3.0, 5.0], [60.0, 20.0])]),
+        ("ellipse-past-canvas", "Elliptical Marquee running past the canvas, clipped to it", vec![marquee("Ellipse", [-20.0, 20.0], [40.0, 90.0])]),
+        ("ellipse-past-canvas-aliased", "Elliptical Marquee past the canvas without anti-aliasing", vec![aliased(marquee("Ellipse", [-20.0, 20.0], [40.0, 90.0]))]),
+        ("polygon-triangle", "Polygonal Lasso triangle with fractional corners", vec![triangle()]),
+        ("polygon-triangle-aliased", "Polygonal Lasso triangle without anti-aliasing", vec![aliased(triangle())]),
+        ("polygon-star", "A self-crossing five-point star (the winding rule fills the middle)", vec![polygon(&star)]),
+        ("polygon-star-aliased", "The star without anti-aliasing", vec![aliased(polygon(&star))]),
+        ("polygon-shallow", "A quadrilateral with nearly horizontal and nearly vertical edges", vec![polygon(&[[4.0, 10.2], [60.0, 13.1], [58.6, 55.0], [6.5, 52.7]])]),
+        ("polygon-sliver", "A long triangle thinner than a pixel", vec![polygon(&[[2.0, 30.0], [62.0, 33.0], [2.0, 30.6]])]),
+        ("polygon-tiny", "A triangle smaller than one pixel", vec![polygon(&[[20.2, 20.2], [20.9, 20.4], [20.5, 20.8]])]),
+        ("polygon-tiny-aliased", "A triangle smaller than one pixel, without anti-aliasing", vec![aliased(polygon(&[[20.2, 20.2], [20.9, 20.4], [20.5, 20.8]]))]),
+        ("polygon-past-canvas", "A Polygonal Lasso that leaves the canvas and comes back", vec![polygon(&[[-12.5, 8.0], [40.0, -9.5], [75.25, 44.0], [20.0, 70.0], [30.0, 30.0]])]),
+        ("polygon-integer", "A Polygonal Lasso on whole pixels, with diagonal edges", vec![polygon(&[[8.0, 8.0], [56.0, 8.0], [40.0, 56.0], [8.0, 40.0]])]),
+        ("polygon-two-points", "A Polygonal Lasso with two points deselects", vec![json!({ "op": "selectAll" }), polygon(&[[5.0, 5.0], [50.0, 50.0]])]),
+        ("polygon-flat", "A Polygonal Lasso with no area deselects", vec![rect(), polygon(&[[5.0, 20.0], [30.0, 20.0], [50.0, 20.0]])]),
+        ("freehand", "A freehand Lasso loop", vec![lasso("Freehand", &wobble)]),
+        ("freehand-aliased", "A freehand Lasso loop without anti-aliasing", vec![aliased(lasso("Freehand", &wobble))]),
+        ("freehand-close-points", "A freehand Lasso whose points under a quarter pixel apart are skipped", vec![lasso("Freehand", &[[10.0, 10.0], [10.1, 10.1], [40.0, 12.0], [40.2, 12.1], [52.5, 50.25], [52.6, 50.3], [12.0, 44.0]])]),
+        // Add and Subtract.
+        ("add-rects", "Two overlapping rectangles added", vec![rect(), add(marquee("Rectangle", [30.0, 25.0], [60.0, 58.0]))]),
+        ("add-rect-ellipse", "An ellipse added to a rectangle", vec![rect(), add(marquee("Ellipse", [28.0, 22.0], [62.0, 60.0]))]),
+        ("add-disjoint", "Two separate triangles added", vec![polygon(&[[4.5, 4.5], [28.0, 6.0], [10.0, 28.0]]), add(polygon(&[[60.0, 36.5], [58.0, 60.0], [34.5, 58.25]]))]),
+        ("add-ellipses", "Two overlapping ellipses added", vec![marquee("Ellipse", [4.0, 8.0], [40.0, 44.0]), add(marquee("Ellipse", [24.0, 20.0], [60.0, 56.0]))]),
+        ("subtract-ellipse-from-rect", "An ellipse subtracted from a rectangle", vec![rect(), subtract(marquee("Ellipse", [30.0, 25.0], [60.0, 58.0]))]),
+        ("subtract-rect-from-ellipse", "A rectangle subtracted from an ellipse", vec![ellipse(), subtract(marquee("Rectangle", [20.0, 0.0], [40.0, 64.0]))]),
+        ("subtract-hole", "A triangle cut out of a rectangle, leaving a hole", vec![marquee("Rectangle", [6.0, 6.0], [58.0, 58.0]), subtract(polygon(&[[20.5, 18.0], [46.0, 30.5], [22.0, 47.25]]))]),
+        ("subtract-nothing", "Subtracting with no selection changes nothing", vec![subtract(rect())]),
+        ("subtract-all", "Subtracting all of the selection leaves an empty selection", vec![rect(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 64.0]))]),
+        ("add-subtract-chain", "Add, add, subtract", vec![rect(), add(ellipse()), subtract(triangle())]),
+        ("add-aliased-ellipse", "A hard-edged ellipse added to an anti-aliased one", vec![ellipse(), aliased(add(marquee("Ellipse", [30.0, 2.0], [62.0, 30.0])))]),
+        // Select menu.
+        ("select-all", "Select > All", vec![json!({ "op": "selectAll" })]),
+        ("deselect", "Select > Deselect after a marquee", vec![rect(), json!({ "op": "deselect" })]),
+        ("invert-rect", "Select > Inverse of a rectangle", vec![rect(), json!({ "op": "invertSelection" })]),
+        ("invert-ellipse", "Select > Inverse of an anti-aliased ellipse", vec![ellipse(), json!({ "op": "invertSelection" })]),
+        ("invert-triangle-aliased", "Select > Inverse of a hard-edged triangle", vec![aliased(triangle()), json!({ "op": "invertSelection" })]),
+        ("invert-all", "Select > Inverse of everything leaves no selection", vec![json!({ "op": "selectAll" }), json!({ "op": "invertSelection" })]),
+        ("invert-none", "Select > Inverse without a selection does nothing", vec![json!({ "op": "invertSelection" })]),
+        ("invert-twice", "Select > Inverse twice", vec![ellipse(), json!({ "op": "invertSelection" }), json!({ "op": "invertSelection" })]),
+        // Modify.
+        ("expand-rect", "Expand a rectangle by 3 (rounded corners)", vec![rect(), modify("expand", 3)]),
+        ("contract-rect", "Contract a rectangle by 3", vec![rect(), modify("contract", 3)]),
+        ("expand-ellipse", "Expand an ellipse by 2", vec![ellipse(), modify("expand", 2)]),
+        ("contract-triangle", "Contract a triangle by 2", vec![triangle(), modify("contract", 2)]),
+        ("expand-past-canvas", "Expand a rectangle near the edge by 10, clipped to the canvas", vec![marquee("Rectangle", [2.0, 40.0], [30.0, 60.0]), modify("expand", 10)]),
+        ("contract-canvas-edge", "Contract Select All by 4, away from the canvas edges too", vec![json!({ "op": "selectAll" }), modify("contract", 4)]),
+        ("contract-to-nothing", "Contract past the middle leaves an empty selection", vec![marquee("Rectangle", [20.0, 20.0], [36.0, 30.0]), modify("contract", 6)]),
+        ("expand-large", "Expand a small triangle by 20", vec![polygon(&[[28.0, 28.0], [36.5, 30.0], [30.0, 37.0]]), modify("expand", 20)]),
+        ("feather-rect", "Feather a rectangle by 4", vec![rect(), modify("feather", 4)]),
+        ("feather-ellipse", "Feather an ellipse by 2", vec![ellipse(), modify("feather", 2)]),
+        ("feather-1", "Feather a rectangle by 1", vec![rect(), modify("feather", 1)]),
+        ("feather-large", "Feather a triangle by 12", vec![triangle(), modify("feather", 12)]),
+        ("feather-twice", "Feather 3, then 4: the edge softens to 5", vec![rect(), modify("feather", 3), modify("feather", 4)]),
+        ("feather-aliased", "Feather a hard-edged triangle by 2", vec![aliased(triangle()), modify("feather", 2)]),
+        ("feather-canvas-edge", "Feather a rectangle touching the canvas edge by 6", vec![marquee("Rectangle", [0.0, 0.0], [40.0, 30.0]), modify("feather", 6)]),
+        ("feather-invert", "Feather 3, then Inverse", vec![ellipse(), modify("feather", 3), json!({ "op": "invertSelection" })]),
+        ("feather-then-add", "A feathered rectangle, then an ellipse added (the new selection is sharp again)", vec![rect(), modify("feather", 3), add(marquee("Ellipse", [30.0, 30.0], [62.0, 62.0]))]),
+        ("expand-then-feather", "Expand 2, then Feather 2", vec![triangle(), modify("expand", 2), modify("feather", 2)]),
+    ];
+    for (case, label, ops) in shapes {
+        let mut d = w.doc(F, case, N, N);
+        d.image("Photo", images::photo(N, N), spec());
+        w.write(F, case, label, d, ops)?;
+    }
+
+    // The Magic Wand, on a checkerboard (hard edges, cells that touch only at corners) or the photo
+    // (smooth ramps, where Tolerance decides the extent).
+    let wand = |x: f64, y: f64| json!({ "op": "wand", "point": [x, y] });
+    let tol = |op: Value, t: u32| with(op, "tolerance", json!(t));
+    let scattered = |op: Value| with(op, "contiguous", json!(false));
+    let wands: Vec<(&str, &str, &str, Vec<Value>)> = vec![
+        ("wand-cell", "Magic Wand on one checker cell, contiguous", "checker", vec![tol(wand(12.5, 3.5), 0)]),
+        ("wand-cells-global", "Magic Wand, not contiguous: every cell of that color", "checker", vec![scattered(tol(wand(12.5, 3.5), 0))]),
+        ("wand-diagonal", "Magic Wand on the white diagonal", "checker", vec![tol(wand(20.2, 20.9), 10)]),
+        ("wand-photo-32", "Magic Wand on the photo, Tolerance 32", "photo", vec![wand(20.0, 20.0)]),
+        ("wand-photo-8", "Magic Wand on the photo, Tolerance 8", "photo", vec![tol(wand(40.0, 30.0), 8)]),
+        ("wand-photo-global", "Magic Wand on the photo, Tolerance 20, not contiguous", "photo", vec![scattered(tol(wand(40.0, 30.0), 20))]),
+        ("wand-photo-255", "Magic Wand, Tolerance 255 selects everything", "photo", vec![tol(wand(1.0, 1.0), 255)]),
+        ("wand-3x3", "Magic Wand, 3 by 3 Average", "noise", vec![tol(with(wand(30.5, 30.5), "sampleSize", json!("3 by 3 Average")), 60)]),
+        ("wand-5x5-corner", "Magic Wand, 5 by 5 Average at the corner (the square is clipped to the image)", "noise", vec![scattered(tol(with(wand(0.5, 63.5), "sampleSize", json!("5 by 5 Average")), 70))]),
+        ("wand-5x5-miss", "Magic Wand whose average matches nothing around the click deselects", "noise", vec![json!({ "op": "selectAll" }), tol(with(wand(30.5, 30.5), "sampleSize", json!("5 by 5 Average")), 0)]),
+        ("wand-transparent", "Magic Wand on the transparent ground around a disc (alpha is matched too)", "disc", vec![tol(wand(2.0, 2.0), 40)]),
+        ("wand-disc", "Magic Wand inside a disc, anti-aliasing off", "disc", vec![aliased(tol(wand(32.0, 32.0), 100))]),
+        ("wand-ring", "Magic Wand on a ring: an outline with a hole", "ring", vec![tol(wand(32.0, 10.0), 16)]),
+        ("wand-layer-offset", "Magic Wand on a small layer placed at (16, 16): outside it the layer reads as transparent", "offset", vec![tol(wand(4.0, 4.0), 0)]),
+        ("wand-all-layers", "Magic Wand reading all layers", "offset", vec![with(tol(wand(20.0, 20.0), 24), "sampleAllLayers", json!(true))]),
+        ("wand-add", "Magic Wand adding a second checker color", "checker", vec![tol(wand(3.5, 12.5), 0), add(scattered(tol(wand(12.5, 3.5), 0)))]),
+        ("wand-subtract", "Magic Wand subtracting from an ellipse", "checker", vec![ellipse(), subtract(scattered(tol(wand(12.5, 3.5), 0)))]),
+        ("wand-expand", "Magic Wand, then Expand 1 around the staircase outline", "checker", vec![tol(wand(12.5, 3.5), 0), modify("expand", 1)]),
+        ("wand-contract", "Magic Wand on the photo, then Contract 2", "photo", vec![wand(20.0, 20.0), modify("contract", 2)]),
+        ("wand-feather", "Magic Wand on the ring, then Feather 2", "ring", vec![tol(wand(32.0, 10.0), 16), modify("feather", 2)]),
+        ("wand-invert", "Magic Wand on the ring, then Inverse", "ring", vec![tol(wand(32.0, 10.0), 16), json!({ "op": "invertSelection" })]),
+        ("object", "Object Selection on a disc", "disc", vec![json!({ "op": "objectSelection", "point": [32, 32] })]),
+    ];
+    for (case, label, input, ops) in wands {
+        let mut d = w.doc(F, case, N, N);
+        match input {
+            "checker" => {
+                d.image("Checker", images::checker(N, N, 8), spec());
+            }
+            "photo" => {
+                d.image("Photo", images::photo(N, N), spec());
+            }
+            "noise" => {
+                d.image("Noise", images::noise(N, N, 31, Alpha::Varied), spec());
+            }
+            "disc" => {
+                d.image("Photo", images::photo(N, N), spec());
+                d.image("Disc", images::disc(N, N, [250, 200, 20]), spec());
+            }
+            "ring" => {
+                d.image("Ring", ring(N), spec());
+            }
+            _ => {
+                d.image("Photo", images::photo(N, N), spec());
+                d.image("Small", images::checker(32, 32, 4), LayerSpec { transform: Some(Transform::at(16.0, 16.0, 32.0, 32.0)), ..spec() });
+            }
+        }
+        w.write(F, case, label, d, ops)?;
+    }
+
+    // Probes for Core Graphics' fill: combs whose teeth have edges at many fractions of a pixel,
+    // and long edges at several slopes. The combs sit on a 1/1024 grid, as the rasterizer's
+    // arithmetic is binary.
+    let comb = |horizontal: bool, fractions: &dyn Fn(usize) -> (f64, f64)| {
+        let mut points: Vec<[f64; 2]> = Vec::new();
+        let (f0, _) = fractions(0);
+        points.push([f0, 60.0]);
+        for i in 0..31 {
+            let (f, g) = fractions(i);
+            let (left, right) = (2.0 * i as f64 + f, 2.0 * i as f64 + 1.0 + g);
+            if i > 0 {
+                points.push([left, 44.0]);
+            }
+            points.push([left, 4.0]);
+            points.push([right, 4.0]);
+            points.push([right, if i == 30 { 60.0 } else { 44.0 }]);
+        }
+        let points: Vec<[f64; 2]> = if horizontal { points.iter().map(|p| [p[1], p[0]]).collect() } else { points };
+        polygon(&points)
+    };
+    let grid = |v: f64| (v * 1024.0).round() / 1024.0;
+    let spread = |i: usize| (grid((i as f64 + 0.37) / 31.0), grid((i as f64 + 0.71) / 31.0));
+    // Each tooth's left edge leaves its pixel a sliver of 1…31/1024; the right edge covers half.
+    let slivers = |i: usize| (1.0 - (i + 1) as f64 / 1024.0, 0.5);
+    let slope = |dx_dy: f64, top: f64, height: f64, x: f64| polygon(&[[x, top], [62.0, top], [62.0, top + height], [x + dx_dy * height, top + height]]);
+    let ellipse_then = |second: Value| vec![ellipse(), second];
+    let probes: Vec<(&str, &str, Vec<Value>)> = vec![
+        ("probe-comb-x", "Probe: vertical edges at 62 fractions of a pixel", vec![comb(false, &spread)]),
+        ("probe-comb-y", "Probe: horizontal edges at 62 fractions of a pixel", vec![comb(true, &spread)]),
+        ("probe-comb-x-tiny", "Probe: vertical edges leaving slivers of 1/1024 to 31/1024 px", vec![comb(false, &slivers)]),
+        ("probe-comb-x-tiny-aliased", "Probe: vertical edges leaving slivers of 1/1024 to 31/1024 px, aliased", vec![aliased(comb(false, &slivers))]),
+        ("probe-slope-0.0311", "Probe: an edge 0.0311 px across per row", vec![slope(0.0311, 2.3, 59.0, 3.4)]),
+        ("probe-slope-0.37", "Probe: an edge 0.37 px across per row", vec![slope(0.37, 2.3, 59.0, 3.4)]),
+        ("probe-slope-1.6", "Probe: an edge 1.6 px across per row", vec![slope(1.6, 10.0, 35.0, 1.2)]),
+        ("probe-slope-7.3", "Probe: an edge 7.3 px across per row", vec![slope(7.3, 20.2, 7.5, 2.1)]),
+        ("probe-slope-back", "Probe: an edge -0.23 px across per row", vec![slope(-0.23, 1.1, 60.0, 17.9)]),
+        ("probe-ellipse-subtract-far", "Probe: an ellipse, less a rectangle that doesn't touch it", ellipse_then(subtract(marquee("Rectangle", [58.0, 56.0], [62.0, 62.0])))),
+        ("probe-ellipse-add-far", "Probe: an ellipse, plus a rectangle that doesn't touch it", ellipse_then(add(marquee("Rectangle", [58.0, 56.0], [62.0, 62.0])))),
+        ("probe-ellipse-add-self", "Probe: an ellipse added to itself", ellipse_then(add(ellipse()))),
+        ("probe-ellipse-cut-center", "Probe: an ellipse, less the rectangle below its middle", ellipse_then(subtract(marquee("Rectangle", [0.0, 30.0], [64.0, 64.0])))),
+        ("probe-ellipse-cut-right", "Probe: an ellipse, less the rectangle right of x = 45", ellipse_then(subtract(marquee("Rectangle", [45.0, 0.0], [64.0, 64.0])))),
+        ("probe-circle-cut-thin", "Probe: a circle, less a one-pixel column through it", vec![marquee("Ellipse", [8.0, 8.0], [56.0, 56.0]), subtract(marquee("Rectangle", [31.0, 0.0], [32.0, 64.0]))]),
+        ("probe-ellipse-large", "Probe: an ellipse larger than the canvas, inside it at the corners", vec![marquee("Ellipse", [-6.0, -4.0], [70.0, 68.0])]),
+        // Long shallow edges whose 1/16 px steps round well away from their slope (Core Graphics
+        // truncates each step), meeting at vertices inside pixels.
+        ("probe-vertex-right", "Probe: two long shallow edges meeting at a vertex on the right", vec![polygon(&[[2.3, 2.4286], [61.4, 31.3], [2.3, 52.9571]])]),
+        ("probe-vertex-left", "Probe: two long shallow edges meeting at a vertex on the left", vec![polygon(&[[61.7, 3.8286], [61.7, 54.3571], [2.6, 32.7]])]),
+        ("probe-vertex-bottom", "Probe: two long steep edges meeting at a vertex at the bottom", vec![polygon(&[[2.43, 2.3], [52.96, 2.3], [31.3, 61.4]])]),
+        ("probe-edge-long-up", "Probe: one long shallow edge between two vertical ones", vec![polygon(&[[1.5, 20.3], [62.5, 29.25], [62.5, 60.0], [1.5, 60.0]])]),
+        ("probe-edge-long-down", "Probe: one long shallow edge the other way", vec![polygon(&[[1.5, 29.25], [62.5, 20.3], [62.5, 60.0], [1.5, 60.0]])]),
+        // Inside corners after Contract, and bands that cut each other's round joins.
+        ("probe-contract-l", "Probe: an L contracted by 3 (a whole round inside corner)", vec![polygon(&[[6.0, 6.0], [30.0, 6.0], [30.0, 30.0], [58.0, 30.0], [58.0, 58.0], [6.0, 58.0]]), modify("contract", 3)]),
+        ("probe-contract-step1", "Probe: a one-pixel step contracted by 2 (the corner's arc cut by the next edge's band)", vec![polygon(&[[20.0, 8.0], [26.0, 8.0], [26.0, 50.0], [18.0, 50.0], [18.0, 30.0], [20.0, 30.0]]), modify("contract", 2)]),
+        ("probe-contract-step3", "Probe: a three-pixel step contracted by 2", vec![polygon(&[[20.0, 8.0], [26.0, 8.0], [26.0, 50.0], [15.0, 50.0], [15.0, 30.0], [20.0, 30.0]]), modify("contract", 2)]),
+        ("probe-expand-gap", "Probe: a C with a 3 px gap expanded by 2 (round joins cut by each other)", vec![polygon(&[[10.0, 10.0], [54.0, 10.0], [54.0, 20.0], [20.0, 20.0], [20.0, 23.0], [54.0, 23.0], [54.0, 54.0], [10.0, 54.0]]), modify("expand", 2)]),
+        // A curve cut, then its piece cut again.
+        ("probe-recut-strips", "Probe: an ellipse less a strip along the top, then less a strip on the left", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0])), subtract(marquee("Rectangle", [0.0, 0.0], [26.0, 64.0]))]),
+        ("probe-recut-left", "Probe: an ellipse less the strip on the left only", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [26.0, 64.0]))]),
+        ("probe-recut-top", "Probe: an ellipse less the strip along the top only", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0]))]),
+        ("probe-recut-union", "Probe: a rectangle plus an ellipse, less a strip on the left", vec![marquee("Rectangle", [20.0, 20.0], [44.0, 44.0]), add(ellipse()), subtract(marquee("Rectangle", [0.0, 0.0], [30.0, 64.0]))]),
+        ("probe-recut-diagonal", "Probe: an ellipse less a strip along the top, then less a triangle", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0])), subtract(polygon(&[[0.0, 0.0], [40.0, 0.0], [0.0, 40.0]]))]),
+        // Expand and Contract on curves.
+        ("probe-expand-circle", "Probe: a circle expanded by 3", vec![marquee("Ellipse", [16.0, 16.0], [48.0, 48.0]), modify("expand", 3)]),
+        ("probe-contract-ellipse", "Probe: an ellipse contracted by 2", vec![ellipse(), modify("contract", 2)]),
+        ("probe-expand-small-ellipse", "Probe: a small ellipse expanded by 4", vec![marquee("Ellipse", [28.0, 28.0], [36.0, 34.0]), modify("expand", 4)]),
+    ];
+    for (case, label, ops) in probes {
+        let mut d = w.doc(F, case, N, N);
+        d.image("Photo", images::photo(N, N), spec());
+        w.write(F, case, label, d, ops)?;
+    }
+
+    // Select > Color Range, which reads every visible layer.
+    let range = |samples: Value| json!({ "op": "colorRange", "samples": samples });
+    let ranges: Vec<(&str, &str, Value)> = vec![
+        ("range", "Color Range, one color, Fuzziness 40", range(json!([{ "point": [20, 20] }]))),
+        ("range-add", "Color Range, two colors", range(json!([{ "point": [20, 20] }, { "point": [50, 40], "mode": "Add" }]))),
+        ("range-remove", "Color Range, a color taken away", with(range(json!([{ "point": [20, 20] }, { "point": [24, 22], "mode": "Remove" }])), "fuzziness", json!(80))),
+        ("range-replace", "Color Range, a second click starts over", range(json!([{ "point": [20, 20] }, { "point": [50, 60] }]))),
+        ("range-invert", "Color Range, inverted", with(range(json!([{ "point": [20, 20] }])), "invert", json!(true))),
+        ("range-fuzziness-0", "Color Range, Fuzziness 0", with(range(json!([{ "point": [33, 61] }])), "fuzziness", json!(0))),
+        ("range-fuzziness-200", "Color Range, Fuzziness 200", with(range(json!([{ "point": [5, 5] }])), "fuzziness", json!(200))),
+        ("range-edge", "Color Range sampled at the corner (the 3 by 3 average reaches past the image)", with(range(json!([{ "point": [63.5, 0.5] }])), "fuzziness", json!(30))),
+        ("range-translucent", "Color Range on a disc over transparency (transparent pixels never match)", range(json!([{ "point": [32, 32] }]))),
+        ("range-nothing", "Color Range picking only transparency keeps no selection", range(json!([{ "point": [1, 1] }]))),
+    ];
+    for (case, label, op) in ranges {
+        let mut d = w.doc(F, case, N, N);
+        if matches!(case, "range-translucent" | "range-nothing") {
+            d.image("Disc", images::disc(N, N, [40, 160, 230]), spec());
+        } else {
+            d.image("Photo", images::photo(N, N), spec());
+            d.image("Screen", images::noise(N, N, 32, Alpha::Varied), LayerSpec { opacity: Some(0.3), ..spec() });
+        }
+        w.write(F, case, label, d, vec![op])?;
+    }
+
+    // Loading a layer's pixels or its mask's black areas (Cmd-click on the thumbnails).
+    let loads: Vec<(&str, &str)> = vec![
+        ("load-pixels", "A layer's pixels (at least half opaque) as the selection"),
+        ("load-pixels-offset", "The pixels of a layer that runs past the canvas"),
+        ("load-mask", "A mask's black areas as the selection"),
+        ("load-add", "A layer's pixels added to a rectangle"),
+        ("load-subtract", "A mask's black areas subtracted from Select All"),
+        ("load-then-feather", "A layer's pixels, then Feather 3"),
+    ];
+    for (case, label) in loads {
+        let mut d = w.doc(F, case, N, N);
+        d.image("Photo", images::photo(N, N), spec());
+        let placed = if case == "load-pixels-offset" { Some(Transform::at(-20.0, 30.0, 64.0, 64.0)) } else { None };
+        let noise = d.image("Noise", images::noise(N, N, 33, Alpha::Varied), LayerSpec { transform: placed, ..spec() });
+        let masked = d.image("Masked", images::disc(N, N, [200, 60, 90]), spec());
+        d.mask(&masked, images::mask_mixed(N, N));
+        let load = |layer: &str, mask: bool| json!({ "op": "loadSelection", "layer": layer, "mask": mask });
+        let ops = match case {
+            "load-mask" => vec![load(&masked, true)],
+            "load-add" => vec![rect(), add(load(&masked, false))],
+            "load-subtract" => vec![json!({ "op": "selectAll" }), subtract(load(&masked, true))],
+            "load-then-feather" => vec![load(&masked, false), modify("feather", 3)],
+            _ => vec![load(&noise, false)],
+        };
+        w.write(F, case, label, d, ops)?;
+    }
+    Ok(())
+}
+
+/// A ring of one color with a soft gradient inside it, on a flat ground: the Wand's outline has
+/// an outer loop and a hole.
+fn ring(n: u32) -> RgbaImage {
+    RgbaImage::from_fn(n, n, |x, y| {
+        let d = ((x as f64 + 0.5 - 32.0).powi(2) + (y as f64 + 0.5 - 32.0).powi(2)).sqrt();
+        if (14.0..24.0).contains(&d) {
+            image::Rgba([200, 40 + (x % 4) as u8 * 3, 60, 255])
+        } else if d < 14.0 {
+            image::Rgba([20 + (d * 8.0) as u8, 120, 200, 255])
+        } else {
+            image::Rgba([240, 235, 220, 255])
+        }
+    })
 }

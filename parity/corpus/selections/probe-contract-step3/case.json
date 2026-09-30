@@ -1,0 +1,41 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a three-pixel step contracted by 2",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          20.0,
+          8.0
+        ],
+        [
+          26.0,
+          8.0
+        ],
+        [
+          26.0,
+          50.0
+        ],
+        [
+          15.0,
+          50.0
+        ],
+        [
+          15.0,
+          30.0
+        ],
+        [
+          20.0,
+          30.0
+        ]
+      ]
+    },
+    {
+      "contract": 2,
+      "op": "modifySelection"
+    }
+  ]
+}

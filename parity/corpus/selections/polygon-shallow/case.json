@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A quadrilateral with nearly horizontal and nearly vertical edges",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          4.0,
+          10.2
+        ],
+        [
+          60.0,
+          13.1
+        ],
+        [
+          58.6,
+          55.0
+        ],
+        [
+          6.5,
+          52.7
+        ]
+      ]
+    }
+  ]
+}

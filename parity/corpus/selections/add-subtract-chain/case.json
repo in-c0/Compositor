@@ -1,0 +1,51 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Add, add, subtract",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "from": [
+        8.0,
+        10.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    },
+    {
+      "kind": "Polygonal",
+      "mode": "Subtract",
+      "op": "lasso",
+      "points": [
+        [
+          10.5,
+          5.25
+        ],
+        [
+          58.75,
+          30.5
+        ],
+        [
+          12.2,
+          59.9
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "An ellipse subtracted from a rectangle",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "from": [
+        30.0,
+        25.0
+      ],
+      "mode": "Subtract",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        60.0,
+        58.0
+      ]
+    }
+  ]
+}

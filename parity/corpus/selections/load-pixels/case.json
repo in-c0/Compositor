@@ -1,0 +1,12 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A layer's pixels (at least half opaque) as the selection",
+  "ops": [
+    {
+      "layer": "B4D33420-BE28-4E24-8220-D1FEB672299E",
+      "mask": false,
+      "op": "loadSelection"
+    }
+  ]
+}

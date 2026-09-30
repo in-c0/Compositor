@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand, 3 by 3 Average",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        30.5,
+        30.5
+      ],
+      "sampleSize": "3 by 3 Average",
+      "tolerance": 60
+    }
+  ]
+}

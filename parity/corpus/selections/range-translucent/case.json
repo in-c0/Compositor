@@ -1,0 +1,18 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range on a disc over transparency (transparent pixels never match)",
+  "ops": [
+    {
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            32,
+            32
+          ]
+        }
+      ]
+    }
+  ]
+}

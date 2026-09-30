@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on a small layer placed at (16, 16): outside it the layer reads as transparent",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        4.0,
+        4.0
+      ],
+      "tolerance": 0
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range, one color, Fuzziness 40",
+  "ops": [
+    {
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            20,
+            20
+          ]
+        }
+      ]
+    }
+  ]
+}

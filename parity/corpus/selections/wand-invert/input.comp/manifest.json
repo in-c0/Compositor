@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "E10E00D6-B3BE-4321-8935-F90A5F53F3E0",
+  "colorSpace" : "sRGB",
+  "documentID" : "847B156F-4279-44D3-9077-C7C6C5F22EBF",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "E10E00D6-B3BE-4321-8935-F90A5F53F3E0",
+      "imageFile" : "E10E00D6-B3BE-4321-8935-F90A5F53F3E0.png",
+      "isVisible" : true,
+      "name" : "Ring",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

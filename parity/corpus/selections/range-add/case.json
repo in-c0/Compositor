@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range, two colors",
+  "ops": [
+    {
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            20,
+            20
+          ]
+        },
+        {
+          "mode": "Add",
+          "point": [
+            50,
+            40
+          ]
+        }
+      ]
+    }
+  ]
+}

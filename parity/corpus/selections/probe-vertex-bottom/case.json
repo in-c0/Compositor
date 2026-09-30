@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: two long steep edges meeting at a vertex at the bottom",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          2.43,
+          2.3
+        ],
+        [
+          52.96,
+          2.3
+        ],
+        [
+          31.3,
+          61.4
+        ]
+      ]
+    }
+  ]
+}

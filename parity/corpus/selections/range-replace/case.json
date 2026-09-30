@@ -1,0 +1,24 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range, a second click starts over",
+  "ops": [
+    {
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            20,
+            20
+          ]
+        },
+        {
+          "point": [
+            50,
+            60
+          ]
+        }
+      ]
+    }
+  ]
+}

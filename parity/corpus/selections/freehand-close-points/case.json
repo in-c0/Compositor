@@ -1,0 +1,41 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A freehand Lasso whose points under a quarter pixel apart are skipped",
+  "ops": [
+    {
+      "kind": "Freehand",
+      "op": "lasso",
+      "points": [
+        [
+          10.0,
+          10.0
+        ],
+        [
+          10.1,
+          10.1
+        ],
+        [
+          40.0,
+          12.0
+        ],
+        [
+          40.2,
+          12.1
+        ],
+        [
+          52.5,
+          50.25
+        ],
+        [
+          52.6,
+          50.3
+        ],
+        [
+          12.0,
+          44.0
+        ]
+      ]
+    }
+  ]
+}

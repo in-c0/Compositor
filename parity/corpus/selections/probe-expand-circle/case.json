@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a circle expanded by 3",
+  "ops": [
+    {
+      "from": [
+        16.0,
+        16.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        48.0,
+        48.0
+      ]
+    },
+    {
+      "expand": 3,
+      "op": "modifySelection"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A layer's pixels added to a rectangle",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "layer": "8E9A130E-ED04-40E4-B60F-EC05D4539CA5",
+      "mask": false,
+      "mode": "Add",
+      "op": "loadSelection"
+    }
+  ]
+}

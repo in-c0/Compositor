@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Rectangular Marquee between fractional points, snapped to whole pixels",
+  "ops": [
+    {
+      "from": [
+        10.3,
+        12.6
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        49.4,
+        40.5
+      ]
+    }
+  ]
+}

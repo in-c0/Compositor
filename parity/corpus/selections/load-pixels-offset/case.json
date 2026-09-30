@@ -1,0 +1,12 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "The pixels of a layer that runs past the canvas",
+  "ops": [
+    {
+      "layer": "24844999-898F-47FD-8EDF-77447F3966AF",
+      "mask": false,
+      "op": "loadSelection"
+    }
+  ]
+}

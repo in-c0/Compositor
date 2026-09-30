@@ -1,0 +1,32 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "An ellipse added to a rectangle",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "from": [
+        28.0,
+        22.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        62.0,
+        60.0
+      ]
+    }
+  ]
+}

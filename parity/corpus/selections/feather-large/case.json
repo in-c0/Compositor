@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Feather a triangle by 12",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          10.5,
+          5.25
+        ],
+        [
+          58.75,
+          30.5
+        ],
+        [
+          12.2,
+          59.9
+        ]
+      ]
+    },
+    {
+      "feather": 12,
+      "op": "modifySelection"
+    }
+  ]
+}

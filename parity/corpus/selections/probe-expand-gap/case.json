@@ -1,0 +1,49 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a C with a 3 px gap expanded by 2 (round joins cut by each other)",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          10.0,
+          10.0
+        ],
+        [
+          54.0,
+          10.0
+        ],
+        [
+          54.0,
+          20.0
+        ],
+        [
+          20.0,
+          20.0
+        ],
+        [
+          20.0,
+          23.0
+        ],
+        [
+          54.0,
+          23.0
+        ],
+        [
+          54.0,
+          54.0
+        ],
+        [
+          10.0,
+          54.0
+        ]
+      ]
+    },
+    {
+      "expand": 2,
+      "op": "modifySelection"
+    }
+  ]
+}

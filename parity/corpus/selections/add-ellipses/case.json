@@ -1,0 +1,32 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Two overlapping ellipses added",
+  "ops": [
+    {
+      "from": [
+        4.0,
+        8.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        40.0,
+        44.0
+      ]
+    },
+    {
+      "from": [
+        24.0,
+        20.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        60.0,
+        56.0
+      ]
+    }
+  ]
+}

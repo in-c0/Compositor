@@ -1,0 +1,45 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a rectangle plus an ellipse, less a strip on the left",
+  "ops": [
+    {
+      "from": [
+        20.0,
+        20.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        44.0,
+        44.0
+      ]
+    },
+    {
+      "from": [
+        8.0,
+        10.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    },
+    {
+      "from": [
+        0.0,
+        0.0
+      ],
+      "mode": "Subtract",
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        30.0,
+        64.0
+      ]
+    }
+  ]
+}

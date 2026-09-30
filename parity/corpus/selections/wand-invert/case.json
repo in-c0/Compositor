@@ -1,0 +1,18 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the ring, then Inverse",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        32.0,
+        10.0
+      ],
+      "tolerance": 16
+    },
+    {
+      "op": "invertSelection"
+    }
+  ]
+}

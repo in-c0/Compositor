@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand, Tolerance 255 selects everything",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        1.0,
+        1.0
+      ],
+      "tolerance": 255
+    }
+  ]
+}

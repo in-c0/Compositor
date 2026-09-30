@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: an ellipse larger than the canvas, inside it at the corners",
+  "ops": [
+    {
+      "from": [
+        -6.0,
+        -4.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        70.0,
+        68.0
+      ]
+    }
+  ]
+}

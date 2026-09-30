@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A long, flat Elliptical Marquee",
+  "ops": [
+    {
+      "from": [
+        3.0,
+        5.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        60.0,
+        20.0
+      ]
+    }
+  ]
+}

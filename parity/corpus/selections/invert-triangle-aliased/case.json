@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Inverse of a hard-edged triangle",
+  "ops": [
+    {
+      "antialias": false,
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          10.5,
+          5.25
+        ],
+        [
+          58.75,
+          30.5
+        ],
+        [
+          12.2,
+          59.9
+        ]
+      ]
+    },
+    {
+      "op": "invertSelection"
+    }
+  ]
+}

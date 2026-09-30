@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range, inverted",
+  "ops": [
+    {
+      "invert": true,
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            20,
+            20
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Feather a rectangle touching the canvas edge by 6",
+  "ops": [
+    {
+      "from": [
+        0.0,
+        0.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        40.0,
+        30.0
+      ]
+    },
+    {
+      "feather": 6,
+      "op": "modifySelection"
+    }
+  ]
+}

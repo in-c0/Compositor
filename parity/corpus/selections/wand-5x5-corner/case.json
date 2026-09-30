@@ -1,0 +1,17 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand, 5 by 5 Average at the corner (the square is clipped to the image)",
+  "ops": [
+    {
+      "contiguous": false,
+      "op": "wand",
+      "point": [
+        0.5,
+        63.5
+      ],
+      "sampleSize": "5 by 5 Average",
+      "tolerance": 70
+    }
+  ]
+}

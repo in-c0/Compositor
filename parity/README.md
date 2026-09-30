@@ -44,6 +44,14 @@ A case is a folder containing `case.json` and one input: a `.comp` package, a `.
 | `crop` | `rect` `[x, y, width, height]`, in whole document pixels | `EditorSession.commitCrop` with `cropRect` set to `rect`, as Apply Crop does |
 | `imageSize` | `width`, `height`, `resolution` (optional, default the document's), `sampling` (optional, a `LayerSampling` raw value: `"Nearest"`, `"Smooth"` or `"High quality"`, default `"High quality"`) | `ImageResizer.resize` with these `ImageSizeOptions`, then `EditorSession.applyImageSize`, as Image Size's OK does |
 | `stroke` | `tool` (`"brush"`, `"eraser"`, `"heal"`, `"clone"`, `"blur"`, `"smudge"` or `"liquify"`), `layer`, `target` (optional, `"pixels"` or `"mask"`, default `"pixels"`), `points` (`[[x, y], …]` in document pixels, top-left origin; at least one), `shift` (optional, default false), `source` (optional `[x, y]`, Clone Stamp only), `settings` (optional: `size`, `hardness`, `opacity`, `smoothing`, `blurRadius`, `color` `[red, green, blue]` 0–1, `white` (a mask's White · Reveal), `healingMode` (a `SpotHealingMode` raw value), `aligned`, `sampleAll`) | `EditorSession.selectLayerTarget` (the layer's or its mask's thumbnail), `selectTool` with `brushMode` or `blurMode`, the options bar's settings, `setCloneSource` for `source` (Option-click), then what `EditorCanvas`'s mouse handlers call: `beginBrush` at the first point (with `shift`, `beginBrush` at `shiftLineStart()` then `continueBrush` at the first point), `continueBrush` at every later point, `continueBrush` at the last point again and `finishBrushImmediately` for the release |
+| `marquee` | `shape` (`"Rectangle"` or `"Ellipse"`, default Rectangle), `from` and `to` (`[x, y]` in document pixels), `square` (optional, Shift held during the drag), `mode` (optional, `"New"`, `"Add"` or `"Subtract"`, default New), `antialias` (optional, default true) | The Marquee tool: `EditorSession.beginLasso` at `from`, `dragMarquee` to `to`, `finishLasso` |
+| `lasso` | `kind` (`"Freehand"` or `"Polygonal"`, default Freehand), `points` (`[[x, y], …]`), `mode`, `antialias` | The Lasso tool: `beginLasso` at the first point, `extendLasso` to each of the rest, `finishLasso` |
+| `wand` | `point`, `layer` (optional, the layer to make active first), `tolerance` (0–255, default 32), `sampleSize` (`"Point Sample"`, `"3 by 3 Average"` or `"5 by 5 Average"`), `contiguous` (default true), `sampleAllLayers` (default false), `mode`, `antialias` | The Magic tool in Wand mode: `EditorSession.magicWand(at:mode:)` with these `WandSettings` |
+| `objectSelection` | `point`, `layer` (optional), `sampleAllLayers` (default true), `edge` (−10–10, default 0), `mode`, `antialias` | The Magic tool in Object mode: `EditorSession.selectObject(at:mode:)` |
+| `colorRange` | `samples` (`[{ "point": [x, y], "mode": "Sample" \| "Add" \| "Remove" }, …]`, one click on the image each), `fuzziness` (0–200, default 40), `invert` (default false), `antialias` | Select > Color Range…: `beginColorRange`, then `sampleColorRange` per sample with that eyedropper chosen, then `commitColorRange` (OK) once the panel shows the result |
+| `selectAll`, `deselect`, `invertSelection` | none | `EditorSession.selectAll`, `deselect`, `invertSelection`: Select > All, Deselect, Inverse |
+| `modifySelection` | one of `expand` (1–500), `contract` (1–500), `feather` (1–250) | `EditorSession.expandSelection(by:)`, `contractSelection(by:)` or `featherSelection(by:)`: Select > Expand…, Contract…, Feather… |
+| `loadSelection` | `layer`, `mask` (optional, default false), `mode` | `EditorSession.loadLayerSelection` (Cmd-click on the layer thumbnail: its pixels at least half opaque) or `loadMaskSelection` (on the mask thumbnail: the mask's black areas) |
 
 A filter's `settings` holds only the fields to change. The rest keep their `FilterSettings()` defaults, not the settings the app last used. Nested settings (`curves`, `exposure`, `gradientMap`, `grain`, `blackWhite`, `colorBalance`, `dither`, `vignetteColor`) also use the Swift field names and can also be partial. Enum fields take their raw values, such as `"Advanced"` for `backgroundQuality`. A field the harness doesn't know makes the case an **error**, so a misspelt name is caught instead of ignored.
 
@@ -53,11 +61,15 @@ Where the harness can't do exactly what the app does:
 - **Camera Raw Filter** isn't supported. `CameraRawSettings` has no JSON form.
 - **Content-Aware Fill** needs a selection, and no op makes one yet, so it always fails.
 - **Strokes** feed the points exactly, one mouse event each, so nothing depends on timing. Settings left out keep what the tool already has, as the options bar does: a fresh session starts Brush, Eraser and Spot Healing at 40 px, 100% hardness and 100% opacity, and Clone Stamp and Blur at 40 px, 0% hardness, 100% opacity (`parkedBrushTips`). The harness has no view, so the viewport's zoom stays 1 and Smoothing's string is `smoothing` document pixels long. Shift only changes the press; the canvas's Shift-drag axis lock is view code and isn't reproduced. Pen pressure isn't part of the app's brush, so points have no pressure. Spot Healing's Create Texture mode is refused: `BrushStroke.heal()` seeds its grain with `UInt32.random`, which the harness can't reach.
+- **Content-Aware Fill** needs a selection. A case can make one with the selection ops first.
+- **Selection ops** skip the pointer: they call the functions the canvas calls for a press, drags and a release, with the points already in document pixels (after the canvas's snapping). A tool's options are set as its options bar sets them, and `antialias` is the options bar's Anti-alias, which the app keeps between selections; each op sets it (default on). Color Range works out its result off the main thread; the harness waits for the panel to show it before pressing OK.
 - **Canvas Size and Image Size** skip their sheets and nothing else. The harness makes the options the sheet would return and calls what `ProjectController.canvasSize()` and `imageSize()` call after OK.
 
 Crop, Canvas Size and Image Size all end in `EditorSession.applyDocumentSize`, which rebuilds each layer without its live shape, text and layer effects. The references keep that behavior because it's what the app does.
 
 The harness writes `<case>.png`, the flattened result from `ImageExporter.exportPNG`, the same path as File > Export PNG. When a case has ops or imports a file, it also writes `<case>.comp`, the resulting project saved with `ProjectStore.save` (without the QuickLook preview), so the port can be checked against the structure as well as the pixels.
+
+The selection isn't saved in the project. When a case ends with a selection, the harness also writes `<case>.selection.png`: 8-bit gray at document size, white where selected, from `DocumentSelection.coverage(width:height:)`, the coverage the app clips edits with. An empty selection (Contract past the middle, say) writes an all-black file; no selection writes none.
 
 ## Making the references
 
@@ -100,6 +112,8 @@ Each state runs in its own process. A state that fails, crashes or takes longer 
 ## Comparing
 
 Both images are 8-bit RGBA with straight alpha, as PNG stores them. A case passes when every channel of every pixel is within the tolerance: by default 1 in 255. Where both pixels are fully transparent, their color channels are not compared, because a transparent pixel has no visible color.
+
+A case with selection ops gets a second check, `<case>#selection`, which compares the port's selection coverage with `<case>.selection.png` byte for byte, held to the same 1 in 255. It passes when neither side ends with a selection and fails when only one does.
 
 A case can have one of four results:
 

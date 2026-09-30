@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand whose average matches nothing around the click deselects",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "op": "wand",
+      "point": [
+        30.5,
+        30.5
+      ],
+      "sampleSize": "5 by 5 Average",
+      "tolerance": 0
+    }
+  ]
+}

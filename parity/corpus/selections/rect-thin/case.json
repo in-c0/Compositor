@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A one-pixel-wide Rectangular Marquee",
+  "ops": [
+    {
+      "from": [
+        20.0,
+        4.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        21.0,
+        60.0
+      ]
+    }
+  ]
+}

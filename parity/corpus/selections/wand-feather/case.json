@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the ring, then Feather 2",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        32.0,
+        10.0
+      ],
+      "tolerance": 16
+    },
+    {
+      "feather": 2,
+      "op": "modifySelection"
+    }
+  ]
+}

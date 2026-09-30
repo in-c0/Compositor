@@ -35,6 +35,7 @@ struct CaseRenderer {
     private var pngURL: URL { output.appending(path: id + ".png") }
     private var projectURL: URL { output.appending(path: id + ".comp") }
     private var jpegURL: URL { output.appending(path: id + ".jpg") }
+    private var selectionURL: URL { output.appending(path: id + ".selection.png") }
 
     func render() async -> CaseResult {
         removeOutputs()
@@ -50,7 +51,7 @@ struct CaseRenderer {
     }
 
     private func removeOutputs() {
-        for url in [pngURL, projectURL, jpegURL] where FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+        for url in [pngURL, projectURL, jpegURL, selectionURL] where FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
             try? FileManager.default.removeItem(at: url)
         }
     }
@@ -99,6 +100,11 @@ struct CaseRenderer {
             // The QuickLook preview the app adds on save is left out; loading ignores it.
             try await ProjectStore.shared.save(snapshot, to: projectURL)
             outputs.append(id + ".comp")
+        }
+        // The selection isn't part of the project, so it gets a file of its own: its coverage at document size.
+        if let selection = session.selection, let document = session.document {
+            try SelectionCoverageFile.write(selection, width: document.width, height: document.height, to: selectionURL)
+            outputs.append(id + ".selection.png")
         }
         return outputs
     }

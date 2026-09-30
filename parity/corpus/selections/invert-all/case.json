@@ -1,0 +1,13 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Inverse of everything leaves no selection",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "op": "invertSelection"
+    }
+  ]
+}

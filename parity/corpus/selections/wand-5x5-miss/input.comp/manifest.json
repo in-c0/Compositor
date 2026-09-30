@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "686C3421-A8A6-4ABA-994B-457F5E1C22D3",
+  "colorSpace" : "sRGB",
+  "documentID" : "A1981E37-1E6E-4687-9887-F7774D023076",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "686C3421-A8A6-4ABA-994B-457F5E1C22D3",
+      "imageFile" : "686C3421-A8A6-4ABA-994B-457F5E1C22D3.png",
+      "isVisible" : true,
+      "name" : "Noise",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

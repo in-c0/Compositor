@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: one long shallow edge the other way",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          1.5,
+          29.25
+        ],
+        [
+          62.5,
+          20.3
+        ],
+        [
+          62.5,
+          60.0
+        ],
+        [
+          1.5,
+          60.0
+        ]
+      ]
+    }
+  ]
+}

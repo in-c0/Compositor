@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Elliptical Marquee running past the canvas, clipped to it",
+  "ops": [
+    {
+      "from": [
+        -20.0,
+        20.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        40.0,
+        90.0
+      ]
+    }
+  ]
+}

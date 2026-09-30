@@ -1,0 +1,33 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A self-crossing five-point star (the winding rule fills the middle)",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          32.0,
+          5.5
+        ],
+        [
+          48.171875,
+          55.25
+        ],
+        [
+          5.84375,
+          24.5
+        ],
+        [
+          58.15625,
+          24.5
+        ],
+        [
+          15.828125,
+          55.25
+        ]
+      ]
+    }
+  ]
+}

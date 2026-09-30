@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand adding a second checker color",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        3.5,
+        12.5
+      ],
+      "tolerance": 0
+    },
+    {
+      "contiguous": false,
+      "mode": "Add",
+      "op": "wand",
+      "point": [
+        12.5,
+        3.5
+      ],
+      "tolerance": 0
+    }
+  ]
+}
