@@ -46,6 +46,11 @@ fn unsupported<T>(what: &str) -> Result<T> {
     Err(RenderError::Unsupported(what.to_string()))
 }
 
+/// A path operation's result, or what the port can't match yet.
+fn exact<T>(result: std::result::Result<T, geom::Unmatched>) -> Result<T> {
+    result.map_err(|what| RenderError::Unsupported(what.to_string()))
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     New,
@@ -150,7 +155,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 return Ok(());
             }
             let outline = if ellipse { geom::ellipse(x0, y0, x1 - x0, y1 - y0) } else { geom::polygon(&points) };
-            apply_selection(selection, vec![outline], mode, antialias, &canvas);
+            apply_selection(selection, vec![outline], mode, antialias, &canvas)?;
         }
         "wand" => {
             let antialias = f.flag("antialias", true)?;
@@ -186,7 +191,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
             if mode == Mode::New {
                 *selection = Some(Selection { region: outline, antialiased: antialias, feather: 0.0 });
             } else {
-                apply_selection(selection, outline, mode, antialias, &canvas);
+                apply_selection(selection, outline, mode, antialias, &canvas)?;
             }
         }
         "objectSelection" => return unsupported("Object Selection (Vision's foreground instance mask)"),
@@ -221,7 +226,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
         "deselect" => *selection = None,
         "invertSelection" => {
             if let Some(current) = selection.as_ref() {
-                let inverse = Selection { region: geom::subtracting(&canvas, &current.region), ..current.clone() };
+                let inverse = Selection { region: exact(geom::subtracting(&canvas, &current.region))?, ..current.clone() };
                 // The inverse of everything is no selection at all.
                 *selection = (!inverse.is_empty()).then_some(inverse);
             }
@@ -241,10 +246,13 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 // A band `amount` wide either side of the outline, added (clipped to the canvas) or
                 // taken away.
                 "expand" => {
-                    let band = geom::stroke_band(&current.region, amount);
-                    next.region = geom::intersection(&geom::union(&current.region, &band), &canvas);
+                    let band = exact(geom::stroke_band(&current.region, amount))?;
+                    next.region = exact(geom::intersection(&exact(geom::union(&current.region, &band))?, &canvas))?;
                 }
-                _ => next.region = geom::subtracting(&current.region, &geom::stroke_band(&current.region, amount)),
+                _ => {
+                    let band = exact(geom::stroke_band(&current.region, amount))?;
+                    next.region = exact(geom::subtracting(&current.region, &band))?;
+                }
             }
             *selection = Some(next);
         }
@@ -259,13 +267,13 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 let dark: Vec<u8> = mask.pixels.as_raw().iter().map(|&v| if v < 128 { 255 } else { 0 }).collect();
                 let Some(traced) = outline(&dark, mw as usize, mh as usize)? else { return Ok(()) };
                 let placement = layer.mask_placement.as_ref().unwrap_or(&layer.transform);
-                apply_selection(selection, geom::transformed(&traced, pixel_to_document(placement, mw, mh)), mode, true, &canvas);
+                apply_selection(selection, geom::transformed(&traced, pixel_to_document(placement, mw, mh)), mode, true, &canvas)?;
             } else {
                 let Some(image) = project.images.get(id).filter(|_| !layer.is_group()) else { return Ok(()) };
                 let (iw, ih) = image.pixels.dimensions();
                 let opaque: Vec<u8> = image.pixels.pixels().map(|p| if p[3] >= 128 { 255 } else { 0 }).collect();
                 let Some(traced) = outline(&opaque, iw as usize, ih as usize)? else { return Ok(()) };
-                apply_selection(selection, geom::transformed(&traced, pixel_to_document(&layer.transform, iw, ih)), mode, true, &canvas);
+                apply_selection(selection, geom::transformed(&traced, pixel_to_document(&layer.transform, iw, ih)), mode, true, &canvas)?;
             }
         }
         other => return failed(format!("`{other}` isn't a selection op")),
@@ -275,16 +283,17 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
 
 /// `EditorSession.applySelection`: the shape clipped to the canvas, then combined by `mode`.
 /// Add and Subtract make a new selection, so a feather doesn't carry over.
-fn apply_selection(selection: &mut Option<Selection>, shape: Region, mode: Mode, antialiased: bool, canvas: &Region) {
-    let clipped = geom::intersection(&shape, canvas);
+fn apply_selection(selection: &mut Option<Selection>, shape: Region, mode: Mode, antialiased: bool, canvas: &Region) -> Result<()> {
+    let clipped = exact(geom::intersection(&shape, canvas))?;
     let region = match (mode, selection.as_ref()) {
         (Mode::New, _) | (Mode::Add, None) => clipped,
-        (Mode::Add, Some(current)) => geom::union(&current.region, &clipped),
+        (Mode::Add, Some(current)) => exact(geom::union(&current.region, &clipped))?,
         // Subtracting from no selection selects nothing new, so nothing changes.
-        (Mode::Subtract, None) => return,
-        (Mode::Subtract, Some(current)) => geom::subtracting(&current.region, &clipped),
+        (Mode::Subtract, None) => return Ok(()),
+        (Mode::Subtract, Some(current)) => exact(geom::subtracting(&current.region, &clipped))?,
     };
     *selection = Some(Selection { region, antialiased, feather: 0.0 });
+    Ok(())
 }
 
 /// `MagicWand.outline(of:)` (and `MaskTracing`, which traces the same pixels): the mask's

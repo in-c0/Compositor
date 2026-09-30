@@ -1,6 +1,6 @@
 // A selection outline filled with the nonzero winding rule, one coverage byte per pixel (stored
 // in the low byte of each word). Anti-aliased, a pixel's coverage is the area of the pixel inside
-// the outline; aliased, a pixel is filled when the outline takes in any point of a fine grid.
+// the outline; aliased, a pixel is filled when the outline takes in any cell of a fine grid.
 
 struct Params {
     width: u32,
@@ -66,10 +66,14 @@ fn edge_area(e: vec4<f32>, x0: f32, y0: f32) -> f32 {
     return dir * sum;
 }
 
-// Without anti-aliasing, Core Graphics fills a pixel when the outline takes in any point of a
-// 256 × 256 grid over it, the grid's first row and column on the pixel's top and left edges. On
-// each grid row, a point is inside from a crossing that starts the winding up to (not including)
-// the crossing that ends it.
+// Without anti-aliasing, Core Graphics fills a pixel when, along one of 256 rows across it (the
+// first on its top edge), the outline takes in one of the 256 cells the row is cut into, from
+// the cell's left end to its right.
+fn cell_inside(a: f32, b: f32, px: f32) -> bool {
+    let i = max(ceil((a - px) * 256.0), 0.0);
+    return i <= 255.0 && px + (i + 1.0) / 256.0 <= b;
+}
+
 fn touches_grid(first: u32, last: u32, px: f32, py: f32) -> bool {
     var xs: array<f32, 32>;
     var ds: array<i32, 32>;
@@ -101,20 +105,20 @@ fn touches_grid(first: u32, last: u32, px: f32, py: f32) -> bool {
                 n++;
             }
         }
-        if (winding != 0) {
-            return true;
-        }
+        // Inside from `start` to each crossing that ends the winding.
+        var start = px;
         for (var k = 0u; k < n; k++) {
+            let before = winding;
             winding += ds[k];
-            if (winding == 0) {
-                continue;
-            }
-            // The first grid point at or after this crossing, before the next one.
-            let g = ceil((xs[k] - px) * 256.0);
-            let end = select(px + 1.0, xs[k + 1u], k + 1u < n);
-            if (g <= 255.0 && px + g / 256.0 < end) {
+            if (before != 0 && winding == 0 && cell_inside(start, xs[k], px)) {
                 return true;
             }
+            if (before == 0 && winding != 0) {
+                start = xs[k];
+            }
+        }
+        if (winding != 0 && cell_inside(start, px + 1.0, px)) {
+            return true;
         }
     }
     return false;

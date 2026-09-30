@@ -41,7 +41,7 @@ fn feather(gpu: &Gpu, hard: &[u8], width: u32, height: u32, sigma: f64) -> Vec<u
 }
 
 fn fill(gpu: &Gpu, selection: &Selection, antialias: bool, width: u32, height: u32) -> Result<Vec<u8>> {
-    let edges = edges(selection, height);
+    let edges = edges(selection, antialias, height);
     // Each pixel row lists the edges that reach into it.
     let mut rows: Vec<Vec<u32>> = vec![Vec::new(); height as usize];
     for (i, e) in edges.iter().enumerate() {
@@ -75,10 +75,10 @@ fn fill(gpu: &Gpu, selection: &Selection, antialias: bool, width: u32, height: u
 
 /// Every outline edge as [x0, y0, x1, y1] in document pixels, as Core Graphics steps it:
 /// horizontal ones left out (they cover nothing).
-fn edges(selection: &Selection, height: u32) -> Vec<[f32; 4]> {
+fn edges(selection: &Selection, antialias: bool, height: u32) -> Vec<[f32; 4]> {
     let mut out = Vec::new();
     for contour in &selection.region {
-        let points = super::geom::flatten(contour);
+        let points = if antialias { super::geom::flatten(contour) } else { super::geom::flatten_within(contour, super::geom::ALIASED_FLATNESS) };
         for i in 0..points.len() {
             let (a, b) = (points[i], points[(i + 1) % points.len()]);
             for [x0, y0, x1, y1] in stepped(a, b, height as f64) {
