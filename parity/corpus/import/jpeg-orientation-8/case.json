@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "JPEG with EXIF orientation 8: turned upright on import"
+}

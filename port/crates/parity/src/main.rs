@@ -176,9 +176,9 @@ fn run(
             .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
             .filter_map(|case| match build_project(&renderer, case) {
                 Ok(project) => {
-                    // Layer and mask pixels match byte for byte, except where an override sets
-                    // a structure limit.
-                    let limit = tolerances.for_structure(&case.id);
+                    // Manifests must match exactly; layer and mask pixels are held to the case's
+                    // pixel limit, the same as its render, or to its override's structure limit.
+                    let limit = Some(tolerances.for_structure(&case.id));
                     roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, limit.as_ref())
                 }
                 Err(_) => None,
@@ -305,7 +305,7 @@ fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp
     let mut project = match ext.as_str() {
         "comp" => comp_format::load(&input).map_err(engine::RenderError::Failed)?,
         "psd" | "psb" => renderer.import_psd(&input)?,
-        other => return Err(engine::RenderError::Failed(anyhow::anyhow!("unknown input type `{other}`"))),
+        _ => renderer.import_image(&input, case.spec.raw.as_ref())?,
     };
     for op in &case.spec.ops {
         renderer.apply_op(&mut project, op)?;

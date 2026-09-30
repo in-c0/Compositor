@@ -17,3 +17,6 @@ comp-format.workspace = true
 engine.workspace = true
 uuid.workspace = true
 psd.workspace = true
+png.workspace = true
+jpeg-encoder.workspace = true
+tiff.workspace = true

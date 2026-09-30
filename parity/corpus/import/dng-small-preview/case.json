@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "64 x 48 Bayer DNG, required tags only, 16 x 12 preview in IFD 0: the Mac imports the preview"
+}

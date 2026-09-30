@@ -99,3 +99,62 @@ cases = "filters/remove-bg-advanced"
 max_channel_diff = 3
 structure_max_channel_diff = 6
 reason = "Vision's subject mask can't be reproduced off Apple's systems; after Advanced's guided refinement U²-Netp's mask lands within 3/255 (14 of 4,096 pixels over 1/255). The mask itself: 50 of 2,304 pixels over 1/255, by up to 6."
+
+# Image import, JPEG: Apple's JPEG decoder (AppleJPEG) runs its own inverse DCT. Probed with
+# coefficient-built files (import/jpeg-idct-basis, jpeg-idct-random), its output sits within
+# about 0.15 of the exact transform but rounds differently from the exact, libjpeg ISLOW, IFAST
+# and float AAN transforms at 1-4% of samples, so a luma or chroma sample is off by 1 there.
+# Everything after the IDCT is matched (the 4:4:4 conversion truncates, subsampled chroma goes
+# through the HEIC conversion); grayscale JPEG stays within 1/255. Color conversion multiplies a
+# chroma step by up to 1.8, and the 4:4:4 path truncates, so a sample off by 1 shows as 2-3.
+[[override]]
+cases = "import/jpeg-orientation-*"
+max_channel_diff = 3
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible); after the 4:4:4 conversion, measured max 3/255, 57 of 1,536 pixels over 1."
+
+[[override]]
+cases = "import/jpeg-*444"
+max_channel_diff = 3
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible); after the 4:4:4 conversion, measured max 3/255 (jpeg-444, jpeg-noise-444, jpeg-ycc-444)."
+
+[[override]]
+cases = "import/jpeg-42[02]*"
+max_channel_diff = 2
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible); the 4:2:0 and 4:2:2 conversions are matched; measured max 2/255."
+
+[[override]]
+cases = "import/jpeg-ycc-42[02]"
+max_channel_diff = 2
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible); the 4:2:0 and 4:2:2 conversions are matched; measured max 2/255 on quality-100 noise."
+
+[[override]]
+cases = "import/jpeg-progressive"
+max_channel_diff = 2
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible); same pixels as jpeg-420; measured max 2/255."
+
+[[override]]
+cases = "import/jpeg-p3"
+max_channel_diff = 4
+reason = "Apple's JPEG inverse DCT rounds some samples the other way (probed, not reproducible), and the Display P3 to sRGB conversion widens a 3-level difference to 4; measured max 4/255."
+
+# Image import, color with alpha: the color conversion (ColorSync's, and HEIC's YCbCr) is matched
+# to within a hair of Apple's, but where a premultiplied value lands within about 0.01 of a
+# rounding tie it can round the other way. That is 1 premultiplied level; unpremultiplying at low
+# alpha turns it into up to 51 straight levels. Allowed only for the measured pixel counts.
+[[override]]
+cases = "import/png-p3-rgba"
+max_channel_diff = 1
+max_pixels_over = 56
+reason = "Display P3 to sRGB: ColorSync's arithmetic rounds near-ties differently (opaque P3 pixels stay within 1/255); at low alpha 1 premultiplied level unpremultiplies to up to 28 straight; 56 of 4,096 pixels."
+
+[[override]]
+cases = "import/heic-rgba"
+max_channel_diff = 1
+max_pixels_over = 35
+reason = "HEIC with alpha: 1 premultiplied level at near-ties in the YCbCr conversion, up to 51 straight levels at alpha 1-10; 35 of 3,072 pixels."
+
+[[override]]
+cases = "import/heic-noise-rgba"
+max_channel_diff = 1
+max_pixels_over = 22
+reason = "HEIC with alpha: 1 premultiplied level at near-ties in the YCbCr conversion, up to 8 straight levels at low alpha; 22 of 4,096 pixels."

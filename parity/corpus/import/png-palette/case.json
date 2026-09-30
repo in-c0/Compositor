@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "Indexed PNG with a partly transparent palette (tRNS)"
+}

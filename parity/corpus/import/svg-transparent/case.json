@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.svg",
+  "label": "SVG with no background: transparent where nothing is drawn"
+}

@@ -1,0 +1,8 @@
+{
+  "feature": "import",
+  "input": "../dng-linear/input.dng",
+  "label": "The dng-linear file with Boost 0",
+  "raw": {
+    "boost": 0
+  }
+}

@@ -54,9 +54,9 @@ pub struct Override {
     /// Pixels allowed over `max_channel_diff`, for gaps confined to a few measured pixels.
     #[serde(default)]
     pub max_pixels_over: u64,
-    /// The limit for the saved project's layer and mask pixels (`#structure`), which otherwise
-    /// match byte for byte: for a mask a stand-in model made, for example, which differs by more
-    /// than the flattened image does. Needs the same measured reason.
+    /// The limit for the saved project's layer and mask pixels (`#structure`), where they differ
+    /// by more than the flattened image does: a mask a stand-in model made, for example. Needs
+    /// the same measured reason.
     #[serde(default)]
     pub structure_max_channel_diff: Option<u8>,
     pub reason: String,
@@ -98,13 +98,15 @@ impl Tolerances {
         }
     }
 
-    /// The limit for `id`'s `#structure` check where an override sets `structure_max_channel_diff`:
-    /// `for_case` with that channel limit. `None` elsewhere: the layers and masks must match byte
-    /// for byte.
-    pub fn for_structure(&self, id: &str) -> Option<Limit> {
+    /// The limit for `id`'s `#structure` check: `for_case`, except where an override sets
+    /// `structure_max_channel_diff`.
+    pub fn for_structure(&self, id: &str) -> Limit {
+        let mut limit = self.for_case(id);
         let matching = self.overrides.iter().filter(|o| glob::Pattern::new(&o.cases).is_ok_and(|p| p.matches(id)));
-        let structure = matching.filter_map(|o| o.structure_max_channel_diff).max()?;
-        Some(Limit { max_channel_diff: structure, ..self.for_case(id) })
+        if let Some(structure) = matching.filter_map(|o| o.structure_max_channel_diff).max() {
+            limit.max_channel_diff = structure;
+        }
+        limit
     }
 }
 

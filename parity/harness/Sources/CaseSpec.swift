@@ -11,6 +11,8 @@ struct CaseSpec {
     let ops: [ParityOp]
     /// File > Export JPEG with these options, written as `<case>.jpg` beside the PNG.
     let jpeg: JPEGOptions?
+    /// For a camera RAW input: the develop sheet's settings to change before pressing Import.
+    let raw: RawDevelopPatch?
 
     static func load(from url: URL) throws -> CaseSpec {
         let data = try Data(contentsOf: url)
@@ -32,9 +34,10 @@ struct CaseSpec {
             try options.rejectUnknown()
             return result
         }
+        let raw = try fields.optional("raw", RawDevelopPatch.parse)
         return CaseSpec(feature: try fields.optional("feature", JSONValue.string),
                         label: try fields.optional("label", JSONValue.string),
-                        input: input, ops: ops, jpeg: jpeg)
+                        input: input, ops: ops, jpeg: jpeg, raw: raw)
     }
 }
 

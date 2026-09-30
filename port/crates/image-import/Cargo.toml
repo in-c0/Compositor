@@ -1,0 +1,15 @@
+[package]
+name = "image-import"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+comp-format.workspace = true
+image.workspace = true
+png.workspace = true
+tiff.workspace = true
+uuid.workspace = true
+moxcms = "0.8"
+heic-rs = { version = "0.1", default-features = false, features = ["std"] }
+resvg = { version = "0.48", default-features = false }

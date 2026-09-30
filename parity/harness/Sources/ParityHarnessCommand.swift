@@ -50,7 +50,7 @@ struct RenderOptions {
         usage: ParityHarness render --corpus <dir> --out <dir> [--case <id>]...
 
         Renders every case under the corpus, or only the named ones, with the Mac app's own code.
-        Writes <out>/<id>.png, <out>/<id>.comp for cases with ops or a PSD input, and
+        Writes <out>/<id>.png, <out>/<id>.comp for cases with ops or an imported file, and
         <out>/harness-info.json. A case id is the case folder's path relative to the corpus,
         such as blend/multiply-50-opaque. A case that fails is recorded in harness-info.json and
         the run goes on; the exit status is non-zero only for usage errors.

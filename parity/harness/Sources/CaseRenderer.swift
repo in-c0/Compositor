@@ -60,18 +60,21 @@ struct CaseRenderer {
         let input = folder.appending(path: spec.input)
         // A fresh session per case, as a new project tab has.
         let session = EditorSession()
-        let isPhotoshop: Bool
+        let imported: Bool
         switch input.pathExtension.lowercased() {
         case "comp":
+            guard spec.raw == nil else { throw HarnessError("case.json.raw is only for camera RAW inputs") }
             // File > Open (ProjectController.open): load and validate the package, then install it.
             let snapshot = try await ProjectStore.shared.load(from: input)
             session.installProject(snapshot, from: input)
-            isPhotoshop = false
+            imported = false
         case "psd", "psb":
+            guard spec.raw == nil else { throw HarnessError("case.json.raw is only for camera RAW inputs") }
             notes += try await importPhotoshop(input, into: session)
-            isPhotoshop = true
+            imported = true
         default:
-            throw HarnessError("input “\(spec.input)” must end in .comp, .psd or .psb")
+            notes += try await importImage(input, raw: spec.raw, into: session)
+            imported = true
         }
         for (index, op) in spec.ops.enumerated() {
             do {
@@ -92,7 +95,7 @@ struct CaseRenderer {
             try result.data.write(to: jpegURL)
             outputs.append(id + ".jpg")
         }
-        if !spec.ops.isEmpty || isPhotoshop {
+        if !spec.ops.isEmpty || imported {
             // The QuickLook preview the app adds on save is left out; loading ignores it.
             try await ProjectStore.shared.save(snapshot, to: projectURL)
             outputs.append(id + ".comp")
@@ -114,6 +117,58 @@ struct CaseRenderer {
         if let message = session.importError { throw HarnessError(message) }
         guard session.document != nil else { throw HarnessError("the Photoshop import made no document") }
         return log.entries
+    }
+
+    /// Opening any other file: a new project tab imports it into its empty session (EditorSession.importImages), which
+    /// decodes it with ImageIO, draws an SVG, or develops a camera RAW. For a RAW file the develop sheet opens with the
+    /// camera's own settings; the harness changes the ones the case's `raw` sets and presses Import. The settings used
+    /// are returned as a note. A file the app refuses fails the case with the app's own message.
+    private func importImage(_ url: URL, raw: RawDevelopPatch?, into session: EditorSession) async throws -> [String] {
+        let isRaw = RawImporter.matches(url)
+        if raw != nil, !isRaw { throw HarnessError("case.json.raw is only for camera RAW inputs") }
+        let log = ConversionLog()
+        session.confirmRawDevelop = { _, asShot in
+            var settings = asShot
+            raw?.apply(to: &settings)
+            log.entries.append("RAW develop: as shot \(asShot.asShotTemperature) K, tint \(asShot.asShotTint); imported with "
+                + "exposure \(settings.exposure), temperature \(settings.temperature) K, tint \(settings.tint), boost \(settings.boost)")
+            return settings
+        }
+        defer { session.confirmRawDevelop = nil }
+        await session.importImages([url])
+        if let message = session.importError { throw HarnessError(message) }
+        guard session.document != nil else { throw HarnessError("the import made no document") }
+        if isRaw, log.entries.isEmpty { throw HarnessError("the RAW develop step didn't run") }
+        return log.entries
+    }
+}
+
+/// The develop sheet's controls a case changes before pressing Import; the rest keep the camera's settings.
+struct RawDevelopPatch {
+    var exposure: Float?
+    var temperature: Float?
+    var tint: Float?
+    var boost: Float?
+
+    func apply(to settings: inout RawDevelopSettings) {
+        if let exposure { settings.exposure = exposure }
+        if let temperature { settings.temperature = temperature }
+        if let tint { settings.tint = tint }
+        if let boost { settings.boost = boost }
+    }
+
+    static func parse(_ value: Any, path: String) throws -> RawDevelopPatch {
+        let fields = try JSONFields(value, path: path)
+        // The sheet's slider ranges (RawDevelopSheet).
+        func slider(_ key: String, _ range: ClosedRange<Double>) throws -> Float? {
+            guard let number = try fields.optional(key, JSONValue.number) else { return nil }
+            guard range.contains(number) else { throw HarnessError("\(path).\(key) must be \(range.lowerBound)–\(range.upperBound)") }
+            return Float(number)
+        }
+        let patch = RawDevelopPatch(exposure: try slider("exposure", -3...3), temperature: try slider("temperature", 2000...12000),
+                                    tint: try slider("tint", -150...150), boost: try slider("boost", 0...1))
+        try fields.rejectUnknown()
+        return patch
     }
 }
 

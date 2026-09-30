@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.tif",
+  "label": "Uncompressed 8-bit RGB TIFF"
+}

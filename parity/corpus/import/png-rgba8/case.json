@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGBA PNG holding every (color, alpha) pair: premultiplication and the saved layer"
+}

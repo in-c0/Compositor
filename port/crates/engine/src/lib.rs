@@ -112,4 +112,22 @@ impl Renderer {
             Err(e) => Err(RenderError::Failed(anyhow::anyhow!("{}: {e}", path.file_name().unwrap_or_default().to_string_lossy()))),
         }
     }
+
+    /// Imports a JPEG, PNG, HEIC, TIFF, SVG or camera RAW file as the Mac app's File > Open does.
+    /// `raw` holds the develop sheet's settings to change (`exposure`, `temperature`, `tint`,
+    /// `boost`). An import that only approximates the Mac's pixels reports as not supported.
+    pub fn import_image(&self, path: &std::path::Path, raw: Option<&serde_json::Value>) -> Result<Project, RenderError> {
+        let settings = raw.map(|r| {
+            let get = |key: &str| r.get(key).and_then(|v| v.as_f64()).map(|v| v as f32);
+            image_import::RawSettings { exposure: get("exposure"), temperature: get("temperature"), tint: get("tint"), boost: get("boost") }
+        });
+        match image_import::import_file(path, settings.as_ref()) {
+            Ok(imported) => match imported.approximation {
+                Some(why) => Err(RenderError::Unsupported(why)),
+                None => Ok(imported.project),
+            },
+            Err(image_import::ImportError::NotPorted(what)) => Err(RenderError::Unsupported(what)),
+            Err(e) => Err(RenderError::Failed(anyhow::anyhow!("{}: {e}", path.file_name().unwrap_or_default().to_string_lossy()))),
+        }
+    }
 }

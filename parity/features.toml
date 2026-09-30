@@ -111,9 +111,17 @@ name = "Type"
 paths = ["port/crates/engine/src/type/**"]
 
 [[feature]]
-key = "raw"
-name = "RAW and HEIC import"
-paths = ["port/crates/engine/src/raw/**"]
+key = "import"
+name = "Image import: JPEG, PNG, HEIC, TIFF, SVG and camera RAW"
+paths = ["port/crates/image-import/**"]
+gaps = [
+    "PNG and TIFF (8 and 16-bit, gray, palette, alpha, orientation) match the Mac byte for byte, layer and render. Color-managed files (embedded Display P3 or Adobe RGB profile, gAMA with or without cHRM) are within 1/255: Core Image's conversion rounds some near-ties the other way. With alpha that can be 1 premultiplied level, which unpremultiplying at low alpha widens (png-p3-rgba: 56 of 4,096 pixels, see the override).",
+    "JPEG: the entropy decoding, the orientations, and the conversions after the inverse DCT are matched (4:4:4 truncates, 4:2:0 goes through the HEIC conversion, 4:2:2 is first paired into 4:2:0 with a [1, 6, 1] / 8 filter across). Apple's inverse DCT is not: it differs from the exact, ISLOW, IFAST and float AAN transforms at 1-4% of samples by one level, which shows as up to 2/255 (4:2:0, 4:2:2) or 3/255 (4:4:4) after conversion, 4/255 with a P3 profile. Grayscale JPEG is within 1/255. Overrides list each case.",
+    "CMYK JPEG is pending: ColorSync converts it with Apple's Generic CMYK profile, which the port doesn't have and can't ship. A naive CMYK to RGB conversion is off by 23 levels on average (135 at most) on import/jpeg-cmyk.",
+    "HEIC 4:2:0, 8-bit, sRGB nclx: every pixel matches (bilinear chroma between sample centers, chroma divided by 254 where luma is divided by 255). With an alpha plane Apple repeats chroma samples and rounds to 8 bits before premultiplying; near-ties leave 1 premultiplied level on 22-35 pixels (overrides). HEIC 4:4:4 (HEVC range extensions) is pending: heic-rs doesn't decode it; libheif's output is within 1/255 of the Mac's.",
+    "SVG made only of pixel-aligned solid rectangles matches byte for byte. Anything antialiased, stroked or filled with a gradient is pending: resvg isn't Core Graphics (import/svg-shapes: up to 78/255, and Core Graphics dithers gradients).",
+    "Camera RAW is pending. The port develops uncompressed Bayer and LinearRaw DNGs from the DNG specification, but Apple's RAW engine can't be reproduced: on import/dng-linear-boost-0 the port is 4 levels off on average (55 at most), and Apple's Boost tone curve isn't a per-channel curve (dng-linear: 32 on average). The Mac refuses the corpus's synthetic Bayer DNGs with every optional tag combination tried, and a 96 x 64 LinearRaw DNG with levels counted per sample, while it develops the 192 x 128 LinearRaw file ignoring its single BlackLevel. A Bayer DNG with a preview in IFD 0 imports as the preview.",
+]
 
 [[feature]]
 key = "ml"

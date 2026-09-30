@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Bayer DNG with CFAPlaneColor, CFALayout and a 2 x 2 black level"
+}

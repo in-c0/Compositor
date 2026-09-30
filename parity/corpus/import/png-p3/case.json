@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGB PNG with an embedded Display P3 profile (v4, parametric curve), every value"
+}

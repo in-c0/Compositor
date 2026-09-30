@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Progressive JPEG, quality 90, 4:2:0"
+}

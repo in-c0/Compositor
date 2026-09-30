@@ -18,7 +18,7 @@ parity/
 
 ## A case
 
-A case is a folder containing `case.json` and one input: a `.comp` package or a `.psd`/`.psb` file.
+A case is a folder containing `case.json` and one input: a `.comp` package, a `.psd`/`.psb` file, or an image file (JPEG, PNG, HEIC, TIFF, SVG or camera RAW).
 
 ```json
 {
@@ -32,7 +32,8 @@ A case is a folder containing `case.json` and one input: a `.comp` package or a 
 ```
 
 - `feature` names the row in PARITY.md this case counts toward.
-- `input` is a path relative to the case folder. A name ending in `.comp` is loaded with `ProjectStore.load` and installed in a fresh `EditorSession`, as File > Open does. One ending in `.psd` or `.psb` is imported into an empty session with `EditorSession.importImages`, as opening a Photoshop file does. Any conversion warnings the import raises are accepted, as pressing Import does, and listed in harness-info.json.
+- `input` is a path relative to the case folder. A name ending in `.comp` is loaded with `ProjectStore.load` and installed in a fresh `EditorSession`, as File > Open does. One ending in `.psd` or `.psb` is imported into an empty session with `EditorSession.importImages`, as opening a Photoshop file does. Any conversion warnings the import raises are accepted, as pressing Import does, and listed in harness-info.json. Any other file is imported into an empty session with `EditorSession.importImages` too, as File > Open and dropping a file do: ImageIO decodes it, AppKit draws an SVG, and a camera RAW file goes through the develop sheet. A file the app refuses (a GIF, say) fails the case with the app's message, and the port has to refuse it as well. An input can also be another case's file (`../<case>/input.dng`), so several RAW cases can share one large file.
+- `raw` (camera RAW inputs only) changes the develop sheet's controls before Import is pressed: `exposure`, `temperature`, `tint` and `boost`, within the sliders' ranges. The ones left out keep the values the sheet opens with, which are the camera's own white balance, exposure 0 and boost 1. The settings used, and the camera's own temperature and tint, are listed in harness-info.json.
 - `ops` run in order after loading, through the app's own functions. Most cases have none. The operations are:
 
 | `op` | Fields | Mac function |
@@ -53,7 +54,7 @@ Where the harness can't do exactly what the app does:
 
 Crop, Canvas Size and Image Size all end in `EditorSession.applyDocumentSize`, which rebuilds each layer without its live shape, text and layer effects. The references keep that behavior because it's what the app does.
 
-The harness writes `<case>.png`, the flattened result from `ImageExporter.exportPNG`, the same path as File > Export PNG. When a case has ops or a PSD input, it also writes `<case>.comp`, the resulting project saved with `ProjectStore.save` (without the QuickLook preview), so the port can be checked against the structure as well as the pixels.
+The harness writes `<case>.png`, the flattened result from `ImageExporter.exportPNG`, the same path as File > Export PNG. When a case has ops or imports a file, it also writes `<case>.comp`, the resulting project saved with `ProjectStore.save` (without the QuickLook preview), so the port can be checked against the structure as well as the pixels.
 
 ## Making the references
 
@@ -96,7 +97,7 @@ reason = "Glyph edges come from a different rasterizer than Core Text; measured 
 Two optional fields narrow an override:
 
 - `max_pixels_over` lets that many pixels go past `max_channel_diff`, for a gap confined to a few measured pixels.
-- `structure_max_channel_diff` sets a limit for the case's `#structure` check, which otherwise compares the saved layers and masks byte for byte. Use it when a layer or mask differs more than the flattened image shows, such as a mask made by a stand-in model. The flattened image stays at `max_channel_diff`.
+- `structure_max_channel_diff` sets a separate limit for the case's `#structure` check, which compares the saved layers and masks. Use it when a layer or mask differs more than the flattened image shows, such as a mask made by a stand-in model. The flattened image stays at `max_channel_diff`.
 
 ## PARITY.md
 

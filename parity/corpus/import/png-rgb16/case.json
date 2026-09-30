@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "16-bit RGB PNG: reduced to 8 bits on import"
+}

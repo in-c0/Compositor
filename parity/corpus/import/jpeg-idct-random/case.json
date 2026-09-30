@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Grayscale JPEG, all-ones quantization: random sparse blocks"
+}

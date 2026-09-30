@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.heic",
+  "label": "HEIC with an alpha plane"
+}
