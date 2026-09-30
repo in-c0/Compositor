@@ -6,7 +6,8 @@
 // across a rounding boundary. So every kernel's `Params` starts with `guard: f32`, which the host
 // sets to +infinity: `min(x, params.guard)` returns `x` unchanged, but the compiler can't see
 // through it, so the rounding of `x` is kept. Division, square roots, logarithms and cosines are
-// rebuilt from exact pieces: `fma` (a true fused multiply-add on every backend this runs on) and
+// rebuilt from exact pieces: `fma` (fused on Metal by definition, and measured fused on DX12 by
+// the `float_helpers_are_correctly_rounded` test) and
 // double-single arithmetic.
 
 // `x`, rounded on its own: no fusing or reassociating it with what uses it.
