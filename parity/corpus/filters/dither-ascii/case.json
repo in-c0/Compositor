@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, ASCII",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "6E3FA5CD-4E6F-45F1-85C8-E345B6A79001",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "ASCII"
+        }
+      }
+    }
+  ]
+}

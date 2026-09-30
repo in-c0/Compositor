@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		5A9C0D1E2F3A4B5C6D7E8F01 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5A9C0D1E2F3A4B5C6D7E8F03 /* Sparkle */; };
+		CE014A2165C085419F4A7634 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 7FD0EB31B881B990630DB8C9 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,11 +32,26 @@
 		8F311F99304F03BB0017D14F /* Compositor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Compositor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F311FA6304F03BC0017D14F /* CompositorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CompositorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D8868FFF98A0F421242B843 /* ParityHarness */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ParityHarness; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8B68FF53770858B248A51F8D /* Exceptions for "Compositor" folder in "ParityHarness" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Assets.xcassets,
+				CompositorApp.swift,
+			);
+			target = 6DDC72962CEBD87DBEE0E4E4 /* ParityHarness */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8F311F9B304F03BB0017D14F /* Compositor */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8B68FF53770858B248A51F8D /* Exceptions for "Compositor" folder in "ParityHarness" target */,
+			);
 			path = Compositor;
 			sourceTree = "<group>";
 		};
@@ -47,6 +63,11 @@
 		8F311FB3304F03BC0017D14F /* CompositorUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CompositorUITests;
+			sourceTree = "<group>";
+		};
+		11188EE31EF7C0988A98523A /* parity/harness/Sources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = parity/harness/Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -74,6 +95,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6915E556D38F5F2E5B68B0DB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE014A2165C085419F4A7634 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -83,6 +112,7 @@
 				8F311F9B304F03BB0017D14F /* Compositor */,
 				8F311FA9304F03BC0017D14F /* CompositorTests */,
 				8F311FB3304F03BC0017D14F /* CompositorUITests */,
+				11188EE31EF7C0988A98523A /* parity/harness/Sources */,
 				8F311F9A304F03BB0017D14F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -93,6 +123,7 @@
 				8F311F99304F03BB0017D14F /* Compositor.app */,
 				8F311FA6304F03BC0017D14F /* CompositorTests.xctest */,
 				8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */,
+				9D8868FFF98A0F421242B843 /* ParityHarness */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -169,6 +200,29 @@
 			productReference = 8F311FB0304F03BC0017D14F /* CompositorUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		6DDC72962CEBD87DBEE0E4E4 /* ParityHarness */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0FE0027A3149530BAFD70E14 /* Build configuration list for PBXNativeTarget "ParityHarness" */;
+			buildPhases = (
+				9B6E040603FA4E5CFD14ABE4 /* Sources */,
+				6915E556D38F5F2E5B68B0DB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8F311F9B304F03BB0017D14F /* Compositor */,
+				11188EE31EF7C0988A98523A /* parity/harness/Sources */,
+			);
+			name = ParityHarness;
+			packageProductDependencies = (
+				7FD0EB31B881B990630DB8C9 /* Sparkle */,
+			);
+			productName = ParityHarness;
+			productReference = 9D8868FFF98A0F421242B843 /* ParityHarness */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -189,6 +243,9 @@
 					8F311FAF304F03BC0017D14F = {
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 8F311F98304F03BB0017D14F;
+					};
+					6DDC72962CEBD87DBEE0E4E4 = {
+						CreatedOnToolsVersion = 26.6;
 					};
 				};
 			};
@@ -212,6 +269,7 @@
 				8F311F98304F03BB0017D14F /* Compositor */,
 				8F311FA5304F03BC0017D14F /* CompositorTests */,
 				8F311FAF304F03BC0017D14F /* CompositorUITests */,
+				6DDC72962CEBD87DBEE0E4E4 /* ParityHarness */,
 			);
 		};
 /* End PBXProject section */
@@ -256,6 +314,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8F311FAC304F03BC0017D14F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9B6E040603FA4E5CFD14ABE4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -567,6 +632,54 @@
 			};
 			name = Release;
 		};
+		5A31AA008B015B724FDEB7D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OBJC_BRIDGING_HEADER = "Compositor/Compositor-Bridging-Header.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		20265E03D8D36F089B3DAFDE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OBJC_BRIDGING_HEADER = "Compositor/Compositor-Bridging-Header.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -606,6 +719,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		0FE0027A3149530BAFD70E14 /* Build configuration list for PBXNativeTarget "ParityHarness" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A31AA008B015B724FDEB7D0 /* Debug */,
+				20265E03D8D36F089B3DAFDE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -621,6 +743,11 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		5A9C0D1E2F3A4B5C6D7E8F03 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5A9C0D1E2F3A4B5C6D7E8F02 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		7FD0EB31B881B990630DB8C9 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5A9C0D1E2F3A4B5C6D7E8F02 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;

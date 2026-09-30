@@ -1,0 +1,16 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Add Noise 10, uniform, color",
+  "ops": [
+    {
+      "kind": "Add Noise",
+      "layer": "2C76A747-CC73-4132-A137-66DCEAA91B2B",
+      "op": "filter",
+      "seed": 1,
+      "settings": {
+        "amount": 10
+      }
+    }
+  ]
+}

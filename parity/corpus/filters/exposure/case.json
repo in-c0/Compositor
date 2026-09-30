@@ -1,0 +1,19 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Exposure filter +1",
+  "ops": [
+    {
+      "kind": "Exposure",
+      "layer": "76A11160-3762-4775-95F9-78BC4BC14FB0",
+      "op": "filter",
+      "settings": {
+        "exposure": {
+          "exposure": 1,
+          "gamma": 1,
+          "offset": 0
+        }
+      }
+    }
+  ]
+}

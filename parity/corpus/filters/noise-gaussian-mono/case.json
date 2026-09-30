@@ -1,0 +1,18 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Add Noise 40, Gaussian, monochromatic",
+  "ops": [
+    {
+      "kind": "Add Noise",
+      "layer": "17DC3105-1106-479B-91AC-4766495B1263",
+      "op": "filter",
+      "seed": 1,
+      "settings": {
+        "amount": 40,
+        "gaussian": true,
+        "monochromatic": true
+      }
+    }
+  ]
+}

@@ -156,7 +156,19 @@ impl CaseWriter {
         let dir = self.root.join(feature).join(case);
         std::fs::create_dir_all(&dir)?;
         comp_format::save(&doc.into_project(), &dir.join("input.comp"))?;
-        let mut spec = serde_json::json!({ "feature": feature, "label": label, "input": "input.comp" });
+        self.write_spec(&dir, feature, label, "input.comp", ops)
+    }
+
+    /// A case whose input is a file, such as a `.psd` or `.psb`, written as `input_name`.
+    pub fn write_file(&mut self, feature: &str, case: &str, label: &str, input_name: &str, bytes: &[u8], ops: Vec<Value>) -> Result<()> {
+        let dir = self.root.join(feature).join(case);
+        std::fs::create_dir_all(&dir)?;
+        std::fs::write(dir.join(input_name), bytes)?;
+        self.write_spec(&dir, feature, label, input_name, ops)
+    }
+
+    fn write_spec(&mut self, dir: &Path, feature: &str, label: &str, input: &str, ops: Vec<Value>) -> Result<()> {
+        let mut spec = serde_json::json!({ "feature": feature, "label": label, "input": input });
         if !ops.is_empty() {
             spec["ops"] = Value::Array(ops);
         }

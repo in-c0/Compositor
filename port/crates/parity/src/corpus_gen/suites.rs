@@ -16,6 +16,7 @@ pub fn all(w: &mut CaseWriter) -> Result<()> {
     adjust(w)?;
     effects(w)?;
     document(w)?;
+    filters(w)?;
     Ok(())
 }
 
@@ -470,8 +471,8 @@ fn document(w: &mut CaseWriter) -> Result<()> {
     let cases: Vec<(&str, &str, serde_json::Value)> = vec![
         ("crop-inside", "Crop to 40x32 at (8, 8)", json!({ "op": "crop", "rect": [8, 8, 40, 32] })),
         ("crop-past-edge", "Crop a rectangle that runs past the canvas", json!({ "op": "crop", "rect": [32, -8, 48, 48] })),
-        ("canvas-grow", "Canvas Size 96x80, content moved (16, 8)", json!({ "op": "canvasSize", "width": 96, "height": 80, "offset": [16, 8] })),
-        ("canvas-shrink", "Canvas Size 48x48, content moved (-8, -8)", json!({ "op": "canvasSize", "width": 48, "height": 48, "offset": [-8, -8] })),
+        ("canvas-grow", "Canvas Size 96x80, content moved (16, 8)", json!({ "op": "canvasSize", "width": 96, "height": 80, "contentOffset": [16, 8] })),
+        ("canvas-shrink", "Canvas Size 48x48, content moved (-8, -8)", json!({ "op": "canvasSize", "width": 48, "height": 48, "contentOffset": [-8, -8] })),
         ("image-up-high", "Image Size 128x128, High quality", json!({ "op": "imageSize", "width": 128, "height": 128, "sampling": "High quality" })),
         ("image-down-smooth", "Image Size 32x32, Smooth", json!({ "op": "imageSize", "width": 32, "height": 32, "sampling": "Smooth" })),
         ("image-odd-nearest", "Image Size 50x70, Nearest", json!({ "op": "imageSize", "width": 50, "height": 70, "sampling": "Nearest" })),
@@ -479,6 +480,65 @@ fn document(w: &mut CaseWriter) -> Result<()> {
     for (case, label, op) in cases {
         let d = make(w, case);
         w.write("document", case, label, d, vec![op])?;
+    }
+    Ok(())
+}
+
+fn filters(w: &mut CaseWriter) -> Result<()> {
+    let dither = |style: &str| json!({ "dither": { "style": style } });
+    let cases: Vec<(&str, &str, &str, serde_json::Value, bool)> = vec![
+        ("gaussian-0.5", "Gaussian Blur 0.5", "Gaussian Blur", json!({ "radius": 0.5 }), false),
+        ("gaussian-2", "Gaussian Blur 2", "Gaussian Blur", json!({ "radius": 2 }), false),
+        ("gaussian-8", "Gaussian Blur 8", "Gaussian Blur", json!({ "radius": 8 }), false),
+        ("gaussian-grow", "Gaussian Blur 4 on a disc, growing the layer", "Gaussian Blur", json!({ "radius": 4 }), true),
+        ("motion-0", "Motion Blur 0 degrees, 10 px", "Motion Blur", json!({ "angle": 0, "distance": 10 }), false),
+        ("motion-30", "Motion Blur 30 degrees, 20 px", "Motion Blur", json!({ "angle": 30, "distance": 20 }), false),
+        ("motion-grow", "Motion Blur -90 degrees, 6 px on a disc", "Motion Blur", json!({ "angle": -90, "distance": 6 }), true),
+        ("noise-uniform", "Add Noise 10, uniform, color", "Add Noise", json!({ "amount": 10 }), false),
+        ("noise-gaussian-mono", "Add Noise 40, Gaussian, monochromatic", "Add Noise", json!({ "amount": 40, "gaussian": true, "monochromatic": true }), false),
+        ("vignette-default", "Vignette, defaults", "Vignette", json!({}), false),
+        ("vignette-custom", "Vignette 80, red, midpoint 30, roundness -50, feather 20", "Vignette", json!({ "vignetteAmount": 80, "vignetteColor": { "red": 0.8, "green": 0.1, "blue": 0.1 }, "vignetteMidpoint": 30, "vignetteRoundness": -50, "vignetteFeather": 20, "vignetteHighlights": 0 }), false),
+        ("bloom-default", "Bloom / Glow, defaults", "Bloom / Glow", json!({}), false),
+        ("bloom-strong", "Bloom / Glow 80, radius 10", "Bloom / Glow", json!({ "bloomAmount": 80, "bloomRadius": 10 }), false),
+        ("tonal-default", "Tonal Contrast, defaults", "Tonal Contrast", json!({}), false),
+        ("tonal-strong", "Tonal Contrast 100, radius 6, shadows -50", "Tonal Contrast", json!({ "tonalAmount": 100, "tonalRadius": 6, "tonalShadows": -50, "tonalMidtones": 100, "tonalHighlights": -30 }), false),
+        ("lens-barrel", "Lens Correction +30", "Lens Correction", json!({ "distortion": 30 }), false),
+        ("lens-pincushion", "Lens Correction -40", "Lens Correction", json!({ "distortion": -40 }), false),
+        ("curves", "Curves filter, an S curve", "Curves", json!({ "curves": { "channel": "RGB", "channels": [
+            [{ "x": 0, "y": 0 }, { "x": 64, "y": 40 }, { "x": 192, "y": 220 }, { "x": 255, "y": 255 }],
+            [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }], [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }], [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }]] } }), false),
+        ("exposure", "Exposure filter +1", "Exposure", json!({ "exposure": { "exposure": 1, "offset": 0, "gamma": 1 } }), false),
+        ("gradient-map", "Gradient Map filter, blue to orange", "Gradient Map", json!({ "gradientMap": { "shadows": { "red": 0.05, "green": 0.1, "blue": 0.4 }, "highlights": { "red": 1, "green": 0.6, "blue": 0.1 }, "reversed": false } }), false),
+        ("grain", "Grain filter, amount 50", "Grain", json!({ "grain": { "amount": 50, "size": 2, "roughness": 50, "seed": 0 } }), false),
+        ("black-white", "Black & White filter, defaults", "Black & White", json!({}), false),
+        ("color-balance", "Color Balance filter, midtones toward red", "Color Balance", json!({ "colorBalance": { "midCyanRed": 50 } }), false),
+        ("remove-bg-basic", "Remove Background, Basic", "Remove Background", json!({ "backgroundQuality": "Basic" }), true),
+        ("remove-bg-advanced", "Remove Background, Advanced", "Remove Background", json!({ "backgroundQuality": "Advanced" }), true),
+        ("dither-atkinson", "Dither, Atkinson", "Dither", dither("Atkinson (Classic Mac)"), false),
+        ("dither-floyd", "Dither, Floyd-Steinberg", "Dither", dither("Floyd–Steinberg"), false),
+        ("dither-bayer2", "Dither, Bayer 2x2", "Dither", dither("Bayer 2 × 2"), false),
+        ("dither-bayer4", "Dither, Bayer 4x4", "Dither", dither("Bayer 4 × 4"), false),
+        ("dither-bayer8", "Dither, Bayer 8x8", "Dither", dither("Bayer 8 × 8"), false),
+        ("dither-dots", "Dither, halftone dots", "Dither", dither("Halftone Dots"), false),
+        ("dither-lines", "Dither, halftone lines", "Dither", dither("Halftone Lines"), false),
+        ("dither-diamonds", "Dither, halftone diamonds", "Dither", dither("Halftone Diamonds"), false),
+        ("dither-patterns", "Dither, Mac patterns", "Dither", dither("Mac Patterns"), false),
+        ("dither-ascii", "Dither, ASCII", "Dither", dither("ASCII"), false),
+        ("dither-scanlines", "Dither, scanlines", "Dither", dither("Scanlines (CRT)"), false),
+    ];
+    for (case, label, kind, settings, on_disc) in cases {
+        let mut d = w.doc("filters", case, N, N);
+        let target = if on_disc {
+            d.image("Ground", images::photo(N, N), spec());
+            d.image("Disc", images::disc(48, 48, [240, 120, 30]), LayerSpec { transform: Some(Transform::at(8.0, 8.0, 48.0, 48.0)), ..spec() })
+        } else {
+            d.image("Photo", images::photo(N, N), spec())
+        };
+        let mut op = json!({ "op": "filter", "layer": target, "kind": kind, "settings": settings });
+        if kind == "Add Noise" || kind == "Grain" {
+            op["seed"] = json!(1);
+        }
+        w.write("filters", case, label, d, vec![op])?;
     }
     Ok(())
 }

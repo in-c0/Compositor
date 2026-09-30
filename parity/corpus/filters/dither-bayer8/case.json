@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Bayer 8x8",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "81C54955-76FD-4748-9186-BDC429E1A151",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Bayer 8 × 8"
+        }
+      }
+    }
+  ]
+}

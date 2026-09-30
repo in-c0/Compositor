@@ -1,0 +1,15 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Gaussian Blur 2",
+  "ops": [
+    {
+      "kind": "Gaussian Blur",
+      "layer": "B94CBB32-D3A6-43CC-A585-808BDBBE15F3",
+      "op": "filter",
+      "settings": {
+        "radius": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone diamonds",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "8CB41428-B0C4-4BC8-B27F-EF33FA6A2E67",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Halftone Diamonds"
+        }
+      }
+    }
+  ]
+}

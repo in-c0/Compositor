@@ -1,0 +1,19 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Tonal Contrast 100, radius 6, shadows -50",
+  "ops": [
+    {
+      "kind": "Tonal Contrast",
+      "layer": "24C5A574-A521-4584-8C29-3844220FBDDC",
+      "op": "filter",
+      "settings": {
+        "tonalAmount": 100,
+        "tonalHighlights": -30,
+        "tonalMidtones": 100,
+        "tonalRadius": 6,
+        "tonalShadows": -50
+      }
+    }
+  ]
+}

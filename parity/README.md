@@ -32,17 +32,40 @@ A case is a folder containing `case.json` and one input: a `.comp` package or a 
 ```
 
 - `feature` names the row in PARITY.md this case counts toward.
-- `input` is a path relative to the case folder. A name ending in `.comp` is loaded with `ProjectStore.load`, and one ending in `.psd` or `.psb` goes through the app's PSD import.
+- `input` is a path relative to the case folder. A name ending in `.comp` is loaded with `ProjectStore.load` and installed in a fresh `EditorSession`, as File > Open does. One ending in `.psd` or `.psb` is imported into an empty session with `EditorSession.importImages`, as opening a Photoshop file does. Any conversion warnings the import raises are accepted, as pressing Import does, and listed in harness-info.json.
 - `ops` run in order after loading, through the app's own functions. Most cases have none. The operations are:
 
 | `op` | Fields | Mac function |
 | --- | --- | --- |
-| `filter` | `layer`, `kind` (a `FilterKind` raw value), `settings` (`FilterSettings` field names) | the code behind Filter > Apply |
-| `canvasSize` | `width`, `height`, `offset` `[x, y]` | `CanvasResizer` |
-| `crop` | `rect` `[x, y, width, height]` | `Crop` |
-| `imageSize` | `width`, `height`, `sampling` | `ImageResizer` |
+| `filter` | `layer` (the layer's UUID), `kind` (a `FilterKind` raw value, such as `"Gaussian Blur"`), `settings` (optional, `FilterSettings` field names), `seed` (Add Noise and Grain only, default 0) | `EditorSession.beginFilter`, `updateFilter` and `commitFilter`: Filter > (kind)…, then OK |
+| `canvasSize` | `width`, `height`, `anchor` (optional, 0–8 row by row from the top left, default 4, the center), `fill` (optional `[red, green, blue]`, 0–1 each, default transparent), `contentOffset` (optional `[x, y]`, moves the content by exactly this much and overrides `anchor`) | `CanvasResizer.resize` with these `CanvasSizeOptions`, then `EditorSession.applyDocumentSize`, as Canvas Size's OK does |
+| `crop` | `rect` `[x, y, width, height]`, in whole document pixels | `EditorSession.commitCrop` with `cropRect` set to `rect`, as Apply Crop does |
+| `imageSize` | `width`, `height`, `resolution` (optional, default the document's), `sampling` (optional, a `LayerSampling` raw value: `"Nearest"`, `"Smooth"` or `"High quality"`, default `"High quality"`) | `ImageResizer.resize` with these `ImageSizeOptions`, then `EditorSession.applyImageSize`, as Image Size's OK does |
 
-The harness writes `<case>.png`, the flattened result from `ImageExporter.render`. When a case has ops or a PSD input, it also writes `<case>.comp`, the resulting project, so the port can be checked against the structure as well as the pixels.
+A filter's `settings` holds only the fields to change. The rest keep their `FilterSettings()` defaults, not the settings the app last used. Nested settings (`curves`, `exposure`, `gradientMap`, `grain`, `blackWhite`, `colorBalance`, `dither`, `vignetteColor`) also use the Swift field names and can also be partial. Enum fields take their raw values, such as `"Advanced"` for `backgroundQuality`. A field the harness doesn't know makes the case an **error**, so a misspelt name is caught instead of ignored.
+
+Where the harness can't do exactly what the app does:
+
+- **Add Noise and Grain** draw a random seed each time the filter panel opens (`FilterEdit.seed`), so the app's own result can't be reproduced. The harness uses the case's `seed` instead. It still opens the filter with `beginFilter` and `updateFilter`, but runs its own copy of the last step of `commitFilter`, the only way to pass the seed in (`parityCommitSeededFilter` in `harness/Sources/SessionOps.swift`). If `commitFilter` changes, that copy has to change with it.
+- **Camera Raw Filter** isn't supported. `CameraRawSettings` has no JSON form.
+- **Content-Aware Fill** needs a selection, and no op makes one yet, so it always fails.
+- **Canvas Size and Image Size** skip their sheets and nothing else. The harness makes the options the sheet would return and calls what `ProjectController.canvasSize()` and `imageSize()` call after OK.
+
+Crop, Canvas Size and Image Size all end in `EditorSession.applyDocumentSize`, which rebuilds each layer without its live shape, text and layer effects. The references keep that behavior because it's what the app does.
+
+The harness writes `<case>.png`, the flattened result from `ImageExporter.exportPNG`, the same path as File > Export PNG. When a case has ops or a PSD input, it also writes `<case>.comp`, the resulting project saved with `ProjectStore.save` (without the QuickLook preview), so the port can be checked against the structure as well as the pixels.
+
+## Making the references
+
+The harness is the `ParityHarness` command-line target in `Compositor.xcodeproj`. It compiles every source under `Compositor/` except `CompositorApp.swift` and the asset catalog, plus `harness/Sources/`. Build and run it on a Mac:
+
+```
+parity/harness/render.sh <out-dir> [--case blend/multiply-50-opaque]...
+```
+
+`render.sh` builds the tool with `harness/build.sh` (Release, into `build/parity-harness`) and runs `ParityHarness render --corpus parity/corpus --out <out-dir>`. A case id is the case folder's path inside `corpus/`. Leave out `--case` to render every case.
+
+A case that fails doesn't stop the run. The tool exits with a non-zero status only for a usage error. Each case's result is in `<out-dir>/harness-info.json`, with `ok` or `error` and the error message, next to the macOS version, the Xcode and Swift versions, and whether Metal found a GPU. Layer effects render with Metal when there is a GPU and on the CPU when there isn't, so references made both ways can differ.
 
 ## Comparing
 

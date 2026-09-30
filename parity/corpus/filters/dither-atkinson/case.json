@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Atkinson",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "536D931F-6469-45B0-8659-89DD8B792EBB",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Atkinson (Classic Mac)"
+        }
+      }
+    }
+  ]
+}

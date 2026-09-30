@@ -1,0 +1,254 @@
+name: Parity
+
+# Renders the corpus with the Mac app's own code (references) and with the port on each OS, and
+# fails on any case outside tolerance or any regression against main.
+#
+# Runners come from repository variables so the self-hosted machines can take over without
+# editing this file: MAC_RUNS_ON = ["self-hosted","mac"], WINDOWS_RUNS_ON = ["self-hosted","windows"].
+# Untrusted pull requests never reach these runners: this workflow has no pull_request trigger.
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Run every case
+        type: boolean
+        default: true
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      cases: ${{ steps.affected.outputs.cases }}
+      refs-key: ${{ steps.key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            port/target
+          key: cargo-plan-${{ runner.os }}-${{ hashFiles('port/Cargo.lock') }}
+          restore-keys: cargo-plan-${{ runner.os }}-
+
+      - name: Check the corpus matches its generator
+        run: |
+          cargo run --quiet --manifest-path port/Cargo.toml -p parity -- gen-corpus --out parity/corpus
+          git status --porcelain parity/corpus
+          test -z "$(git status --porcelain parity/corpus)" || { echo "parity/corpus is out of date: run gen-corpus and commit"; exit 1; }
+
+      - name: Choose cases
+        id: affected
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo 'cases=*' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            base="${{ github.event.before }}"
+          else
+            base="$(git merge-base origin/main HEAD)"
+          fi
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo 'cases=*' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cases="$(cargo run --quiet --manifest-path port/Cargo.toml -p parity -- affected --base "$base" | paste -sd' ' -)"
+          echo "Affected: ${cases:-none}"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
+
+      - name: Reference cache key
+        id: key
+        run: echo "key=refs-v1-${{ hashFiles('Compositor/**', 'Compositor.xcodeproj/**', 'parity/harness/**', 'parity/corpus/**') }}" >> "$GITHUB_OUTPUT"
+
+  references:
+    name: references
+    needs: plan
+    runs-on: ${{ fromJSON(vars.MAC_RUNS_ON || '"macos-26"') }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Restore references
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: refs
+          key: ${{ needs.plan.outputs.refs-key }}
+
+      - name: Select Xcode
+        if: steps.cache.outputs.cache-hit != 'true' && vars.MAC_RUNS_ON == ''
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+
+      - name: Render references with the Mac app's code
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: parity/harness/render.sh refs
+
+      - name: Save references
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: refs
+          key: ${{ needs.plan.outputs.refs-key }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: references
+          path: refs
+          retention-days: 14
+
+  parity:
+    name: parity-${{ matrix.platform }}
+    needs: [plan, references]
+    if: needs.plan.outputs.cases != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runs-on: ${{ vars.WINDOWS_RUNS_ON || '"windows-latest"' }}
+          - platform: mac
+            runs-on: ${{ vars.MAC_RUNS_ON || '"macos-26"' }}
+    runs-on: ${{ fromJSON(matrix.runs-on) }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            port/target
+          key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/Cargo.lock') }}-${{ hashFiles('port/**/*.rs', 'port/**/*.wgsl') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/Cargo.lock') }}-
+            cargo-${{ runner.os }}-${{ runner.arch }}-
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: references
+          path: refs
+
+      # The newest results.json saved by a run on main: the regression baseline.
+      - name: Restore baseline
+        uses: actions/cache/restore@v6
+        with:
+          path: baseline
+          key: parity-baseline-${{ matrix.platform }}-${{ github.sha }}
+          restore-keys: parity-baseline-${{ matrix.platform }}-
+
+      - name: Build
+        run: cargo build --release --manifest-path port/Cargo.toml -p parity
+
+      - name: Run parity
+        run: |
+          args=()
+          if [ "${{ needs.plan.outputs.cases }}" != "*" ]; then
+            for c in ${{ needs.plan.outputs.cases }}; do args+=(--case "$c"); done
+          fi
+          if [ -f baseline/results.json ]; then args+=(--baseline baseline/results.json); fi
+          set +e
+          port/target/release/parity run --refs refs --out out --platform ${{ matrix.platform }} "${args[@]}"
+          status=$?
+          set -e
+          [ -f out/report.md ] && cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Save baseline
+        if: success() && github.ref == 'refs/heads/main'
+        run: mkdir -p baseline && cp out/results.json baseline/results.json
+
+      - uses: actions/cache/save@v6
+        if: success() && github.ref == 'refs/heads/main'
+        with:
+          path: baseline
+          key: parity-baseline-${{ matrix.platform }}-${{ github.sha }}
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: parity-${{ matrix.platform }}
+          path: out
+          retention-days: 14
+          if-no-files-found: ignore
+
+  report:
+    name: report
+    needs: parity
+    if: always() && needs.parity.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: parity-*
+          path: results
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            port/target
+          key: cargo-plan-${{ runner.os }}-${{ hashFiles('port/Cargo.lock') }}
+          restore-keys: cargo-plan-${{ runner.os }}-
+
+      - name: Write PARITY.md
+        run: |
+          args=()
+          for f in results/parity-windows/results.json results/parity-mac/results.json; do
+            [ -f "$f" ] && args+=(--results "$f")
+          done
+          [ ${#args[@]} -gt 0 ] || { echo "no results"; exit 0; }
+          cargo run --quiet --manifest-path port/Cargo.toml -p parity -- report "${args[@]}" --commit "${GITHUB_SHA::10}"
+          cat PARITY.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit PARITY.md to main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git diff --quiet -- PARITY.md && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PARITY.md
+          git commit -m "Update PARITY.md [skip ci]"
+          git push
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: PARITY.md
+          path: PARITY.md
+          if-no-files-found: ignore

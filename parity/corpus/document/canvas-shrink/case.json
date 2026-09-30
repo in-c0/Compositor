@@ -4,11 +4,11 @@
   "label": "Canvas Size 48x48, content moved (-8, -8)",
   "ops": [
     {
-      "height": 48,
-      "offset": [
+      "contentOffset": [
         -8,
         -8
       ],
+      "height": 48,
       "op": "canvasSize",
       "width": 48
     }

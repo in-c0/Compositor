@@ -1,0 +1,17 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Floyd-Steinberg",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "857B927D-AED2-42F3-BF37-D57030BC7365",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "style": "Floyd–Steinberg"
+        }
+      }
+    }
+  ]
+}

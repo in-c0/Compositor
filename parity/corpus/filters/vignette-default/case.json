@@ -1,0 +1,13 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Vignette, defaults",
+  "ops": [
+    {
+      "kind": "Vignette",
+      "layer": "E5EAA44B-2829-48B2-8E1E-CFE58D6F3B8F",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Motion Blur 30 degrees, 20 px",
+  "ops": [
+    {
+      "kind": "Motion Blur",
+      "layer": "0D9BBD09-A41C-4E7F-A184-5462417BF264",
+      "op": "filter",
+      "settings": {
+        "angle": 30,
+        "distance": 20
+      }
+    }
+  ]
+}

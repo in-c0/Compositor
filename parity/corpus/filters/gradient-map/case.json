@@ -1,0 +1,27 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Gradient Map filter, blue to orange",
+  "ops": [
+    {
+      "kind": "Gradient Map",
+      "layer": "1A08B4DE-094F-4F81-8DA6-879C8B3B3EDE",
+      "op": "filter",
+      "settings": {
+        "gradientMap": {
+          "highlights": {
+            "blue": 0.1,
+            "green": 0.6,
+            "red": 1
+          },
+          "reversed": false,
+          "shadows": {
+            "blue": 0.4,
+            "green": 0.1,
+            "red": 0.05
+          }
+        }
+      }
+    }
+  ]
+}
