@@ -241,5 +241,79 @@ fn probes(w: &mut CaseWriter) -> Result<()> {
         }
         w.write(F, case, label, d, vec![op])?;
     }
+    gradient_probes(w)?;
+    line_probes(w)
+}
+
+/// Core Graphics dithers gradients. Flat "gradients" (both ends one color) whose channels sit a
+/// sixteenth apart between two bytes read the dither threshold at every pixel; tall ramps average
+/// the dither out to show how the color follows the line.
+fn gradient_probes(w: &mut CaseWriter) -> Result<()> {
+    let gray = |from: [f64; 2], to: [f64; 2], fg: f64, bg: f64, extra: Value| {
+        let mut op = json!({ "op": "gradient", "from": from, "to": to, "foreground": [fg, fg, fg], "background": [bg, bg, bg], "style": "Foreground to Background" });
+        if let Value::Object(extra) = extra {
+            for (k, v) in extra {
+                op[k] = v;
+            }
+        }
+        op
+    };
+    for k in 0..5 {
+        let case = format!("probe-dither-{k}");
+        let c: Vec<f64> = (1..=3).map(|i| (100.0 + (3 * k + i) as f64 / 16.0) / 255.0).collect();
+        let mut d = w.doc(F, &case, 128, 128);
+        d.blank("Layer 1", 128.0, 128.0, spec());
+        let op = json!({ "op": "gradient", "from": [0, 0], "to": [128, 0], "foreground": c, "background": c, "style": "Foreground to Background" });
+        w.write(F, &case, &format!("Probe: one color, channels {}/16 to {}/16 past a byte", 3 * k + 1, 3 * k + 3), d, vec![op])?;
+    }
+    // The same, on a layer whose grid starts off the canvas.
+    let case = "probe-dither-offset";
+    let c: Vec<f64> = (1..=3).map(|i| (100.0 + (3 * i) as f64 / 16.0) / 255.0).collect();
+    let mut d = w.doc(F, case, 128, 128);
+    d.blank("Layer 1", 200.0, 180.0, LayerSpec { transform: Some(Transform::at(-40.0, -24.0, 200.0, 180.0)), ..spec() });
+    let op = json!({ "op": "gradient", "from": [0, 0], "to": [128, 0], "foreground": c, "background": c, "style": "Foreground to Background" });
+    w.write(F, case, "Probe: one color on a layer that starts off the canvas", d, vec![op])?;
+    let ramps: [(&str, &str, u32, u32, Value); 8] = [
+        ("probe-ramp-256", "Probe: black to white over 256 px, 32 rows", 256, 32, gray([0.0, 0.0], [256.0, 0.0], 0.0, 1.0, json!({}))),
+        ("probe-ramp-64", "Probe: black to white over 64 px", 64, 32, gray([0.0, 0.0], [64.0, 0.0], 0.0, 1.0, json!({}))),
+        ("probe-ramp-16", "Probe: black to white over 16 px", 64, 32, gray([24.0, 0.0], [40.0, 0.0], 0.0, 1.0, json!({}))),
+        ("probe-ramp-half", "Probe: black to middle gray over 256 px", 256, 32, gray([0.0, 0.0], [256.0, 0.0], 0.0, 0.5, json!({}))),
+        ("probe-ramp-600", "Probe: dark to light gray over 600 px", 256, 32, gray([-100.0, 0.0], [500.0, 0.0], 0.2, 0.9, json!({}))),
+        ("probe-ramp-vertical", "Probe: black to white over 128 px, downward", 32, 128, gray([0.0, 0.0], [0.0, 128.0], 0.0, 1.0, json!({}))),
+        ("probe-ramp-diagonal", "Probe: black to white along a diagonal", 64, 64, gray([3.0, 5.0], [61.0, 50.0], 0.0, 1.0, json!({}))),
+        ("probe-ramp-radial", "Probe: black to white, radial, 40 px", 96, 96, gray([48.0, 48.0], [88.0, 48.0], 0.0, 1.0, json!({ "type": "Radial" }))),
+    ];
+    for (case, label, width, height, op) in ramps {
+        let mut d = w.doc(F, case, width, height);
+        d.blank("Layer 1", width as f64, height as f64, spec());
+        w.write(F, case, label, d, vec![op])?;
+    }
+    // Opacity and transparency on a tall ramp.
+    let case = "probe-ramp-opacity";
+    let mut d = w.doc(F, case, 256, 32);
+    d.blank("Layer 1", 256.0, 32.0, spec());
+    w.write(F, case, "Probe: black to white at 50%", d, vec![gray([0.0, 0.0], [256.0, 0.0], 0.0, 1.0, json!({ "opacity": 0.5 }))])?;
+    let case = "probe-ramp-transparent";
+    let mut d = w.doc(F, case, 256, 32);
+    d.blank("Layer 1", 256.0, 32.0, spec());
+    w.write(F, case, "Probe: a color fading out over 256 px, 32 rows", d, vec![json!({ "op": "gradient", "from": [0, 0], "to": [256, 0], "foreground": [0.4, 0.6, 0.8] })])?;
+    Ok(())
+}
+
+/// Lines whose edges run level at fractional heights, thin lines either side of 1 px, and long
+/// slanted lines, each on its own layer.
+fn line_probes(w: &mut CaseWriter) -> Result<()> {
+    let white = [1.0, 1.0, 1.0];
+    let level: Vec<Value> = [1.3, 1.7, 2.5, 3.3, 1.01, 1.1].iter().enumerate()
+        .map(|(i, &width)| line([4.0, 5.0 + 10.0 * i as f64], [60.0, 5.0 + 10.0 * i as f64], width, white)).collect();
+    w.write(F, "probe-lines-level", "Probe: level lines of fractional widths", ground(w, "probe-lines-level", N, N), level)?;
+    let thin: Vec<Value> = [(1.0, [4.0, 4.0], [60.0, 20.0]), (1.0, [4.0, 30.0], [30.0, 60.0]), (1.0, [34.0, 34.0], [60.0, 36.0]),
+        (1.01, [4.0, 10.0], [60.0, 26.0]), (1.5, [4.0, 20.0], [60.0, 36.0]), (2.0, [4.0, 40.0], [60.0, 56.0]), (1.0, [40.0, 60.0], [60.0, 40.5])]
+        .iter().map(|&(width, a, b)| line(a, b, width, white)).collect();
+    w.write(F, "probe-lines-thin", "Probe: 1 px lines at angles, and slightly wider", ground(w, "probe-lines-thin", N, N), thin)?;
+    let long: Vec<Value> = [(2.0, [2.0, 3.0], [62.0, 7.0]), (2.0, [2.0, 12.0], [62.0, 30.0]), (3.0, [2.0, 60.0], [40.0, 2.0]),
+        (4.0, [10.0, 62.0], [62.0, 50.0]), (2.5, [30.0, 40.0], [31.0, 62.0])]
+        .iter().map(|&(width, a, b)| line(a, b, width, white)).collect();
+    w.write(F, "probe-lines-long", "Probe: long lines at shallow and steep slopes", ground(w, "probe-lines-long", N, N), long)?;
     Ok(())
 }

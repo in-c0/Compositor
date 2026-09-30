@@ -1,0 +1,133 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: 1 px lines at angles, and slightly wider",
+  "ops": [
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        4.0,
+        4.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.0,
+      "op": "shape",
+      "to": [
+        60.0,
+        20.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        4.0,
+        30.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.0,
+      "op": "shape",
+      "to": [
+        30.0,
+        60.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        34.0,
+        34.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.0,
+      "op": "shape",
+      "to": [
+        60.0,
+        36.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        4.0,
+        10.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.01,
+      "op": "shape",
+      "to": [
+        60.0,
+        26.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        4.0,
+        20.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.5,
+      "op": "shape",
+      "to": [
+        60.0,
+        36.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        4.0,
+        40.0
+      ],
+      "kind": "Line",
+      "lineWidth": 2.0,
+      "op": "shape",
+      "to": [
+        60.0,
+        56.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        40.0,
+        60.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.0,
+      "op": "shape",
+      "to": [
+        60.0,
+        40.5
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: a color fading out over 256 px, 32 rows",
+  "ops": [
+    {
+      "foreground": [
+        0.4,
+        0.6,
+        0.8
+      ],
+      "from": [
+        0,
+        0
+      ],
+      "op": "gradient",
+      "to": [
+        256,
+        0
+      ]
+    }
+  ]
+}
