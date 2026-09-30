@@ -168,25 +168,76 @@ pub struct Draw<'a> {
 
 const MODES: &str = include_str!("../blend/modes.wgsl");
 
+/// Where a source's pixels land: the source position (in its pixels, y down) at the center of
+/// canvas pixel (0, 0) and its steps per canvas pixel, as Core Graphics steps them.
+#[derive(Clone, Copy, Debug)]
+pub struct Dda {
+    pub u0: f64,
+    pub u_dx: f64,
+    pub u_dy: f64,
+    pub v0: f64,
+    pub v_dx: f64,
+    pub v_dy: f64,
+}
+
+impl Placement {
+    /// The source position under canvas points for a `width` x `height` source filling `rect`.
+    pub fn dda(&self, rect: &Rect, width: u32, height: u32) -> Dda {
+        let sx = if self.flip_x { -1.0 } else { 1.0 };
+        let sy = if self.flip_y { 1.0 } else { -1.0 };
+        let (c, s) = (self.cos, self.sin);
+        let [cx, cy] = self.center;
+        let (w, h) = (width as f64, height as f64);
+        let (rw, rh) = (rect.max_x - rect.min_x, rect.max_y - rect.min_y);
+        // Drawing space at the canvas point (x, y), then the source: u from the left edge, v down
+        // from the top edge.
+        let at = |x: f64, y: f64| {
+            let (px, py) = (x - cx, y - cy);
+            let qx = (c * px + s * py) * sx;
+            let qy = (-s * px + c * py) * sy;
+            ((qx - rect.min_x) * w / rw, (rect.max_y - qy) * h / rh)
+        };
+        let (u0, v0) = at(0.5, 0.5);
+        Dda { u0, u_dx: c * sx * w / rw, u_dy: s * sx * w / rw, v0, v_dx: s * sy * h / rh, v_dy: -c * sy * h / rh }
+    }
+}
+
+/// `v` in 32.32 fixed point, rounded down, as the low and high words of a two's complement pair.
+fn fixed(v: f64) -> [u32; 2] {
+    let f = (v * 4294967296.0).floor() as i64;
+    [f as u32, (f >> 32) as u32]
+}
+
+/// The kernel's `Dda` block: fixed-point positions and steps, canvas pixels per source pixel, and
+/// the source size.
+fn dda_block(d: &Dda, rect: &Rect, width: u32, height: u32) -> Vec<u8> {
+    let mut b = Vec::with_capacity(64);
+    for v in [d.u0, d.u_dx, d.u_dy, d.v0, d.v_dx, d.v_dy] {
+        for w in fixed(v) {
+            b.extend_from_slice(&w.to_le_bytes());
+        }
+    }
+    let scale = [((rect.max_x - rect.min_x) / width as f64) as f32, ((rect.max_y - rect.min_y) / height as f64) as f32];
+    b.extend_from_slice(bytemuck::cast_slice(&scale));
+    b.extend_from_slice(&width.to_le_bytes());
+    b.extend_from_slice(&height.to_le_bytes());
+    b
+}
+
 /// Composites `draw` over `canvas` and returns the new canvas.
 pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
-    let pipeline = gpu.pipeline("transform_draw", &format!("{MODES}\n{}", include_str!("resample.wgsl")));
+    let pipeline = gpu.pipeline("transform_draw", &format!("{MODES}
+{}", include_str!("resample.wgsl")));
     let out = gpu.image(canvas.width, canvas.height);
     let p = &draw.placement;
-    let inverse = p.inverse();
     // The canvas-space bounding box of the image rectangle, for the aliased overlap test.
     let corners = p.corners(&draw.image.rect);
-    let min = |i: usize| corners.iter().map(|c| c[i]).fold(f64::INFINITY, f64::min);
-    let max = |i: usize| corners.iter().map(|c| c[i]).fold(f64::NEG_INFINITY, f64::max);
-    let mut params: Vec<u8> = Vec::with_capacity(160);
-    let mut u = |v: u32| params.extend_from_slice(&v.to_le_bytes());
-    for v in [canvas.width, canvas.height, draw.image.width, draw.image.height] {
-        u(v);
-    }
-    let (mask_width, mask_height) = draw.mask.as_ref().map_or((1, 1), |m| (m.width, m.height));
+    let min = |i: usize| corners.iter().map(|c| c[i]).fold(f64::INFINITY, f64::min) as f32;
+    let max = |i: usize| corners.iter().map(|c| c[i]).fold(f64::NEG_INFINITY, f64::max) as f32;
+    let mut params: Vec<u8> = Vec::with_capacity(192);
     for v in [
-        mask_width,
-        mask_height,
+        canvas.width,
+        canvas.height,
         mode_index(draw.mode),
         draw.mask.is_some() as u32,
         draw.clip.is_some() as u32,
@@ -197,25 +248,17 @@ pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
             Quality::Low | Quality::High => 1,
         },
         draw.antialias as u32,
+        (p.l1() as f32).to_bits(),
+        0,
+        0,
     ] {
-        u(v);
+        params.extend_from_slice(&v.to_le_bytes());
     }
-    // Pad to a 16-byte boundary before the float block.
-    while params.len() % 16 != 0 {
-        params.extend_from_slice(&0u32.to_le_bytes());
-    }
-    let mask_rect = draw.mask.as_ref().map_or(draw.image.rect, |m| m.rect);
-    let r = &draw.image.rect;
-    let floats: Vec<f32> = [
-        inverse[0], inverse[1], inverse[2], p.l1(), inverse[3], inverse[4], inverse[5], 0.0,
-        r.min_x, r.min_y, r.max_x, r.max_y,
-        mask_rect.min_x, mask_rect.min_y, mask_rect.max_x, mask_rect.max_y,
-        min(0), min(1), max(0), max(1),
-    ]
-    .iter()
-    .map(|&v| v as f32)
-    .collect();
-    params.extend_from_slice(bytemuck::cast_slice(&floats));
+    params.extend_from_slice(bytemuck::cast_slice(&[min(0), min(1), max(0), max(1)]));
+    let image = &draw.image;
+    params.extend(dda_block(&p.dda(&image.rect, image.width, image.height), &image.rect, image.width, image.height));
+    let mask = draw.mask.as_ref().unwrap_or(image);
+    params.extend(dda_block(&p.dda(&mask.rect, mask.width, mask.height), &mask.rect, mask.width, mask.height));
     let table = opacity_table(gpu, draw.opacity);
     let placeholder = gpu.bytes(&[0u8; 4]);
     let mask = draw.mask.as_ref().map_or(&placeholder, |m| m.buffer);
