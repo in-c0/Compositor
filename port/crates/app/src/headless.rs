@@ -56,12 +56,18 @@ impl Offscreen {
 
     /// Runs `draw` for a few passes (layout settles, fonts and textures load, animations finish),
     /// then paints the last one into a `size` image.
-    fn render(&self, size: egui::Vec2, mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
+    fn render(&self, size: egui::Vec2, draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
+        self.render_with_events(size, &[], draw)
+    }
+
+    /// `render`, feeding each `(pass, event)` to its pass: tests click through the UI this way.
+    fn render_with_events(&self, size: egui::Vec2, events: &[(usize, egui::Event)], mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
         let (w, h) = (size.x.round() as u32, size.y.round() as u32);
         let mut output = None;
         for pass in 0..4 {
-            let mut input = egui::RawInput { screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)), time: Some(pass as f64), predicted_dt: 1.0, ..Default::default() };
+            let mut input = egui::RawInput { screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)), time: Some(pass as f64 * 0.25), predicted_dt: 0.25, ..Default::default() };
             input.viewports.entry(egui::ViewportId::ROOT).or_default().native_pixels_per_point = Some(1.0);
+            input.events = events.iter().filter(|(p, _)| *p == pass).map(|(_, e)| e.clone()).collect();
             let mut out = self.ctx.run_ui(input, |ui| {
                 let rect = Rect::from_min_size(pos2(0.0, 0.0), size);
                 ui.painter().rect_filled(rect, 0.0, theme::color::EDITOR);
@@ -178,6 +184,20 @@ pub fn render_ui(states: &Path, corpus: &Path, out: &Path) -> Result<()> {
         println!("{:<28} {}", state.id, entry["status"].as_str().unwrap_or(""));
         info.push(entry);
     }
+    // Not a parity state: the Windows window as a whole (menu bar, toolbar with two project tabs,
+    // editor), for looking at the port's own chrome.
+    let mut whole = App::new(off.gfx.clone());
+    whole.headless = true;
+    for case in ["blend/stack", "masks/folder-mask"] {
+        whole.docs.push(crate::document::Doc::open(&corpus.join(case).join("input.comp"))?);
+    }
+    whole.docs[1].modified = true;
+    whole.current = Some(0);
+    let image = off.render(vec2(metric::WINDOW[0], metric::WINDOW[1]), |ui, _| ui::window(&mut whole, ui))?;
+    for doc in &mut whole.docs {
+        doc.release(&off.gfx);
+    }
+    save(&image, out, "port/window")?;
     // Menus: at launch (no document) and with a document open and the Move tool.
     let welcome = App::new(off.gfx.clone());
     let mut document = App::new(off.gfx.clone());
@@ -235,4 +255,96 @@ fn render_state(off: &Offscreen, state: &State, corpus: &Path, out: &Path) -> Re
     }
     save(&image, out, &state.id)?;
     Ok(Some(image.dimensions()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::metric;
+
+    fn corpus() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../parity/corpus")
+    }
+
+    fn click(at: egui::Pos2) -> Vec<(usize, egui::Event)> {
+        let button = |pressed| egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() };
+        vec![(1, egui::Event::PointerMoved(at)), (1, button(true)), (2, button(false))]
+    }
+
+    /// The flattened canvas, straight alpha, as Export PNG writes it.
+    fn flatten(off: &Offscreen, app: &App) -> Vec<u8> {
+        let project = &app.doc().unwrap().project;
+        let canvas = engine::composite::Compositor::new(&off.gfx.gpu, project).render().unwrap();
+        off.gfx.gpu.download(&engine::blend::unpremultiply(&off.gfx.gpu, &canvas)).unwrap()
+    }
+
+    #[test]
+    fn a_layer_eye_hides_the_layer_and_the_canvas_redraws() {
+        let off = Offscreen::new().unwrap();
+        let state = State { id: "test".into(), view: "window".into(), document: Some("blend/stack".into()), tool: Some("move".into()), sheet: None, layer: None };
+        let mut app = app_for(&off, &state, &corpus()).unwrap();
+        let before = flatten(&off, &app);
+        let editor = editor_size();
+        // The second row (Hard Mix): the list starts under the tool header, the panel's header and
+        // its blend and opacity controls; rows are 54 points apart and their eyes 8 points in.
+        let panel_x = editor.x - metric::LAYERS_DEFAULT;
+        let list_top = metric::TOOL_HEADER + 1.0 + ui::layers::HEADER + 1.0 + ui::layers::APPEARANCE + 1.0;
+        let eye = pos2(panel_x + 18.0, list_top + 54.0 + 1.0 + 26.0);
+        let target = app.doc().unwrap().project.manifest.layers[3].id.clone();
+        assert_eq!(app.doc().unwrap().layer(&target).unwrap().name, "Hard Mix");
+        off.render_with_events(editor, &click(eye), |ui, rect| ui::editor(&mut app, ui, rect)).unwrap();
+        let doc = app.doc().unwrap();
+        assert!(!doc.layer(&target).unwrap().is_visible, "the eye click hid the layer");
+        assert!(doc.render_error.is_none() && doc.canvas.is_some(), "the canvas re-rendered");
+        assert_ne!(before, flatten(&off, &app), "hiding a layer changes the composite");
+        assert_eq!(doc.undo_title(), Some("Hide Layer"));
+    }
+
+    #[test]
+    fn menus_have_the_mac_order() {
+        let off = Offscreen::new().unwrap();
+        let app = App::new(off.gfx.clone());
+        let menus = menus::build(&app.menu_state());
+        let titles: Vec<&str> = menus.iter().map(|m| m.title).collect();
+        assert_eq!(titles, ["File", "Edit", "Select", "Image", "Filter", "Layer", "View", "Window", "Help"]);
+        let file: Vec<String> = menus[0].items.iter().filter(|i| !i.system).map(|i| if i.separator { "-".into() } else { i.title.clone() }).collect();
+        assert_eq!(file, ["New Canvas…", "Open Project…", "Open Recent", "Import Images…", "Save", "Save As…", "-", "Export PNG…", "Export JPEG…", "-", "Close Project", "-"]);
+    }
+
+    #[test]
+    fn panel_edits_rerender_and_save_round_trips() {
+        let off = Offscreen::new().unwrap();
+        let state = State { id: "test".into(), view: "window".into(), document: Some("blend/stack".into()), tool: None, sheet: None, layer: None };
+        let mut app = app_for(&off, &state, &corpus()).unwrap();
+        let gfx = off.gfx.clone();
+        let mut last = flatten(&off, &app);
+        let doc = app.doc_mut().unwrap();
+        let screen = doc.project.manifest.layers[1].id.clone();
+        let edits: [&dyn Fn(&mut crate::document::Doc); 3] = [
+            &|d| d.set_blend_mode(&screen, comp_format::BlendMode::Multiply),
+            &|d| d.set_opacity(&screen, 0.5, false),
+            &|d| assert!(d.move_layer(&screen, false)),
+        ];
+        for edit in edits {
+            let doc = app.doc_mut().unwrap();
+            edit(doc);
+            doc.refresh(&gfx);
+            assert!(doc.render_error.is_none());
+            let now = flatten(&off, &app);
+            assert_ne!(now, last);
+            last = now;
+        }
+        let doc = app.doc_mut().unwrap();
+        doc.undo();
+        assert_eq!(doc.project.manifest.layers[1].id, screen, "undo puts the layer back");
+        doc.redo();
+        let dir = std::env::temp_dir().join(format!("compositor-app-test-{}", std::process::id()));
+        let path = dir.join("saved.comp");
+        doc.save(&path).unwrap();
+        assert!(!doc.modified);
+        let reloaded = comp_format::load(&path).unwrap();
+        assert_eq!(reloaded.manifest, engine::session::normalize(&doc.project).manifest);
+        std::fs::remove_dir_all(&dir).unwrap();
+        doc.release(&gfx);
+    }
 }
