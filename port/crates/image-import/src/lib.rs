@@ -19,6 +19,8 @@ mod jpeg_markers;
 mod png_file;
 mod raw;
 mod svg;
+#[cfg(test)]
+mod tests;
 mod tiff_file;
 
 pub use raw::RawSettings;

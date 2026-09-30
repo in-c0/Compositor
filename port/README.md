@@ -9,6 +9,7 @@ This folder holds the Windows version of Compositor, written in Rust. It draws e
 | `comp-format` | Reads and writes `.comp` projects, with the Mac app's validation rules and byte-identical manifests. |
 | `engine` | The renderer: compositing, blend modes, masks, clipping, adjustments, effects, filters, document operations, export. All pixel work is WGSL compute shaders on packed 8-bit buffers. |
 | `psd` | Reads and writes Photoshop PSD and PSB files. |
+| `image-import` | Opens JPEG, PNG, HEIC, TIFF, SVG and DNG files as the Mac app imports them, including Core Image's conversion to 8-bit sRGB. Pure Rust: heic-rs decodes HEVC, resvg draws SVG, moxcms reads ICC profiles. |
 | `parity` | Generates the test corpus and compares the port's renders with the Mac's references. |
 | `lab` | A scratchpad for fitting the Mac's arithmetic to references before it goes into WGSL. |
 
