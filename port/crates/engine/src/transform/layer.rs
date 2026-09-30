@@ -1,10 +1,11 @@
 //! `LayerRenderer.draw` for one layer that isn't a straight pixel copy: the interpolation it picks,
-//! the image and mask sources, and the rectangles they fill.
+//! the image and mask sources (halved first for large reductions), and the rectangles they fill.
 
-use super::{Draw, Placement, Quality, Source, interpolation, reduction_level};
+use super::{Draw, Placement, Quality, Source, halve, interpolation, reduction_level};
 use crate::RenderError;
 use crate::gpu::{Gpu, GpuImage};
 use comp_format::{LayerRecord, Project, Sampling};
+use image::{GrayImage, RgbaImage};
 
 type Result<T> = std::result::Result<T, RenderError>;
 
@@ -40,25 +41,55 @@ pub fn needs_resampling(project: &Project, layer: &LayerRecord) -> bool {
     unlinked || (!uniform && mask.pixels.dimensions() != (w, h))
 }
 
+/// Straight PNG pixels premultiplied as Core Graphics loads them, rounding to nearest.
+fn premultiplied(image: &RgbaImage) -> RgbaImage {
+    let mut out = image.clone();
+    for p in out.pixels_mut() {
+        let a = p[3] as u32;
+        for c in 0..3 {
+            p[c] = ((p[c] as u32 * a + 127) / 255) as u8;
+        }
+    }
+    out
+}
+
+/// `LayerRenderer.reduced`: how many halvings to draw from, for a source `pixels` wide landing
+/// `width` canvas pixels wide; none for Nearest, and none for a single pixel.
+fn halvings(sampling: Sampling, width: f64, (w, h): (u32, u32)) -> u32 {
+    if sampling == Sampling::Nearest || (w <= 1 && h <= 1) {
+        return 0;
+    }
+    reduction_level(width / w.max(1) as f64)
+}
+
+/// The rectangle a source reduced `level` times fills: the layer's bounds, reaching further right
+/// and down by what the halvings rounded up (`LayerRenderer.coverage(of:in:)`).
+fn rect(placement: &Placement, level: u32, (w, h): (u32, u32), (rw, rh): (u32, u32)) -> super::Rect {
+    placement.rect(((rw as u64) << level) as f64 / w.max(1) as f64, ((rh as u64) << level) as f64 / h.max(1) as f64)
+}
+
 /// Draws `layer` over `canvas` through its transform, with `opacity` and `clip`.
 pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &GpuImage, opacity: f64, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
     let Some(asset) = project.images.get(&layer.id) else {
         return Ok(gpu.copy(canvas));
     };
     let t = &layer.transform;
-    let (w, h) = asset.pixels.dimensions();
+    let size = asset.pixels.dimensions();
     let placement = Placement::of(t);
     let width = t.size[0];
-    if t.sampling != Sampling::Nearest && reduction_level(width / w.max(1) as f64) > 0 {
-        return unsupported("large reductions (vImage halvings)");
+    let level = halvings(t.sampling, width, size);
+    let mut pixels = premultiplied(&asset.pixels);
+    for _ in 0..level {
+        pixels = halve::halve_color(&pixels);
     }
-    let final_factor = width / w.max(1) as f64;
+    let reduced = pixels.dimensions();
+    let final_factor = width / size.0.max(1) as f64 * (1u64 << level) as f64;
     let quality = interpolation(t.sampling, final_factor, placement.upright());
-    if quality == Quality::High && t.size[1] < h as f64 {
+    if quality == Quality::High && t.size[1] < reduced.1 as f64 * (1u64 << level) as f64 {
         return unsupported("High-quality interpolation while shrinking");
     }
-    let rect = placement.rect(1.0, 1.0);
-    let pixels = gpu.upload(w, h, asset.pixels.as_raw());
+    let image_rect = rect(&placement, level, size, reduced);
+    let image = gpu.upload(reduced.0, reduced.1, pixels.as_raw());
     let mask_pixels;
     let mask = if layer.mask_enabled() {
         if layer.mask_placement.is_some() && !layer.mask_linked() {
@@ -67,19 +98,21 @@ pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &Gp
         let Some(m) = project.masks.get(&layer.id) else {
             return unsupported("a missing mask");
         };
-        let (mw, mh) = m.pixels.dimensions();
-        if t.sampling != Sampling::Nearest && reduction_level(width / mw.max(1) as f64) > 0 {
-            return unsupported("large mask reductions (vImage halvings)");
+        let mask_size = m.pixels.dimensions();
+        let mask_level = halvings(t.sampling, width, mask_size);
+        let mut mask: GrayImage = m.pixels.clone();
+        for _ in 0..mask_level {
+            mask = halve::halve_mask(&mask);
         }
-        let coverage: Vec<u32> = m.pixels.as_raw().iter().map(|&v| v as u32).collect();
+        let coverage: Vec<u32> = mask.as_raw().iter().map(|&v| v as u32).collect();
         mask_pixels = gpu.bytes(bytemuck::cast_slice(&coverage));
-        Some(Source { buffer: &mask_pixels, width: mw, height: mh, rect })
+        Some(Source { buffer: &mask_pixels, width: mask.width(), height: mask.height(), rect: rect(&placement, mask_level, mask_size, mask.dimensions()) })
     } else {
         None
     };
     let draw = Draw {
-        image: Source { buffer: &pixels.buffer, width: w, height: h, rect },
-        premultiplied: false,
+        image: Source { buffer: &image.buffer, width: reduced.0, height: reduced.1, rect: image_rect },
+        premultiplied: true,
         placement,
         quality,
         antialias: t.sampling != Sampling::Nearest,

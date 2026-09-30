@@ -15,6 +15,8 @@
 //!   corners. With antialiasing off (Nearest), a pixel is drawn when the rectangle overlaps it at
 //!   all.
 
+pub mod clip;
+mod halve;
 mod layer;
 
 pub use layer::{draw_layer, needs_resampling};
@@ -229,7 +231,7 @@ impl Placement {
     /// right edges and each row's at its top and bottom, in source terms, with the coverage byte
     /// of their product: in double precision, as Core Graphics measures them, so an edge exactly on
     /// a pixel boundary or center stays exact.
-    fn edge_table(&self, rect: &Rect, width: u32, height: u32) -> Vec<[u32; 4]> {
+    pub(crate) fn edge_table(&self, rect: &Rect, width: u32, height: u32) -> Vec<[u32; 4]> {
         let sx = if self.flip_x { -1.0 } else { 1.0 };
         let sy = if self.flip_y { 1.0 } else { -1.0 };
         let [cx, cy] = self.center;

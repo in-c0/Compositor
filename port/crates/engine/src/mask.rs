@@ -34,7 +34,7 @@ pub fn folder_coverage(project: &Project, folder: &LayerRecord, (width, height):
     let upright = t.rotation == 0.0 && !t.flip_x && !t.flip_y && t.origin[0].fract() == 0.0 && t.origin[1].fract() == 0.0;
     let uniform = mask.width() == 1 && mask.height() == 1;
     if !upright || (!uniform && t.size != [mask.width() as f64, mask.height() as f64]) {
-        return Err("resampled folder masks".into());
+        return crate::transform::clip::folder_coverage(mask, t, (width, height));
     }
     let (ox, oy) = (t.origin[0] as i64, t.origin[1] as i64);
     let (fw, fh) = (t.size[0] as i64, t.size[1] as i64);
