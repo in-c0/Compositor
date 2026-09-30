@@ -1,0 +1,19 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Point text in ArialMT, its baseline on the click",
+  "ops": [
+    {
+      "op": "text",
+      "point": [
+        20,
+        50
+      ],
+      "style": {
+        "content": "Point text",
+        "fontName": "ArialMT",
+        "fontSize": 24
+      }
+    }
+  ]
+}

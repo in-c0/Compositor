@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Impact at 20 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        260.0,
+        48.0
+      ],
+      "style": {
+        "content": "Hamburgefonstiv 0123",
+        "fontName": "Impact",
+        "fontSize": 20
+      }
+    }
+  ]
+}

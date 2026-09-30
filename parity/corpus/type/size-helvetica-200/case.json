@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Helvetica at 200 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        300.0,
+        280.0
+      ],
+      "style": {
+        "content": "Ag",
+        "fontName": "Helvetica",
+        "fontSize": 200
+      }
+    }
+  ]
+}

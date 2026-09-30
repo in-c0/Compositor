@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Helvetica-Bold at 24 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        260.0,
+        56.0
+      ],
+      "style": {
+        "content": "Hamburgefonstiv",
+        "fontName": "Helvetica-Bold",
+        "fontSize": 24
+      }
+    }
+  ]
+}

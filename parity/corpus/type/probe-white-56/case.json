@@ -1,0 +1,25 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "White ArialMT stems at 56 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        88.0,
+        98.0
+      ],
+      "style": {
+        "blue": 1.0,
+        "content": "llll",
+        "fontName": "ArialMT",
+        "fontSize": 56.0,
+        "green": 1.0,
+        "red": 1.0,
+        "tracking": 2.55859375
+      }
+    }
+  ]
+}

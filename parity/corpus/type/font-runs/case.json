@@ -1,0 +1,33 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Letters set in other faces by runs",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        300.0,
+        56.0
+      ],
+      "style": {
+        "content": "Arial Georgia Verdana",
+        "fontName": "ArialMT",
+        "fontRuns": [
+          {
+            "fontName": "Georgia",
+            "length": 7,
+            "location": 6
+          },
+          {
+            "fontName": "Verdana",
+            "length": 7,
+            "location": 14
+          }
+        ],
+        "fontSize": 22
+      }
+    }
+  ]
+}

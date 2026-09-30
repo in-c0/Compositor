@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "E868F398-BEBE-4786-B028-74B271BEC234",
+  "colorSpace" : "sRGB",
+  "documentID" : "53EEA284-83F2-4CA9-8C23-B00BA78093E2",
+  "format" : "com.compositor.project",
+  "height" : 80,
+  "layers" : [
+    {
+      "id" : "E868F398-BEBE-4786-B028-74B271BEC234",
+      "imageFile" : "E868F398-BEBE-4786-B028-74B271BEC234.png",
+      "isVisible" : true,
+      "name" : "Background",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          74,
+          80
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 74
+}

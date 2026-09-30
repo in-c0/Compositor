@@ -19,6 +19,8 @@ nonisolated struct HarnessInfo: Encodable {
     let xcode: String?
     let swiftCompiler: String?
     let gpu: GPU
+    /// Every installed face as `PostScript name<TAB>file<TAB>version`, since text renders only with what is installed.
+    let fonts: [String]
     let cases: [CaseResult]
 }
 
@@ -46,6 +48,7 @@ extension HarnessInfo {
             xcode: commandOutput("/usr/bin/xcrun", ["xcodebuild", "-version"]),
             swiftCompiler: commandOutput("/usr/bin/xcrun", ["swiftc", "--version"]),
             gpu: GPU(metalAvailable: device != nil, device: device?.name),
+            fonts: EditorSession.parityInstalledFonts(),
             cases: cases)
     }
 

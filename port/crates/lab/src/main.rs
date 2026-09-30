@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 mod blend;
 mod experiments;
+mod type_fit;
 
 pub struct Case {
     pub id: String,

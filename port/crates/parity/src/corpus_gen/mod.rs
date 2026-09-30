@@ -9,6 +9,7 @@ mod import_suite;
 mod painting_suite;
 mod psd_suite;
 mod suites;
+mod type_suite;
 
 use anyhow::Result;
 use std::path::Path;
@@ -26,6 +27,7 @@ pub fn generate(out: &Path) -> Result<()> {
     psd_suite::psd(&mut w)?;
     import_suite::import(&mut w)?;
     painting_suite::painting(&mut w)?;
+    type_suite::type_cases(&mut w)?;
     eprintln!("wrote {} cases to {}", w.count, out.display());
     Ok(())
 }

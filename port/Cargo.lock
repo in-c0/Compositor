@@ -1164,6 +1164,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "comp-format",
+ "harfrust",
  "i_overlay",
  "image",
  "image-import",
@@ -1172,6 +1173,7 @@ dependencies = [
  "pollster 1.0.1",
  "psd",
  "serde_json",
+ "skrifa",
  "tract-onnx",
  "uuid",
  "wgpu",
@@ -1937,6 +1939,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "comp-format",
+ "engine",
  "glob",
  "image",
  "serde_json",

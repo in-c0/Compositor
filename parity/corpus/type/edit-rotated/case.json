@@ -1,0 +1,18 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "A rotated, scaled text layer retyped",
+  "ops": [
+    {
+      "layer": "65ABD4FB-E5EB-478D-98B8-C16AB264F030",
+      "op": "editText",
+      "style": {
+        "blue": 0.7,
+        "content": "New words",
+        "fontSize": 26,
+        "green": 0.3,
+        "red": 0.2
+      }
+    }
+  ]
+}

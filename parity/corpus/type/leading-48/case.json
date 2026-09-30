@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Three lines at leading 48",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        120.0,
+        180.0
+      ],
+      "style": {
+        "content": "One\nTwo\nThree",
+        "fontName": "ArialMT",
+        "fontSize": 20,
+        "leading": 48.0
+      }
+    }
+  ]
+}

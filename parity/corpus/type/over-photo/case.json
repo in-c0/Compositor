@@ -1,0 +1,24 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Colored text over an opaque backdrop",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        2.0,
+        2.0,
+        156.0,
+        60.0
+      ],
+      "style": {
+        "blue": 0.2,
+        "content": "Over it",
+        "fontName": "ArialMT",
+        "fontSize": 30,
+        "green": 0.9,
+        "red": 0.95
+      }
+    }
+  ]
+}

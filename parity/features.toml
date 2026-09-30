@@ -124,6 +124,14 @@ paths = ["port/crates/engine/src/shape/**"]
 key = "type"
 name = "Type"
 paths = ["port/crates/engine/src/type/**"]
+gaps = [
+    "Layout matches the Mac exactly wherever the face is installed on both machines: every glyph position, line break and line height, and the layer's size, placement and text record. As TextKit does, runs are shaped with their ligatures, kerning applies only when tracking isn't 0, tracking follows every glyph, a line is `lineHeight` plus its fonts' line gap, and the baseline sits the rounded descent above the line's bottom.",
+    "Core Text's rasterizer isn't available on Windows, so the port draws glyphs itself, following what the references show Core Graphics doing with font smoothing: glyph origins snap to ceil(36 / size) steps per pixel across and to whole pixels down; outlines are unhinted, curves halved until neither axis strays over 0.2 px, and edges grown by (0.0058 + 0.0025 × round(4 × luminance)) px per px of size, at most 0.3 px, with outward corners cut; coverage is exact area; overlapping glyphs keep the larger coverage. Stems match to 1/255 from 20 px up, in every color.",
+    "Left over with the same outlines at 20 px and up: some curve joins, contour starts and overlapping contours, up to 54/255 on under 1% of a case's pixels (see the type overrides in tolerances.toml). Colored text also differs by up to 128 in the exported straight color of nearly transparent edge pixels, where alpha is 1 against 2.",
+    "At 18 px and below, Core Graphics puts some glyphs' top edges on whole pixels for dark text. It isn't the font's TrueType hinting (running Arial's instructions matches some glyphs and not others), and the port doesn't reproduce it: up to 158/255 on the tops of letters.",
+    "Helvetica and SF Pro aren't installed on Windows. There installed Arial stands in (Helvetica's widths, and closer to Helvetica's pixels than the open alternatives tried; the port ships no fonts), with the Apple face's vertical metrics, so lines and layer sizes still match but the letters are Arial's: up to 255/255 on 1-10% of pixels. On the Mac the port draws the installed faces, SF with its optical size and tracking, within 40/255.",
+    "Point text and edited text layers that end up at a fractional position, rotated or scaled, draw as pending until transformed layers are ported; their layer pixels and project are still checked by #structure.",
+]
 
 [[feature]]
 key = "import"

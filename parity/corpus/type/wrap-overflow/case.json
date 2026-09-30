@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "More lines than fit in the box",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        100.0,
+        40.0
+      ],
+      "style": {
+        "content": "One\nTwo\nThree\nFour",
+        "fontName": "ArialMT",
+        "fontSize": 18
+      }
+    }
+  ]
+}

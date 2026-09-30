@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT at 12 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        140.0,
+        40.0
+      ],
+      "style": {
+        "content": "Hamburgefonstiv",
+        "fontName": "ArialMT",
+        "fontSize": 12.0
+      }
+    }
+  ]
+}

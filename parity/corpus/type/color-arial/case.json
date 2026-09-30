@@ -1,0 +1,24 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Colored ArialMT on a transparent canvas",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        240.0,
+        56.0
+      ],
+      "style": {
+        "blue": 0.1,
+        "content": "Hamburgefonstiv",
+        "fontName": "ArialMT",
+        "fontSize": 24,
+        "green": 0.3,
+        "red": 0.8
+      }
+    }
+  ]
+}

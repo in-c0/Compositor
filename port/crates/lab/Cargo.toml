@@ -14,3 +14,4 @@ image.workspace = true
 serde_json.workspace = true
 comp-format.workspace = true
 glob.workspace = true
+engine.workspace = true

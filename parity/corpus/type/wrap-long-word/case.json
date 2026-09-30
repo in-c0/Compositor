@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "A word longer than its box breaks across lines",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        90.0,
+        110.0
+      ],
+      "style": {
+        "content": "Supercalifragilistic word",
+        "fontName": "ArialMT",
+        "fontSize": 18
+      }
+    }
+  ]
+}
