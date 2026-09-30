@@ -29,9 +29,13 @@ struct Dda {
     v0: vec2<u32>,
     v_dx: vec2<u32>,
     v_dy: vec2<u32>,
-    // Canvas pixels per source pixel along u and v, for edge distances; the source size.
+    // Canvas pixels per source pixel across the u edges and the v edges, for edge distances; the
+    // source size; a canvas pixel's width measured across the u edges and the v edges (|cos| +
+    // |sin| unless the context scales the axes apart).
     scale: vec2<f32>,
     size: vec2<u32>,
+    reach: vec2<f32>,
+    pad: vec2<f32>,
 }
 
 struct Params {
@@ -48,8 +52,7 @@ struct Params {
     // 0: interpolation .none; 1: .low.
     interpolation: u32,
     antialias: u32,
-    // A canvas pixel's width across any edge of the layer, |cos| + |sin|.
-    l1: f32,
+    pad1: u32,
     // 1 when the layer isn't rotated, so `tables` holds its edges.
     upright: u32,
     pad0: u32,
@@ -225,11 +228,12 @@ fn edges(u: vec2<u32>, v: vec2<u32>, dda: Dda, table: u32, x: u32, y: u32) -> Ed
     if params.antialias == 0u {
         let b = params.bounds;
         let pixel = vec2<f32>(f32(x), f32(y));
-        let overlaps = all(distances > vec4<f32>(-0.5 * params.l1)) && pixel.x + 1.0 > b.x && pixel.x < b.z && pixel.y + 1.0 > b.y && pixel.y < b.w;
+        let reach = vec4<f32>(dda.reach, dda.reach);
+        let overlaps = all(distances > -0.5 * reach) && pixel.x + 1.0 > b.x && pixel.x < b.z && pixel.y + 1.0 > b.y && pixel.y < b.w;
         e.covered = select(0u, 255u, overlaps);
         return e;
     }
-    e.fade = clamp(vec4<f32>(0.5) + distances / params.l1, vec4<f32>(0.0), vec4<f32>(1.0));
+    e.fade = clamp(vec4<f32>(0.5) + distances / vec4<f32>(dda.reach, dda.reach), vec4<f32>(0.0), vec4<f32>(1.0));
     e.covered = coverage_byte(e.fade.x * e.fade.y * e.fade.z * e.fade.w);
     return e;
 }

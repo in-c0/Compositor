@@ -131,6 +131,19 @@ impl Renderer {
             }
             "text" => text::apply_text(project, op)?,
             "editText" => text::apply_edit_text(project, op)?,
+            "imageSize" => {
+                let sampling = match op.get("sampling") {
+                    Some(v) => serde_json::from_value(v.clone()).map_err(|e| RenderError::Failed(anyhow::anyhow!("imageSize sampling: {e}")))?,
+                    None => comp_format::Sampling::High,
+                };
+                let options = transform::resize::ImageSize {
+                    width: num("width").unwrap_or(0.0) as i64,
+                    height: num("height").unwrap_or(0.0) as i64,
+                    resolution: num("resolution"),
+                    sampling,
+                };
+                transform::resize::image_size(&self.gpu, project, &options)?
+            }
             other => return Err(RenderError::Unsupported(format!("operation `{other}`"))),
         };
         Ok(())

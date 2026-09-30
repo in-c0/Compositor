@@ -12,8 +12,9 @@
 pub mod clip;
 mod halve;
 mod layer;
+pub mod resize;
 
-pub use layer::{draw_layer, needs_resampling};
+pub use layer::{draw_image, draw_layer, needs_resampling};
 
 use crate::blend::{mode_index, opacity_table};
 use crate::gpu::{Gpu, GpuImage};
@@ -61,6 +62,9 @@ pub fn reduction_level(factor: f64) -> u32 {
 /// (y up, centered on the layer).
 #[derive(Clone, Copy, Debug)]
 pub struct Placement {
+    /// The context's own scale and offset before the layer's: canvas = document × scale + offset
+    /// per axis (Image Size draws each layer into a scaled context).
+    context: [f64; 4],
     center: [f64; 2],
     cos: f64,
     sin: f64,
@@ -76,6 +80,7 @@ impl Placement {
         // `LayerTransform.radians`: the rotation's remainder after whole turns, in radians.
         let radians = (t.rotation % 360.0).to_radians();
         Self {
+            context: [1.0, 1.0, 0.0, 0.0],
             center: [t.origin[0] + t.size[0] / 2.0, t.origin[1] + t.size[1] / 2.0],
             cos: radians.cos(),
             sin: radians.sin(),
@@ -86,20 +91,52 @@ impl Placement {
         }
     }
 
+    /// `t` drawn into a context that scales document points by `scale` and then moves them by
+    /// `offset`.
+    pub fn in_context(t: &Transform, scale: [f64; 2], offset: [f64; 2]) -> Self {
+        Self { context: [scale[0], scale[1], offset[0], offset[1]], ..Self::of(t) }
+    }
+
+    /// Whether the context adds nothing of its own.
+    fn plain(&self) -> bool {
+        self.context == [1.0, 1.0, 0.0, 0.0]
+    }
+
     /// The drawing-space corners of `rect` on the canvas.
     fn corners(&self, rect: &Rect) -> [[f64; 2]; 4] {
         let sx = if self.flip_x { -1.0 } else { 1.0 };
         let sy = if self.flip_y { 1.0 } else { -1.0 };
+        let [kx, ky, ox, oy] = self.context;
         let map = |x: f64, y: f64| {
             let (x, y) = (x * sx, y * sy);
-            [self.center[0] + self.cos * x - self.sin * y, self.center[1] + self.sin * x + self.cos * y]
+            [(self.center[0] + self.cos * x - self.sin * y) * kx + ox, (self.center[1] + self.sin * x + self.cos * y) * ky + oy]
         };
         [map(rect.min_x, rect.min_y), map(rect.max_x, rect.min_y), map(rect.max_x, rect.max_y), map(rect.min_x, rect.max_y)]
     }
 
-    /// |cos| + |sin|: a canvas pixel's width measured across any edge of the layer.
+    /// |cos| + |sin|: a canvas pixel's width measured across any edge of the layer (in a plain
+    /// context).
     pub fn l1(&self) -> f64 {
         self.cos.abs() + self.sin.abs()
+    }
+
+    /// For a source `width` x `height` filling `rect`: canvas pixels per source pixel across its
+    /// left and right edges and across its top and bottom edges, and a canvas pixel's width
+    /// measured across each pair (`l1` unless the context scales the axes apart, which shears).
+    pub(crate) fn edge_scales(&self, rect: &Rect, width: u32, height: u32) -> ([f32; 2], [f32; 2]) {
+        let (rw, rh) = (rect.max_x - rect.min_x, rect.max_y - rect.min_y);
+        if self.plain() {
+            let l1 = self.l1() as f32;
+            return ([(rw / width as f64) as f32, (rh / height as f64) as f32], [l1, l1]);
+        }
+        let d = self.dda(rect, width, height);
+        let axis = |dx: f64, dy: f64| {
+            let norm = dx.hypot(dy);
+            ((1.0 / norm) as f32, ((dx.abs() + dy.abs()) / norm) as f32)
+        };
+        let (su, lu) = axis(d.u_dx, d.u_dy);
+        let (sv, lv) = axis(d.v_dx, d.v_dy);
+        ([su, sv], [lu, lv])
     }
 
     /// Whether the layer is drawn without rotation (flips keep it upright).
@@ -173,15 +210,26 @@ impl Placement {
         let [cx, cy] = self.center;
         let (w, h) = (width as f64, height as f64);
         let (rw, rh) = (rect.max_x - rect.min_x, rect.max_y - rect.min_y);
+        let [kx, ky, ox, oy] = self.context;
         // Drawing space at the canvas point (x, y), then the source: u from the left edge, v down
         // from the top edge.
         let at = |x: f64, y: f64| {
-            let (px, py) = (x - cx, y - cy);
+            let (px, py) = if self.plain() { (x - cx, y - cy) } else { ((x - ox) / kx - cx, (y - oy) / ky - cy) };
             let qx = (c * px + s * py) * sx;
             let qy = (-s * px + c * py) * sy;
             ((qx - rect.min_x) * w / rw, (rect.max_y - qy) * h / rh)
         };
         let (u0, v0) = at(0.5, 0.5);
+        if !self.plain() {
+            return Dda {
+                u0,
+                u_dx: c * sx * w / rw / kx,
+                u_dy: s * sx * w / rw / ky,
+                v0,
+                v_dx: s * sy * h / rh / kx,
+                v_dy: -c * sy * h / rh / ky,
+            };
+        }
         Dda { u0, u_dx: c * sx * w / rw, u_dy: s * sx * w / rw, v0, v_dx: s * sy * h / rh, v_dy: -c * sy * h / rh }
     }
 }
@@ -192,19 +240,21 @@ fn fixed(v: f64) -> [u32; 2] {
     [f as u32, (f >> 32) as u32]
 }
 
-/// The kernel's `Dda` block: fixed-point positions and steps, canvas pixels per source pixel, and
-/// the source size.
-fn dda_block(d: &Dda, rect: &Rect, width: u32, height: u32) -> Vec<u8> {
-    let mut b = Vec::with_capacity(64);
+/// The kernel's `Dda` block: fixed-point positions and steps, canvas pixels per source pixel, the
+/// source size, and a canvas pixel's width across the edges.
+fn dda_block(p: &Placement, rect: &Rect, width: u32, height: u32) -> Vec<u8> {
+    let d = p.dda(rect, width, height);
+    let mut b = Vec::with_capacity(80);
     for v in [d.u0, d.u_dx, d.u_dy, d.v0, d.v_dx, d.v_dy] {
         for w in fixed(v) {
             b.extend_from_slice(&w.to_le_bytes());
         }
     }
-    let scale = [((rect.max_x - rect.min_x) / width as f64) as f32, ((rect.max_y - rect.min_y) / height as f64) as f32];
+    let (scale, reach) = p.edge_scales(rect, width, height);
     b.extend_from_slice(bytemuck::cast_slice(&scale));
     b.extend_from_slice(&width.to_le_bytes());
     b.extend_from_slice(&height.to_le_bytes());
+    b.extend_from_slice(bytemuck::cast_slice(&[reach[0], reach[1], 0.0, 0.0]));
     b
 }
 
@@ -217,6 +267,8 @@ impl Placement {
         let sx = if self.flip_x { -1.0 } else { 1.0 };
         let sy = if self.flip_y { 1.0 } else { -1.0 };
         let [cx, cy] = self.center;
+        let [kx, ky, ox, oy] = self.context;
+        let plain = self.plain();
         let entry = |a: f64, b: f64| {
             let (a, b) = (a.clamp(0.0, 1.0), b.clamp(0.0, 1.0));
             let byte = ((a * b * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32;
@@ -224,12 +276,22 @@ impl Placement {
         };
         let mut table = Vec::with_capacity((width + height) as usize);
         for x in 0..width {
-            let qx = (x as f64 + 0.5 - cx) * sx;
-            table.push(entry(0.5 + (qx - rect.min_x), 0.5 + (rect.max_x - qx)));
+            if plain {
+                let qx = (x as f64 + 0.5 - cx) * sx;
+                table.push(entry(0.5 + (qx - rect.min_x), 0.5 + (rect.max_x - qx)));
+            } else {
+                let qx = ((x as f64 + 0.5 - ox) / kx - cx) * sx;
+                table.push(entry(0.5 + (qx - rect.min_x) * kx, 0.5 + (rect.max_x - qx) * kx));
+            }
         }
         for y in 0..height {
-            let qy = (y as f64 + 0.5 - cy) * sy;
-            table.push(entry(0.5 + (rect.max_y - qy), 0.5 + (qy - rect.min_y)));
+            if plain {
+                let qy = (y as f64 + 0.5 - cy) * sy;
+                table.push(entry(0.5 + (rect.max_y - qy), 0.5 + (qy - rect.min_y)));
+            } else {
+                let qy = ((y as f64 + 0.5 - oy) / ky - cy) * sy;
+                table.push(entry(0.5 + (rect.max_y - qy) * ky, 0.5 + (qy - rect.min_y) * ky));
+            }
         }
         table
     }
@@ -259,7 +321,7 @@ pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
             Quality::Low | Quality::High => 1,
         },
         draw.antialias as u32,
-        (p.l1() as f32).to_bits(),
+        0,
         p.upright() as u32,
         0,
     ] {
@@ -267,9 +329,9 @@ pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
     }
     params.extend_from_slice(bytemuck::cast_slice(&[min(0), min(1), max(0), max(1)]));
     let image = &draw.image;
-    params.extend(dda_block(&p.dda(&image.rect, image.width, image.height), &image.rect, image.width, image.height));
+    params.extend(dda_block(p, &image.rect, image.width, image.height));
     let mask = draw.mask.as_ref().unwrap_or(image);
-    params.extend(dda_block(&p.dda(&mask.rect, mask.width, mask.height), &mask.rect, mask.width, mask.height));
+    params.extend(dda_block(p, &mask.rect, mask.width, mask.height));
     let mut edges = vec![[0u32; 4]];
     if p.upright() {
         edges = p.edge_table(&image.rect, canvas.width, canvas.height);

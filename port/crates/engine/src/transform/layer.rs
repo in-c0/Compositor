@@ -4,7 +4,7 @@
 use super::{Draw, Placement, Quality, Source, halve, interpolation, reduction_level};
 use crate::RenderError;
 use crate::gpu::{Gpu, GpuImage};
-use comp_format::{LayerRecord, Project, Sampling};
+use comp_format::{LayerRecord, Project, Sampling, Transform};
 use image::{GrayImage, RgbaImage};
 
 type Result<T> = std::result::Result<T, RenderError>;
@@ -77,16 +77,19 @@ fn rect(placement: &Placement, level: u32, (w, h): (u32, u32), (rw, rh): (u32, u
     placement.rect(((rw as u64) << level) as f64 / w.max(1) as f64, ((rh as u64) << level) as f64 / h.max(1) as f64)
 }
 
-/// Draws `layer` over `canvas` through its transform, with `opacity` and `clip`.
-pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &GpuImage, opacity: f64, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
-    let Some(asset) = project.images.get(&layer.id) else {
-        return Ok(gpu.copy(canvas));
-    };
-    let t = &layer.transform;
-    let size = asset.pixels.dimensions();
-    let placement = Placement::of(t);
-    let width = t.size[0];
-    let mut pixels = premultiplied(&asset.pixels);
+/// A layer's image as `LayerRenderer.draw` hands it to Core Graphics: premultiplied, halved for
+/// large reductions, with the interpolation it picks and the rectangle it fills.
+struct Prepared {
+    pixels: RgbaImage,
+    quality: Quality,
+    rect: super::Rect,
+}
+
+/// `device` is the context's scale along each axis (device pixels per unit).
+fn prepare(straight: &RgbaImage, t: &Transform, placement: &Placement, device: [f64; 2]) -> Result<Prepared> {
+    let size = straight.dimensions();
+    let width = t.size[0] * device[0];
+    let mut pixels = premultiplied(straight);
     // `DownsampleCache` stops halving at a single pixel.
     let mut level = 0;
     while level < halvings(t.sampling, width, size) && (pixels.width() > 1 || pixels.height() > 1) {
@@ -96,10 +99,45 @@ pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &Gp
     let reduced = pixels.dimensions();
     let final_factor = width / size.0.max(1) as f64 * (1u64 << level) as f64;
     let quality = interpolation(t.sampling, final_factor, placement.upright());
-    if quality == Quality::High && t.size[1] < reduced.1 as f64 * (1u64 << level) as f64 {
+    if quality == Quality::High && t.size[1] * device[1] < reduced.1 as f64 * (1u64 << level) as f64 {
         return unsupported("High-quality interpolation while shrinking");
     }
-    let image_rect = rect(&placement, level, size, reduced);
+    Ok(Prepared { rect: rect(placement, level, size, reduced), pixels, quality })
+}
+
+/// `LayerRenderer.draw` of `straight` pixels placed by `t` into a context whose own scale is
+/// `scale` and offset `offset` (canvas = document × scale + offset), over `canvas`, at full
+/// opacity with no mask.
+pub fn draw_image(gpu: &Gpu, straight: &RgbaImage, t: &Transform, scale: [f64; 2], offset: [f64; 2], canvas: &GpuImage) -> Result<GpuImage> {
+    let placement = Placement::in_context(t, scale, offset);
+    let prepared = prepare(straight, t, &placement, scale)?;
+    let (w, h) = prepared.pixels.dimensions();
+    let image = gpu.upload(w, h, prepared.pixels.as_raw());
+    let draw = Draw {
+        image: Source { buffer: &image.buffer, width: w, height: h, rect: prepared.rect },
+        premultiplied: true,
+        placement,
+        quality: prepared.quality,
+        antialias: t.sampling != Sampling::Nearest,
+        mode: comp_format::BlendMode::Normal,
+        opacity: 1.0,
+        mask: None,
+        clip: None,
+    };
+    Ok(super::draw(gpu, canvas, &draw))
+}
+
+/// Draws `layer` over `canvas` through its transform, with `opacity` and `clip`.
+pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &GpuImage, opacity: f64, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
+    let Some(asset) = project.images.get(&layer.id) else {
+        return Ok(gpu.copy(canvas));
+    };
+    let t = &layer.transform;
+    let size = asset.pixels.dimensions();
+    let placement = Placement::of(t);
+    let width = t.size[0];
+    let Prepared { pixels, quality, rect: image_rect } = prepare(&asset.pixels, t, &placement, [1.0, 1.0])?;
+    let reduced = pixels.dimensions();
     let image = gpu.upload(reduced.0, reduced.1, pixels.as_raw());
     let mask_pixels;
     let mask = if layer.mask_enabled() {

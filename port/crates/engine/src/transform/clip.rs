@@ -50,17 +50,21 @@ pub enum Filter {
 
 /// A mask drawn through `placement` into its rectangle, sampled per target pixel: the mask value
 /// and the rectangle's edge coverage (0 outside), both bytes, for a `width` x `height` target.
-pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filter, (width, height): (u32, u32)) -> Vec<(u32, u32)> {
+/// Without `antialias`, a pixel the rectangle overlaps at all is covered.
+pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filter, antialias: bool, (width, height): (u32, u32)) -> Vec<(u32, u32)> {
     let (mw, mh) = mask.dimensions();
     let dda = placement.dda(rect, mw, mh);
     let (u0, udx, udy) = (fixed(dda.u0), fixed(dda.u_dx), fixed(dda.u_dy));
     let (v0, vdx, vdy) = (fixed(dda.v0), fixed(dda.v_dx), fixed(dda.v_dy));
     let at = |x: i64, y: i64| mask.as_raw()[(y.clamp(0, mh as i64 - 1) * mw as i64 + x.clamp(0, mw as i64 - 1)) as usize] as u32;
-    let l1 = placement.l1() as f32;
     let upright = placement.upright();
     let table = if upright { placement.edge_table(rect, width, height) } else { Vec::new() };
-    let scale = [((rect.max_x - rect.min_x) / mw as f64) as f32, ((rect.max_y - rect.min_y) / mh as f64) as f32];
+    let (scale, reach) = placement.edge_scales(rect, mw, mh);
     let to_float = |p: i64| (p >> 32) as i32 as f32 + ((p as u32) >> 8) as f32 / 16777216.0;
+    let corners = placement.corners(rect);
+    let min = |i: usize| corners.iter().map(|c| c[i]).fold(f64::INFINITY, f64::min) as f32;
+    let max = |i: usize| corners.iter().map(|c| c[i]).fold(f64::NEG_INFINITY, f64::max) as f32;
+    let bounds = [min(0), min(1), max(0), max(1)];
     let mut out = Vec::with_capacity((width * height) as usize);
     for y in 0..height as i64 {
         for x in 0..width as i64 {
@@ -71,7 +75,9 @@ pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filt
                 let row = table[(width as i64 + y) as usize];
                 let fade = [f32::from_bits(col[0]), f32::from_bits(row[0]), f32::from_bits(col[1]), f32::from_bits(row[1])];
                 let (across, down) = (fade[0] * fade[2], fade[1] * fade[3]);
-                let covered = if down >= 1.0 {
+                let covered = if !antialias {
+                    if fade.iter().all(|&f| f > 0.0) { 255 } else { 0 }
+                } else if down >= 1.0 {
                     col[2]
                 } else if across >= 1.0 {
                     row[2]
@@ -83,9 +89,15 @@ pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filt
                 let right = ((mw as i64) << 32).wrapping_add(!u);
                 let bottom = ((mh as i64) << 32).wrapping_add(!v);
                 let d = [to_float(u) * scale[0], to_float(v) * scale[1], to_float(right) * scale[0], to_float(bottom) * scale[1]];
-                let fade = d.map(|d| (0.5 + d / l1).clamp(0.0, 1.0));
-                let p = fade[0] * fade[1] * fade[2] * fade[3];
-                (fade, ((p * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32)
+                if !antialias {
+                    let (px, py) = (x as f32, y as f32);
+                    let inside = (0..4).all(|i| d[i] > -0.5 * reach[i % 2]) && px + 1.0 > bounds[0] && px < bounds[2] && py + 1.0 > bounds[1] && py < bounds[3];
+                    ([1.0; 4], if inside { 255 } else { 0 })
+                } else {
+                    let fade = [0, 1, 2, 3].map(|i| (0.5 + d[i] / reach[i % 2]).clamp(0.0, 1.0));
+                    let p = fade[0] * fade[1] * fade[2] * fade[3];
+                    (fade, ((p * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32)
+                }
             };
             if covered == 0 {
                 out.push((0, 0));
@@ -136,7 +148,7 @@ pub fn resampled(project: &Project, layer: &LayerRecord) -> bool {
 pub fn folder_coverage(mask: &GrayImage, t: &Transform, (width, height): (u32, u32)) -> Result<Vec<u32>, String> {
     let placement = Placement::of(t);
     let rect = placement.rect(1.0, 1.0);
-    Ok(sample(mask, &placement, &rect, Filter::Nearest, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
+    Ok(sample(mask, &placement, &rect, Filter::Nearest, true, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
 }
 
 /// `LayerMask.background(of:)`: what an unlinked mask shows beyond its pixels, white or black,
