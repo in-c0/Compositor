@@ -10,6 +10,7 @@ pub mod composite;
 pub mod document;
 pub mod effects;
 pub mod export;
+pub mod filters;
 pub mod gpu;
 pub mod mask;
 pub mod order;
@@ -63,6 +64,9 @@ impl Renderer {
     /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`) to `project`.
     pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
         let name = op.get("op").and_then(|v| v.as_str()).unwrap_or("unknown");
+        if name == "filter" {
+            return filters::apply(&self.gpu, project, op);
+        }
         let num = |key: &str| op.get(key).and_then(|v| v.as_f64());
         let pair = |key: &str| op.get(key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>());
         *project = match name {
