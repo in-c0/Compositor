@@ -238,6 +238,8 @@ struct UIStateRenderer {
         guard let panel = NSApp.windows.first(where: { $0.identifier?.rawValue == "keyboardShortcuts" }),
               let content = panel.contentView else { throw HarnessError("the Keyboard Shortcuts panel didn't open") }
         panel.appearance = NSAppearance(named: .darkAqua)
+        // The panel hides when the app is inactive; make sure it's the key window of the active app.
+        if !NSApp.isActive { UIChild.activate() }
         panel.makeKeyAndOrderFront(nil)
         await settle(0.4)
         _ = panel.makeFirstResponder(nil)

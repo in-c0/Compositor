@@ -120,6 +120,7 @@ struct Snapshot {
     /// Orders the window in as the key window, lets the view settle, then takes focus away from any field that
     /// grabbed it on appear, so no caret or focus ring is captured.
     func show(settling seconds: Double = 0.4) async {
+        if !NSApp.isActive { UIChild.activate() }
         window.makeKeyAndOrderFront(nil)
         await settle(seconds)
         _ = window.makeFirstResponder(nil)

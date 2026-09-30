@@ -215,7 +215,7 @@ enum UIChild {
     /// started from a shell has no active app to hand over to it, so it stays in the background and every window
     /// draws as inactive. The older `activateIgnoringOtherApps:` still takes activation; it's deprecated, so it's
     /// called through the runtime rather than by name.
-    private static func activate() {
+    static func activate() {
         let selector = NSSelectorFromString("activateIgnoringOtherApps:")
         guard NSApp.responds(to: selector) else {
             NSApp.activate()
