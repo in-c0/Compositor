@@ -4,7 +4,7 @@
 //!
 //! The Mac keeps a selection as a `CGPath` (plus an anti-alias flag and a feather), combines
 //! outlines with Core Graphics' path operations, and rasterizes the path whenever it needs
-//! coverage (`DocumentSelection.coverage`). The port keeps the outline as polygons
+//! coverage (`DocumentSelection.coverage`). The port keeps the outline as lines and cubics
 //! ([`geom::Region`]) and rasterizes it on the GPU ([`coverage`]).
 
 pub mod geom;
@@ -149,7 +149,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 }
                 return Ok(());
             }
-            let outline = if ellipse { geom::ellipse(x0, y0, x1 - x0, y1 - y0) } else { points };
+            let outline = if ellipse { geom::ellipse(x0, y0, x1 - x0, y1 - y0) } else { geom::polygon(&points) };
             apply_selection(selection, vec![outline], mode, antialias, &canvas);
         }
         "wand" => {
@@ -292,7 +292,7 @@ fn apply_selection(selection: &mut Option<Selection>, shape: Region, mode: Mode,
 fn outline(mask: &[u8], width: usize, height: usize) -> Result<Option<Region>> {
     let loops = wand::wand_trace(mask, width, height)
         .or_else(|_| failed("That selection is too detailed to outline. Try a different Tolerance, or turn on Contiguous.".into()))?;
-    let region: Region = loops.into_iter().map(|l| l.into_iter().map(|(x, y)| [x as f64, y as f64]).collect()).collect();
+    let region: Region = loops.into_iter().map(|l| geom::polygon(&l.into_iter().map(|(x, y)| [x as f64, y as f64]).collect::<Vec<_>>())).collect();
     Ok((!region.is_empty()).then_some(region))
 }
 

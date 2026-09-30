@@ -78,8 +78,9 @@ fn fill(gpu: &Gpu, selection: &Selection, antialias: bool, width: u32, height: u
 fn edges(selection: &Selection, height: u32) -> Vec<[f32; 4]> {
     let mut out = Vec::new();
     for contour in &selection.region {
-        for i in 0..contour.len() {
-            let (a, b) = (contour[i], contour[(i + 1) % contour.len()]);
+        let points = super::geom::flatten(contour);
+        for i in 0..points.len() {
+            let (a, b) = (points[i], points[(i + 1) % points.len()]);
             for [x0, y0, x1, y1] in stepped(a, b, height as f64) {
                 if y0 != y1 {
                     out.push([x0 as f32, y0 as f32, x1 as f32, y1 as f32]);
