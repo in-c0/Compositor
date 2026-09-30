@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Subject added to a rectangle",
+  "ops": [
+    {
+      "from": [
+        2.0,
+        44.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        30.0,
+        62.0
+      ]
+    },
+    {
+      "mode": "Add",
+      "op": "selectSubject"
+    }
+  ]
+}

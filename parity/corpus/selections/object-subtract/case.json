@@ -1,0 +1,18 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection taking a disc from Select All",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "mode": "Subtract",
+      "op": "objectSelection",
+      "point": [
+        46.0,
+        44.0
+      ]
+    }
+  ]
+}

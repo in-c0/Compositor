@@ -1,0 +1,71 @@
+{
+  "activeLayerID" : "994C6777-46FF-4EF8-8B57-68A2C754F41E",
+  "colorSpace" : "sRGB",
+  "documentID" : "929F6970-D718-48E9-A1C7-4C6FB35BDD37",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "A18C324C-0866-4FDA-B420-F6CE4661BCDA",
+      "imageFile" : "A18C324C-0866-4FDA-B420-F6CE4661BCDA.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "EEB677E9-6478-4B38-AFF8-E222FBD3F628",
+      "imageFile" : "EEB677E9-6478-4B38-AFF8-E222FBD3F628.png",
+      "isVisible" : true,
+      "name" : "Left",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "994C6777-46FF-4EF8-8B57-68A2C754F41E",
+      "imageFile" : "994C6777-46FF-4EF8-8B57-68A2C754F41E.png",
+      "isVisible" : true,
+      "name" : "Right",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

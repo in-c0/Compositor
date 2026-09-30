@@ -1,0 +1,51 @@
+{
+  "activeLayerID" : "303128DE-28BA-4B21-8F51-1771E074673C",
+  "colorSpace" : "sRGB",
+  "documentID" : "E618E33C-6DCE-4C2F-A9FF-B4B6B750C925",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "C2BD4831-A1ED-4A9B-84CC-BF75BF31EA1D",
+      "imageFile" : "C2BD4831-A1ED-4A9B-84CC-BF75BF31EA1D.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "303128DE-28BA-4B21-8F51-1771E074673C",
+      "imageFile" : "303128DE-28BA-4B21-8F51-1771E074673C.png",
+      "isVisible" : true,
+      "name" : "Disc",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

@@ -1,0 +1,28 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection reading only the right disc's layer, clicked on the left disc",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "layer": "FF1CDB8E-796C-4ACE-8704-9DC3234D7FE5",
+      "op": "objectSelection",
+      "point": [
+        18.0,
+        20.0
+      ],
+      "sampleAllLayers": false
+    }
+  ]
+}

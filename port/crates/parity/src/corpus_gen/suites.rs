@@ -1172,6 +1172,64 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         w.write(F, case, label, d, ops)?;
     }
 
+    // Object Selection and Select > Subject. Both start from Apple's Vision on the Mac and from
+    // U²-Netp in the port (see the `ml` gap), so these measure the stand-in as well as the
+    // arithmetic after it: one subject on the photo, two objects on separate layers over a pale
+    // ground, and a flat gray with no subject at all.
+    let object = |x: f64, y: f64| json!({ "op": "objectSelection", "point": [x, y] });
+    let edge = |op: Value, e: i32| with(op, "edge", json!(e));
+    let subject = || json!({ "op": "selectSubject" });
+    // A case names the layer to make active by its role; the ids come from the document.
+    let on_layer = |op: Value, role: &str| with(with(op, "sampleAllLayers", json!(false)), "layer", json!(role));
+    let objects: Vec<(&str, &str, &str, Vec<Value>)> = vec![
+        ("subject-disc", "Select > Subject: a disc on the photo", "one", vec![subject()]),
+        ("subject-two", "Select > Subject: two discs, both the subject", "two", vec![subject()]),
+        ("subject-aliased", "Select > Subject with Anti-alias off", "one", vec![aliased(subject())]),
+        ("subject-add", "Select > Subject added to a rectangle", "two", vec![marquee("Rectangle", [2.0, 44.0], [30.0, 62.0]), add(subject())]),
+        ("subject-subtract", "Select > Subject taken from Select All: the background", "one", vec![json!({ "op": "selectAll" }), subtract(subject())]),
+        ("subject-none", "Select > Subject on a flat gray finds no subject", "flat", vec![subject()]),
+        ("object-two-left", "Object Selection on the left of two discs", "two", vec![object(18.0, 20.0)]),
+        ("object-two-right", "Object Selection on the right of two discs", "two", vec![object(46.0, 44.0)]),
+        ("object-two-add", "Object Selection on one disc, then the other added", "two", vec![object(18.0, 20.0), add(object(46.0, 44.0))]),
+        ("object-subtract", "Object Selection taking a disc from Select All", "two", vec![json!({ "op": "selectAll" }), subtract(object(46.0, 44.0))]),
+        ("object-background", "Object Selection on the background deselects", "two", vec![rect(), object(56.0, 8.0)]),
+        ("object-background-add", "Object Selection adding the background leaves the selection as it was", "two", vec![rect(), add(object(56.0, 8.0))]),
+        ("object-off-canvas", "Object Selection off the canvas does nothing, not even deselect", "two", vec![rect(), object(-4.0, 20.0)]),
+        ("object-none", "Object Selection on a flat gray finds no object and deselects", "flat", vec![rect(), object(32.0, 32.0)]),
+        ("object-aliased", "Object Selection with Anti-alias off: the traced pixels, unsmoothed", "one", vec![aliased(object(32.0, 32.0))]),
+        ("object-edge-3", "Object Selection with Edge 3: eroded 3 px", "one", vec![edge(object(32.0, 32.0), 3)]),
+        ("object-edge-minus-3", "Object Selection with Edge -3: dilated 3 px", "one", vec![edge(object(32.0, 32.0), -3)]),
+        ("object-edge-10", "Object Selection with Edge 10, the most", "one", vec![edge(object(32.0, 32.0), 10)]),
+        ("object-edge-minus-10-aliased", "Object Selection with Edge -10, Anti-alias off", "two", vec![aliased(edge(object(18.0, 20.0), -10))]),
+        ("object-this-layer", "Object Selection reading only the active layer (the right disc on transparent)", "two", vec![on_layer(object(46.0, 44.0), "right")]),
+        ("object-this-layer-miss", "Object Selection reading only the right disc's layer, clicked on the left disc", "two", vec![rect(), on_layer(object(18.0, 20.0), "right")]),
+        ("object-ground-layer", "Object Selection reading only the photo, clicked where the disc is drawn over it", "one", vec![on_layer(object(32.0, 32.0), "ground")]),
+    ];
+    for (case, label, input, mut ops) in objects {
+        let mut d = w.doc(F, case, N, N);
+        let (ground, right) = match input {
+            "one" => {
+                let ground = d.image("Photo", images::photo(N, N), spec());
+                d.image("Disc", images::disc(N, N, [250, 200, 20]), spec());
+                (ground, None)
+            }
+            "two" => {
+                let ground = d.image("Ground", images::solid(N, N, [226, 222, 214, 255]), spec());
+                d.image("Left", disc_at(N, [18.0, 20.0], 12.0, [200, 40, 50]), spec());
+                (ground, Some(d.image("Right", disc_at(N, [46.0, 44.0], 12.0, [30, 90, 200]), spec())))
+            }
+            _ => (d.image("Gray", images::solid(N, N, [128, 128, 128, 255]), spec()), None),
+        };
+        for op in &mut ops {
+            match op["layer"].as_str() {
+                Some("ground") => op["layer"] = json!(ground),
+                Some("right") => op["layer"] = json!(right.clone().expect("the two-disc document")),
+                _ => {}
+            }
+        }
+        w.write(F, case, label, d, ops)?;
+    }
+
     // Probes for Core Graphics' fill: combs whose teeth have edges at many fractions of a pixel,
     // and long edges at several slopes. The combs sit on a 1/1024 grid, as the rasterizer's
     // arithmetic is binary.
@@ -1296,6 +1354,15 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         w.write(F, case, label, d, ops)?;
     }
     Ok(())
+}
+
+/// An anti-aliased disc of `color` centered at `center`, on transparent.
+fn disc_at(n: u32, center: [f64; 2], r: f64, color: [u8; 3]) -> RgbaImage {
+    RgbaImage::from_fn(n, n, |x, y| {
+        let d = ((x as f64 + 0.5 - center[0]).powi(2) + (y as f64 + 0.5 - center[1]).powi(2)).sqrt();
+        let a = (r - d + 0.5).clamp(0.0, 1.0);
+        image::Rgba([color[0], color[1], color[2], (a * 255.0).round() as u8])
+    })
 }
 
 /// A ring of one color with a soft gradient inside it, on a flat ground: the Wand's outline has

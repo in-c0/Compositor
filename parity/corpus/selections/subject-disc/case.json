@@ -1,0 +1,10 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Subject: a disc on the photo",
+  "ops": [
+    {
+      "op": "selectSubject"
+    }
+  ]
+}

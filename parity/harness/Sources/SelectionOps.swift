@@ -15,6 +15,8 @@ enum SelectionOp {
     case wand(layer: UUID?, point: CGPoint, mode: SelectionMode, settings: WandSettings, antialias: Bool)
     /// An Object Selection click at `point` with `layer` active.
     case object(layer: UUID?, point: CGPoint, mode: SelectionMode, settings: ObjectSelectionSettings, antialias: Bool)
+    /// Select > Subject. The menu always replaces the selection; `mode` reaches the function's own parameter.
+    case subject(mode: SelectionMode, antialias: Bool)
     /// Select > Color Range…: the settings, then a click per sample with that eyedropper, then OK.
     case colorRange(samples: [(point: CGPoint, mode: HueSampleMode)], fuzziness: Double, invert: Bool, antialias: Bool)
     case selectAll, deselect, invertSelection
@@ -23,8 +25,8 @@ enum SelectionOp {
     /// Cmd-click on a layer's thumbnail (its pixels) or its mask's thumbnail (the mask's black areas).
     case load(layer: UUID, mask: Bool, mode: SelectionMode)
 
-    static let names = ["marquee", "lasso", "wand", "objectSelection", "colorRange", "selectAll", "deselect",
-                        "invertSelection", "modifySelection", "loadSelection"]
+    static let names = ["marquee", "lasso", "wand", "objectSelection", "selectSubject", "colorRange", "selectAll",
+                        "deselect", "invertSelection", "modifySelection", "loadSelection"]
 
     static func parse(_ op: String, _ fields: JSONFields, path: String) throws -> SelectionOp {
         func point(_ key: String) throws -> CGPoint {
@@ -84,6 +86,8 @@ enum SelectionOp {
             }
             return .object(layer: try layer("layer"), point: try point("point"), mode: try mode(), settings: settings,
                            antialias: try antialias())
+        case "selectSubject":
+            return .subject(mode: try mode(), antialias: try antialias())
         case "colorRange":
             let items = try JSONValue.array(fields.required("samples"), "\(path).samples")
             let samples = try items.enumerated().map { index, item -> (point: CGPoint, mode: HueSampleMode) in
@@ -153,6 +157,10 @@ enum SelectionOp {
             session.objectSelectionSettings = settings
             session.selectionAntialiased = antialias
             await session.selectObject(at: point, mode: mode)
+        case let .subject(mode, antialias):
+            session.selectionAntialiased = antialias
+            guard session.canSelectSubject else { throw HarnessError("Select > Subject isn't available") }
+            await session.selectSubject(mode: mode)
         case let .colorRange(samples, fuzziness, invert, antialias):
             session.selectionAntialiased = antialias
             try await session.parityColorRange(samples: samples, fuzziness: fuzziness, invert: invert)

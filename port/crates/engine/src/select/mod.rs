@@ -1,6 +1,7 @@
-//! Selections: the Marquee, Lasso, Magic Wand, Color Range, the Select menu, Modify and loading a
-//! layer or mask as a selection, as `Document/Selection.swift`, `MagicWand.swift`,
-//! `ColorRangeSelection.swift` and `MaskTracing.swift` make them.
+//! Selections: the Marquee, Lasso, Magic Wand, Object Selection, Color Range, the Select menu
+//! (Subject among it), Modify and loading a layer or mask as a selection, as
+//! `Document/Selection.swift`, `MagicWand.swift`, `ObjectSelection.swift`,
+//! `ColorRangeSelection.swift`, `SubjectRemoval.swift` and `MaskTracing.swift` make them.
 //!
 //! The Mac keeps a selection as a `CGPath` (plus an anti-alias flag and a feather), combines
 //! outlines with Core Graphics' path operations, and rasterizes the path whenever it needs
@@ -8,6 +9,7 @@
 //! ([`geom::Region`]) and rasterizes it on the GPU ([`coverage`]).
 
 pub mod geom;
+pub mod object;
 pub(crate) mod raster;
 pub mod wand;
 
@@ -33,8 +35,19 @@ impl Selection {
 }
 
 /// The corpus ops that make or change the selection.
-pub const OPS: &[&str] =
-    &["marquee", "lasso", "wand", "objectSelection", "colorRange", "selectAll", "deselect", "invertSelection", "modifySelection", "loadSelection"];
+pub const OPS: &[&str] = &[
+    "marquee",
+    "lasso",
+    "wand",
+    "objectSelection",
+    "selectSubject",
+    "colorRange",
+    "selectAll",
+    "deselect",
+    "invertSelection",
+    "modifySelection",
+    "loadSelection",
+];
 
 type Result<T> = std::result::Result<T, RenderError>;
 
@@ -194,7 +207,53 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 apply_selection(selection, outline, mode, antialias, &canvas)?;
             }
         }
-        "objectSelection" => return unsupported("Object Selection (Vision's foreground instance mask)"),
+        "objectSelection" => {
+            let antialias = f.flag("antialias", true)?;
+            let mode = f.mode()?;
+            if let Some(layer) = f.text("layer")? {
+                activate(project, layer)?;
+            }
+            let all = f.flag("sampleAllLayers", true)?;
+            let edge = f.number("edge")?.unwrap_or(0.0).clamp(-10.0, 10.0) as i64;
+            let point = f.point("point")?;
+            let (w, h) = (project.manifest.width as usize, project.manifest.height as usize);
+            // A click off the canvas does nothing at all.
+            if !(point[0] >= 0.0 && point[1] >= 0.0 && point[0] < w as f64 && point[1] < h as f64) {
+                return Ok(());
+            }
+            let sample = sample(gpu, project, all)?;
+            let Some(outline) = object_outline(&sample, w, h, point, edge, antialias)? else {
+                // Background, or no object at all: New clears the selection.
+                if mode == Mode::New {
+                    *selection = None;
+                }
+                return Ok(());
+            };
+            // `selectObject` sets a new selection as traced, without the clip to the canvas.
+            if mode == Mode::New {
+                *selection = Some(Selection { region: outline, antialiased: antialias, feather: 0.0 });
+            } else {
+                apply_selection(selection, outline, mode, antialias, &canvas)?;
+            }
+        }
+        "selectSubject" => {
+            let antialias = f.flag("antialias", true)?;
+            let mode = f.mode()?;
+            let (w, h) = (project.manifest.width as usize, project.manifest.height as usize);
+            // The canvas as shown, as `drawLiveComposite` draws it.
+            let shown = object::straight(&sample(gpu, project, true)?, w, h);
+            let map = crate::ml::saliency(&shown)?;
+            if object::Instances::new(&map).count == 0 {
+                return failed(object::NO_SUBJECT.into());
+            }
+            // `SubjectRemoval.subjectMask` with the default (Basic) settings: the mask as the model
+            // gives it, then `MaskTracing.whitePixels`.
+            let mask = crate::ml::saliency_to_image(&map, w as u32, h as u32);
+            let white: Vec<u8> = mask.as_raw().iter().map(|&v| if v >= 128 { 255 } else { 0 }).collect();
+            // Nothing at 50% only beeps.
+            let Some(traced) = outline(&white, w, h)? else { return Ok(()) };
+            apply_selection(selection, traced, mode, antialias, &canvas)?;
+        }
         "colorRange" => {
             let antialias = f.flag("antialias", true)?;
             let fuzziness = f.number("fuzziness")?.unwrap_or(40.0).round() as i32;
@@ -303,6 +362,26 @@ fn outline(mask: &[u8], width: usize, height: usize) -> Result<Option<Region>> {
         .or_else(|_| failed("That selection is too detailed to outline. Try a different Tolerance, or turn on Contiguous.".into()))?;
     let region: Region = loops.into_iter().map(|l| geom::polygon(&l.into_iter().map(|(x, y)| [x as f64, y as f64]).collect::<Vec<_>>())).collect();
     Ok((!region.is_empty()).then_some(region))
+}
+
+/// `ObjectSelection.select`: the outline of the object under `point` in the premultiplied
+/// `sample`, or `None` on background or where the model finds nothing.
+fn object_outline(sample: &[u8], w: usize, h: usize, point: [f64; 2], edge: i64, smooth: bool) -> Result<Option<Region>> {
+    let map = crate::ml::saliency(&object::straight(sample, w, h))?;
+    let instances = object::Instances::new(&map);
+    let Some(instance) = instances.at(point, w, h) else { return Ok(None) };
+    let coarse = instances.mask(&map, instance);
+    let binary = object::edge_preserved_binary_mask(&coarse, map.side, sample, w, h);
+    let mask = object::adjusted(&binary, w, h, edge);
+    if !smooth {
+        return outline(&mask, w, h);
+    }
+    let loops = wand::wand_trace(&mask, w, h)
+        .or_else(|_| failed("That selection is too detailed to outline. Try a different Tolerance, or turn on Contiguous.".into()))?;
+    if loops.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(object::smoothed(&loops)))
 }
 
 /// Selecting a layer in the Layers panel.

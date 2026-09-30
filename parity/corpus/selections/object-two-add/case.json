@@ -1,0 +1,22 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection on one disc, then the other added",
+  "ops": [
+    {
+      "op": "objectSelection",
+      "point": [
+        18.0,
+        20.0
+      ]
+    },
+    {
+      "mode": "Add",
+      "op": "objectSelection",
+      "point": [
+        46.0,
+        44.0
+      ]
+    }
+  ]
+}

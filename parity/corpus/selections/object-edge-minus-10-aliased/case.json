@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection with Edge -10, Anti-alias off",
+  "ops": [
+    {
+      "antialias": false,
+      "edge": -10,
+      "op": "objectSelection",
+      "point": [
+        18.0,
+        20.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection with Edge 10, the most",
+  "ops": [
+    {
+      "edge": 10,
+      "op": "objectSelection",
+      "point": [
+        32.0,
+        32.0
+      ]
+    }
+  ]
+}

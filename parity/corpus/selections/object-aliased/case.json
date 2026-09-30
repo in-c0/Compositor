@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection with Anti-alias off: the traced pixels, unsmoothed",
+  "ops": [
+    {
+      "antialias": false,
+      "op": "objectSelection",
+      "point": [
+        32.0,
+        32.0
+      ]
+    }
+  ]
+}
