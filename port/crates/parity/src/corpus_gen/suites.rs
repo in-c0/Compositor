@@ -271,6 +271,64 @@ fn transform(w: &mut CaseWriter) -> Result<()> {
     add(w, "fractional-origin".into(), "Placed at a fractional position".into(), images::checker(32, 32, 4), Transform::at(10.5, 7.25, 32.0, 32.0))?;
     add(w, "off-canvas".into(), "Partly outside the canvas".into(), images::noise(48, 48, 43, Alpha::Opaque), Transform::at(-20.0, 40.0, 48.0, 48.0))?;
     add(w, "non-uniform".into(), "Stretched to 60x20".into(), images::checker(32, 32, 4), Transform::at(2.0, 22.0, 60.0, 20.0))?;
+    transform_probes(w)
+}
+
+/// Probes of Core Graphics' resampling, on a transparent canvas so the output holds the drawn
+/// pixels (and edge coverage) directly: Low interpolation at scales whose sample phases avoid its
+/// phase-rounding ties, edge antialiasing at several angles and fractional positions, vImage's
+/// Lanczos halvings, and High interpolation resampling a mask (through an unlinked mask).
+fn transform_probes(w: &mut CaseWriter) -> Result<()> {
+    let smooth = |x: f64, y: f64, sw: f64, sh: f64, rotation: f64| Transform { sampling: Sampling::Smooth, rotation, ..Transform::at(x, y, sw, sh) };
+    let gray_noise = |w: u32, h: u32, seed: u32| GrayImage::from_fn(w, h, |x, y| image::Luma([(images::hash(seed.wrapping_mul(0x9e37_79b9) ^ (y * w + x)) >> 11) as u8]));
+    let white = |w: u32, h: u32| images::solid(w, h, [255, 255, 255, 255]);
+    let layer = |w: &mut CaseWriter, case: &str, label: &str, src: RgbaImage, t: Transform| -> Result<()> {
+        let mut d = w.doc("transform", case, N, N);
+        d.image("Probe", src, LayerSpec { transform: Some(t), ..spec() });
+        w.write("transform", case, label, d, vec![])
+    };
+    let gray = gray_noise(37, 37, 0x51);
+    let gray_rgba = RgbaImage::from_fn(37, 37, |x, y| {
+        let v = gray.get_pixel(x, y)[0];
+        image::Rgba([v, v, v, 255])
+    });
+    // 37 source pixels over 64 put every sample phase at an odd multiple of 1/128.
+    layer(w, "probe-low-h", "Low, horizontal only: 37x64 at 64x64", images::noise(37, 64, 60, Alpha::Opaque), smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    layer(w, "probe-low-2d", "Low: 37x37 at 64x64", images::noise(37, 37, 61, Alpha::Opaque), smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    layer(w, "probe-low-gray", "Low on gray pixels: 37x37 at 64x64", gray_rgba, smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    layer(w, "probe-low-alpha", "Low on translucent pixels: 37x37 at 64x64", images::noise(37, 37, 62, Alpha::Varied), smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    layer(w, "probe-low-2x", "Low: 32x32 at 64x64", images::noise(32, 32, 63, Alpha::Opaque), smooth(0.0, 0.0, 64.0, 64.0, 0.0))?;
+    layer(w, "probe-low-shrink", "Low shrinking: 64x64 at 47x47", images::noise(64, 64, 64, Alpha::Varied), smooth(8.0, 8.0, 47.0, 47.0, 0.0))?;
+    for angle in [7.0, 30.0, 45.0, 70.0] {
+        layer(w, &format!("probe-edge-rotate-{angle}"), &format!("A white square rotated {angle} degrees"), white(32, 32), smooth(16.0, 16.0, 32.0, 32.0, angle))?;
+    }
+    layer(w, "probe-edge-fraction", "A white square at a fractional position", white(20, 20), smooth(10.3, 7.7, 20.0, 20.0, 0.0))?;
+    layer(w, "probe-edge-scaled", "A white square scaled to a fractional size", white(16, 16), smooth(5.2, 9.9, 30.6, 30.6, 0.0))?;
+    layer(w, "probe-edge-scaled-rotate", "A white square scaled 2x and rotated 30 degrees", white(16, 16), smooth(16.0, 16.0, 32.0, 32.0, 30.0))?;
+    layer(w, "probe-halve-2", "Two Lanczos halvings: 64x64 at 16x16", images::noise(64, 64, 65, Alpha::Varied), smooth(8.0, 8.0, 16.0, 16.0, 0.0))?;
+    let impulses = RgbaImage::from_fn(64, 64, |x, y| {
+        let v = if x % 16 == 5 + y / 16 && y % 16 == 7 + x / 16 { 255 } else { 0 };
+        image::Rgba([v, v, v, 255])
+    });
+    layer(w, "probe-halve-impulse", "Two Lanczos halvings of single white pixels", impulses, smooth(8.0, 8.0, 16.0, 16.0, 0.0))?;
+    layer(w, "probe-halve-odd", "Two halvings of an odd size: 62x62 at 15.5x15.5", images::noise(62, 62, 66, Alpha::Varied), smooth(3.0, 3.0, 15.5, 15.5, 0.0))?;
+    layer(w, "probe-halve-3", "Three Lanczos halvings: 128x128 at 16x16", images::noise(128, 128, 67, Alpha::Opaque), smooth(8.0, 8.0, 16.0, 16.0, 0.0))?;
+    // A white layer through an unlinked mask shows the mask as placed, resampled with High.
+    let masked = |w: &mut CaseWriter, case: &str, label: &str, mask: GrayImage, placement: Transform| -> Result<()> {
+        let mut d = w.doc("transform", case, N, N);
+        let id = d.image("Probe", white(N, N), spec());
+        d.mask(&id, mask);
+        let l = d.layer(&id);
+        l.mask_linked = Some(false);
+        l.mask_placement = Some(placement);
+        w.write("transform", case, label, d, vec![])
+    };
+    masked(w, "probe-high-shrink", "High shrinking a mask: 64x64 at 48x48", gray_noise(64, 64, 70), Transform::at(8.0, 8.0, 48.0, 48.0))?;
+    masked(w, "probe-high-shrink-v", "High shrinking a mask vertically: 64x64 at 64x40", gray_noise(64, 64, 71), Transform::at(0.0, 12.0, 64.0, 40.0))?;
+    let dots = GrayImage::from_fn(64, 64, |x, y| image::Luma([if x % 8 == 3 && y % 8 == 4 { 255 } else { 0 }]));
+    masked(w, "probe-high-impulse", "High shrinking single white mask pixels: 64x64 at 40x40", dots, Transform::at(4.0, 4.0, 40.0, 40.0))?;
+    masked(w, "probe-high-mixed", "High stretching a mask one way and shrinking it the other", gray_noise(32, 32, 72), Transform::at(2.0, 22.0, 60.0, 20.0))?;
+    masked(w, "probe-high-grow", "High enlarging a mask: 16x16 at 37x37", gray_noise(16, 16, 73), Transform::at(5.0, 9.0, 37.0, 37.0))?;
     Ok(())
 }
 

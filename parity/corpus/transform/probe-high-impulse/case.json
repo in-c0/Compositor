@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "High shrinking single white mask pixels: 64x64 at 40x40"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "High shrinking a mask vertically: 64x64 at 64x40"
+}

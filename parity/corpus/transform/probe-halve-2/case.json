@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Two Lanczos halvings: 64x64 at 16x16"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Low, horizontal only: 37x64 at 64x64"
+}
