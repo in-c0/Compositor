@@ -11,7 +11,7 @@ sha256="309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8"
 
 cache="${TMPDIR:-${TEMP:-/tmp}}/compositor-models"
 file="$cache/u2netp.onnx"
-digest() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+digest() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1 | tr -d '\'; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 mkdir -p "$cache"
 if [ ! -f "$file" ] || [ "$(digest "$file")" != "$sha256" ]; then
     curl -fsSL "$url" -o "$file"
