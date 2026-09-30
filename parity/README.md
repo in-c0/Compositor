@@ -78,6 +78,8 @@ A case can have one of four results:
 - **pending**: the port doesn't support the feature yet.
 - **error**: the case couldn't be rendered at all.
 
+When the Mac app refuses to open a case's input (a 16-bit or CMYK PSD, for example), the harness records the error and writes no image. The port then has to refuse the input too: that case passes when both refuse it and fails when the port draws something.
+
 The CI check requires no **fail** or **error** results, and no regressions. A regression is any case that passed on `main` and doesn't pass now, including one that moved back to **pending**.
 
 ## Tolerance overrides

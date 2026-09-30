@@ -113,11 +113,20 @@ fn run(
     eprintln!("rendering {} cases on {adapter}", cases.len());
     std::fs::create_dir_all(out.join("renders"))?;
     std::fs::create_dir_all(out.join("heatmaps"))?;
-    let mut results: Vec<CaseResult> = cases.par_iter().map(|case| run_case(&renderer, case, refs, out, &tolerances)).collect();
-    let references = std::fs::read(refs.join("harness-info.json"))
+    let references: serde_json::Value = std::fs::read(refs.join("harness-info.json"))
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(serde_json::Value::Null);
+    // Cases the Mac app refused to open, with its message: the port has to refuse them too.
+    let rejected: std::collections::HashMap<String, String> = references["cases"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|c| c["status"] == "error")
+        .filter_map(|c| Some((c["id"].as_str()?.to_string(), c["error"].as_str().unwrap_or("").to_string())))
+        .collect();
+    let mut results: Vec<CaseResult> =
+        cases.par_iter().map(|case| run_case(&renderer, case, refs, out, &tolerances, rejected.get(&case.id))).collect();
     let baseline = match baseline {
         Some(path) if path.exists() => Some(RunResults::load(path)?),
         _ => None,
@@ -146,7 +155,14 @@ fn run(
     Ok(())
 }
 
-fn run_case(renderer: &engine::Renderer, case: &cases::Case, refs: &Path, out: &Path, tolerances: &Tolerances) -> CaseResult {
+fn run_case(
+    renderer: &engine::Renderer,
+    case: &cases::Case,
+    refs: &Path,
+    out: &Path,
+    tolerances: &Tolerances,
+    mac_rejected: Option<&String>,
+) -> CaseResult {
     let tolerance = tolerances.for_case(&case.id);
     let mut result = CaseResult {
         id: case.id.clone(),
@@ -160,6 +176,23 @@ fn run_case(renderer: &engine::Renderer, case: &cases::Case, refs: &Path, out: &
         message: None,
         heatmap: None,
     };
+    if let Some(mac_error) = mac_rejected {
+        match render_case(renderer, case) {
+            Err(engine::RenderError::Unsupported(what)) => {
+                result.status = Status::Pending;
+                result.message = Some(format!("not supported yet: {what}"));
+            }
+            Err(e) => {
+                result.status = Status::Pass;
+                result.message = Some(format!("both refuse it. Mac: {mac_error} Port: {e}"));
+            }
+            Ok(_) => {
+                result.status = Status::Fail;
+                result.message = Some(format!("the Mac refuses this input ({mac_error}) but the port rendered it"));
+            }
+        }
+        return result;
+    }
     let reference = match image::open(refs.join(format!("{}.png", case.id))) {
         Ok(img) => img.to_rgba8(),
         Err(e) => {
