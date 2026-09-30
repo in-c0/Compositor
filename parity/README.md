@@ -96,3 +96,56 @@ reason = "Glyph edges come from a different rasterizer than Core Text; measured 
 ## PARITY.md
 
 CI builds PARITY.md from each run's results: per-feature status on both platforms, the overall percentage, known gaps and every tolerance override. Every run shows it in the job summary. After a run on `main`, CI also commits it to the `parity-report` branch, so that branch always holds the report for the newest `main`. `main` only accepts pull requests whose parity checks pass, so CI can't push the report there.
+
+## UI states
+
+`ui/states.toml` lists views of the app to render on both platforms: the whole editor, the tool rail, the status bar, the Layers panel, each tool header, and the sheets and floating panels. Its header comment describes the fields. On Windows the app renders them itself:
+
+```
+compositor --render-ui parity/ui/states.toml --corpus parity/corpus --out <out-dir>
+```
+
+(`cargo run -p app --release -- --render-ui …` from `port/`; see [docs/port/app.md](../docs/port/app.md).) The Mac's `ParityHarness ui` is meant to write the same files, following docs/port/ui-inventory.md §4.
+
+### Images
+
+Each state becomes `<out-dir>/<id>.png`, where the id's slashes make folders (`header/move.png`). Images are 1x, RGBA, with the app's defaults: a fresh set of tool settings, the Layers panel at 252 points, the pixel grid on, rulers off. A state's `document` is `<corpus>/<document>/input.comp`; its `layer`, counted from the bottom, becomes the active layer.
+
+Each view has a fixed size:
+
+| `view` | Size | What's drawn |
+|---|---|---|
+| `window` | 1180 × 742 | The editor (`ContentView`): the default 1180 × 780 window less the Mac's 38-point compact toolbar, which lives in the title bar |
+| `tool-rail` | 56 × 668 | Cropped from the `window` render: below the tool header and its divider, above the status bar's divider |
+| `status-bar` | 1180 × 30 | Cropped from the `window` render, so the zoom it shows is the fitted zoom |
+| `tool-header` | 1180 × 42 | The header alone |
+| `layers-panel` | 252 × 600 | `LayersPanel` alone |
+| `sheet` | natural | The sheet's content at its fixed width and the height its content needs, without window chrome or title bar |
+
+Where a view doesn't paint its own background, the Windows render shows the editor's gray (white 0.14) behind it.
+
+### `ui-info.json`
+
+Lists every state with `status` `ok` (and its `size`), `pending` (the port has no such sheet yet, with a `reason`) or `error`. A pending state writes no image. Today Export JPEG and Camera Raw are pending.
+
+### `menus.json`
+
+The menu bar as data, because menus can't be compared as pixels:
+
+```json
+{
+  "schema": "compositor-menus/1",
+  "platform": "windows",
+  "states": [
+    { "id": "welcome", "document": null, "menus": [ … ] },
+    { "id": "document", "document": "blend/stack", "tool": "move", "menus": [ … ], "layerContextMenu": [ … ] }
+  ]
+}
+```
+
+`welcome` is the app at launch with no project; `document` has `blend/stack` open with the Move tool, and `layerContextMenu` is the Layers list's context menu for its top row. Each menu is `{ "title", "children" }`. Each item is one of:
+
+- `{ "title", "shortcut", "enabled", "checked"?, "children"?, "system"? }`. `shortcut` is written the Mac's way, modifiers in the order ⌃⌥⇧⌘ then the key (`"⇧⌘S"`, `"⌥⌫"`), or `null`. `checked` appears only on items with a check mark state. `children` makes the item a submenu.
+- `{ "separator": true, "system"? }`.
+
+`"system": true` marks items the operating system supplies rather than the app (Page Setup, Print, Windows' Exit, the Window and Help menus). A comparison should skip them on both sides, along with the Mac's own system items, such as Services and the Edit menu's Writing Tools. Everything else should match in title, order, separators, shortcut and submenu structure. `enabled` is expected to differ while the port lacks a feature: it disables those items instead of hiding them.
