@@ -141,8 +141,7 @@ fn shape(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
         start: ends.map(|e| unit(e.0)),
         end: ends.map(|e| unit(e.1)),
     };
-    let (width, height) = (rect[2] as u32, rect[3] as u32);
-    let image = raster::shape_image(gpu, &style, width, height)?;
+    let image = raster::shape_image(gpu, &style, [rect[2], rect[3]])?;
     add_layer(project, image, [rect[0], rect[1]], next_shape_name(project, kind), style);
     Ok(())
 }
@@ -214,7 +213,7 @@ fn resize_layer(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     if current == Some((w as u32, h as u32)) || w * h > MAX_SHAPE_PIXELS {
         return Ok(());
     }
-    let image = raster::shape_image(gpu, &style, w as u32, h as u32)?;
+    let image = raster::shape_image(gpu, &style, [w as f64, h as f64])?;
     project.images.insert(id, Asset::new(image));
     Ok(())
 }
