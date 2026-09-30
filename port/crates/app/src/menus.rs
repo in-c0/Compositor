@@ -129,6 +129,51 @@ pub enum Command {
     FullScreen,
     SelectTab(usize),
     Exit,
+    ImportImages,
+    ExportJpeg,
+    KeyboardShortcuts,
+    FillForeground,
+    FillBackground,
+    /// Image > (adjustment)… and Filter > (filter)…: a `FilterKind` raw value, or "Levels",
+    /// "Hue/Saturation".
+    Filter(&'static str),
+    Invert,
+    CanvasSize,
+    ImageSize,
+    Trim,
+    FlipCanvas(bool),
+    NewAdjustment(comp_format::AdjustmentKind),
+    EditAdjustment,
+    TransformLayer,
+    DuplicateLayer,
+    ToggleClipping,
+    GroupLayers,
+    UngroupLayers,
+    MoveOutOfFolder,
+    NewBlankLayer,
+    NewFolder,
+    RenameLayer,
+    MergeLayers,
+    FlipLayer(bool),
+
+    DeleteLayerOrMask,
+    AddMask(bool),
+    DeleteMask,
+    ToggleMaskLink,
+    /// Layer effects: "Stroke", "Drop Shadow", …
+    Effect(&'static str),
+    ToggleSnap,
+    SelectAll,
+    Deselect,
+    InverseSelection,
+    LayerPixels,
+    SelectSubject,
+    ColorRange,
+    MaskBlackAreas,
+    /// Select > Expand…, Contract…, Feather…: 0, 1, 2.
+    ModifySelection(u8),
+    ClearSelectionPixels,
+    ContentAwareFill,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -196,7 +241,38 @@ pub struct MenuState {
     pub can_move_down: bool,
     pub recent: Vec<String>,
     pub tabs: Vec<(String, bool)>,
+    /// A layer is active and the tools can edit layers (nothing modal in progress).
+    pub can_edit: bool,
+    /// The active layer has pixels, is shown, and isn't a folder or adjustment (`canAdjustColors`).
+    pub can_adjust: bool,
+    pub can_invert: bool,
+    pub mask_target: bool,
+    pub can_transform: bool,
+    pub can_clip: bool,
+    pub is_folder: bool,
+    pub in_folder: bool,
+    pub is_adjustment: bool,
+    pub merge: Option<&'static str>,
+    pub has_mask: bool,
+    pub snap: bool,
+    pub has_selection: bool,
+    /// The engine can make selections.
+    pub selections: bool,
 }
+
+/// The Filter menu's kinds, `FilterKind` raw values.
+pub const FILTERS: [&str; 10] = [
+    "Gaussian Blur",
+    "Motion Blur",
+    "Add Noise",
+    "Vignette",
+    "Bloom / Glow",
+    "Dither",
+    "Tonal Contrast",
+    "Lens Correction",
+    "Camera Raw Filter",
+    "Remove Background",
+];
 
 /// Items the port doesn't do yet: present, in place, disabled.
 fn later(title: &str) -> Item {
@@ -215,12 +291,12 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("New Canvas…").key(cmd(Key::N)).run(Command::NewCanvas, true),
         Item::new("Open Project…").key(cmd(Key::O)).run(Command::Open, true),
         Item::new("Open Recent").sub(recent),
-        later("Import Images…"),
+        Item::new("Import Images…").run(Command::ImportImages, true),
         Item::new("Save").key(cmd(Key::S)).run(Command::Save, doc),
         Item::new("Save As…").key(shift_cmd(Key::S)).run(Command::SaveAs, doc),
         Item::separator(),
         Item::new("Export PNG…").key(shift_cmd(Key::E)).run(Command::ExportPng, doc),
-        later("Export JPEG…").key(opt_shift_cmd(Key::S)),
+        Item::new("Export JPEG…").key(opt_shift_cmd(Key::S)).run(Command::ExportJpeg, doc),
         Item::separator(),
         Item::new("Close Project").key(cmd(Key::W)).run(Command::Close, doc),
         Item::separator(),
@@ -247,44 +323,44 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         later("Copy Merged").key(shift_cmd(Key::C)),
         later("Paste").key(cmd(Key::V)),
         Item::separator(),
-        later("Keyboard Shortcuts…"),
-        later("Fill with Foreground Color").key(opt(Key::Backspace)),
-        later("Fill with Background Color").key(cmd(Key::Backspace)),
-        later("Clear Selection Pixels"),
-        later("Content-Aware Fill…").key(shift(Key::Backspace)),
+        Item::new("Keyboard Shortcuts…").run(Command::KeyboardShortcuts, true),
+        Item::new("Fill with Foreground Color").key(opt(Key::Backspace)).run(Command::FillForeground, s.can_adjust),
+        Item::new("Fill with Background Color").key(cmd(Key::Backspace)).run(Command::FillBackground, s.can_adjust),
+        Item::new("Clear Selection Pixels").run(Command::ClearSelectionPixels, s.has_selection && s.can_adjust),
+        Item::new("Content-Aware Fill…").key(shift(Key::Backspace)).run(Command::ContentAwareFill, s.has_selection && s.can_adjust),
     ];
 
     let select = vec![
-        later("All").key(cmd(Key::A)),
-        later("Deselect").key(cmd(Key::D)),
-        later("Inverse").key(shift_cmd(Key::I)),
-        later("Layer's Pixels"),
-        later("Subject").key(opt_cmd(Key::A)),
-        later("Color Range…"),
-        later("Mask's Black Areas"),
+        Item::new("All").key(cmd(Key::A)).run(Command::SelectAll, s.selections && doc),
+        Item::new("Deselect").key(cmd(Key::D)).run(Command::Deselect, s.has_selection),
+        Item::new("Inverse").key(shift_cmd(Key::I)).run(Command::InverseSelection, s.has_selection),
+        Item::new("Layer's Pixels").run(Command::LayerPixels, s.selections && s.can_adjust),
+        Item::new("Subject").key(opt_cmd(Key::A)).run(Command::SelectSubject, s.selections && s.can_adjust),
+        Item::new("Color Range…").run(Command::ColorRange, s.selections && doc),
+        Item::new("Mask's Black Areas").run(Command::MaskBlackAreas, s.selections && s.has_mask),
         Item::separator(),
-        later("Expand…"),
-        later("Contract…"),
-        later("Feather…"),
+        Item::new("Expand…").run(Command::ModifySelection(0), s.has_selection),
+        Item::new("Contract…").run(Command::ModifySelection(1), s.has_selection),
+        Item::new("Feather…").run(Command::ModifySelection(2), s.has_selection),
     ];
 
     let image = vec![
-        later("Curves…").key(cmd(Key::M)),
-        later("Levels…").key(cmd(Key::L)),
-        later("Hue/Saturation…").key(cmd(Key::U)),
-        later("Black & White…"),
-        later("Color Balance…"),
-        later("Exposure…"),
-        later("Gradient Map…"),
-        later("Grain…"),
-        later("Invert").key(cmd(Key::I)),
+        Item::new("Curves…").key(cmd(Key::M)).run(Command::Filter("Curves"), s.can_adjust),
+        Item::new("Levels…").key(cmd(Key::L)).run(Command::Filter("Levels"), s.can_adjust),
+        Item::new("Hue/Saturation…").key(cmd(Key::U)).run(Command::Filter("Hue/Saturation"), s.can_adjust),
+        Item::new("Black & White…").run(Command::Filter("Black & White"), s.can_adjust),
+        Item::new("Color Balance…").run(Command::Filter("Color Balance"), s.can_adjust),
+        Item::new("Exposure…").run(Command::Filter("Exposure"), s.can_adjust),
+        Item::new("Gradient Map…").run(Command::Filter("Gradient Map"), s.can_adjust),
+        Item::new("Grain…").run(Command::Filter("Grain"), s.can_adjust),
+        Item::new(if s.mask_target { "Invert Mask" } else { "Invert" }).key(cmd(Key::I)).run(Command::Invert, s.can_invert),
         Item::separator(),
-        later("Canvas Size…").key(opt_cmd(Key::C)),
-        later("Image Size…").key(opt_cmd(Key::I)),
-        later("Trim…"),
+        Item::new("Canvas Size…").key(opt_cmd(Key::C)).run(Command::CanvasSize, doc),
+        Item::new("Image Size…").key(opt_cmd(Key::I)).run(Command::ImageSize, doc),
+        Item::new("Trim…").run(Command::Trim, doc),
         Item::separator(),
-        later("Flip Canvas Horizontal"),
-        later("Flip Canvas Vertical"),
+        Item::new("Flip Canvas Horizontal").run(Command::FlipCanvas(true), doc),
+        Item::new("Flip Canvas Vertical").run(Command::FlipCanvas(false), doc),
     ];
 
     let filter = [
@@ -300,51 +376,45 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         "Remove Background…",
     ]
     .iter()
-    .map(|t| later(t))
+    .map(|t| {
+        let kind = FILTERS.iter().find(|k| t.starts_with(**k)).copied().unwrap_or("");
+        // Camera Raw isn't ported.
+        Item::new(t).run(Command::Filter(kind), kind != "Camera Raw Filter" && s.can_adjust)
+    })
     .collect();
 
-    let adjustments = [
-        "Hue/Saturation…",
-        "Levels…",
-        "Curves…",
-        "Exposure…",
-        "Gradient Map…",
-        "Grain…",
-        "Add Noise…",
-        "Gaussian Blur…",
-        "Motion Blur…",
-        "Invert",
-        "Black & White…",
-        "Color Balance…",
-    ]
-    .iter()
-    .map(|t| later(t))
-    .collect();
+    let adjustments = comp_format::AdjustmentKind::ALL
+        .iter()
+        .map(|k| {
+            let title = if *k == comp_format::AdjustmentKind::Invert { k.name().to_string() } else { format!("{}…", k.name()) };
+            Item::new(&title).run(Command::NewAdjustment(*k), doc)
+        })
+        .collect();
     let visible = s.active_layer_visible;
     let layer = vec![
         Item::new("New Adjustment Layer").sub(adjustments),
-        later("Edit Adjustment…"),
+        Item::new("Edit Adjustment…").run(Command::EditAdjustment, s.is_adjustment),
         Item::separator(),
-        later("Transform Layer").key(cmd(Key::T)),
-        later("Duplicate Layer").key(cmd(Key::J)),
+        Item::new("Transform Layer").key(cmd(Key::T)).run(Command::TransformLayer, s.can_transform),
+        Item::new("Duplicate Layer").key(cmd(Key::J)).run(Command::DuplicateLayer, s.can_edit),
         Item::separator(),
-        later(if s.active_layer_clipped { "Release Clipping Mask" } else { "Create Clipping Mask" }).key(opt_cmd(Key::G)),
+        Item::new(if s.active_layer_clipped { "Release Clipping Mask" } else { "Create Clipping Mask" }).key(opt_cmd(Key::G)).run(Command::ToggleClipping, s.can_clip),
         Item::separator(),
-        later("Group Selected Layers").key(cmd(Key::G)),
-        later("Ungroup Layers").key(shift_cmd(Key::G)),
-        later("Move Out of Folder"),
-        later("New Blank Layer").key(shift_cmd(Key::N)),
-        later("Rename Layer…"),
+        Item::new("Group Selected Layers").key(cmd(Key::G)).run(Command::GroupLayers, s.can_edit),
+        Item::new("Ungroup Layers").key(shift_cmd(Key::G)).run(Command::UngroupLayers, s.is_folder),
+        Item::new("Move Out of Folder").run(Command::MoveOutOfFolder, s.in_folder),
+        Item::new("New Blank Layer").key(shift_cmd(Key::N)).run(Command::NewBlankLayer, doc),
+        Item::new("Rename Layer…").run(Command::RenameLayer, s.can_edit),
         Item::new(if visible == Some(false) { "Show Layer" } else { "Hide Layer" }).run(Command::ToggleLayerVisibility, visible.is_some()),
         Item::separator(),
         Item::new("Move Layer Up").key(cmd(Key::CloseBracket)).run(Command::MoveLayerUp, s.can_move_up),
         Item::new("Move Layer Down").key(cmd(Key::OpenBracket)).run(Command::MoveLayerDown, s.can_move_down),
-        later("Merge Down").key(cmd(Key::E)),
+        Item::new(s.merge.unwrap_or("Merge Down")).key(cmd(Key::E)).run(Command::MergeLayers, s.merge.is_some()),
         Item::separator(),
-        later("Flip Layer Horizontal"),
-        later("Flip Layer Vertical"),
+        Item::new("Flip Layer Horizontal").run(Command::FlipLayer(true), s.can_transform),
+        Item::new("Flip Layer Vertical").run(Command::FlipLayer(false), s.can_transform),
         Item::separator(),
-        later("Delete Layer"),
+        Item::new(if s.mask_target && s.has_mask { "Delete Layer Mask" } else { "Delete Layer" }).run(Command::DeleteLayerOrMask, s.can_edit),
     ];
 
     let view = vec![
@@ -353,14 +423,14 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("Zoom In").key(cmd(Key::Equals)).run(Command::ZoomIn, doc),
         Item::new("Zoom Out").key(cmd(Key::Minus)).run(Command::ZoomOut, doc),
         Item::new("Pixel Grid (800% and above)").run(Command::TogglePixelGrid, true).check(s.pixel_grid),
-        later("Snap").check(true),
+        Item::new("Snap").run(Command::ToggleSnap, true).check(s.snap),
         Item::new("Show Transform Controls").key(cmd(Key::H)).run(Command::ToggleTransformControls, s.move_tool).check(s.show_controls),
         Item::separator(),
         Item::new("Show").sub(vec![later("Grid").key(cmd(Key::Quote)).check(false), later("Guides").key(cmd(Key::Semicolon)).check(true)]),
         later("Grid Settings…"),
         Item::new("Rulers").key(cmd(Key::R)).run(Command::ToggleRulers, doc).check(s.rulers),
         Item::separator(),
-        later("Snap").key(shift_cmd(Key::Semicolon)).check(true),
+        Item::new("Snap").key(shift_cmd(Key::Semicolon)).run(Command::ToggleSnap, doc).check(s.snap),
         Item::new("Snap To").sub(vec![
             later("Guides").check(true),
             later("Grid").check(false),
@@ -498,29 +568,37 @@ pub struct RowState {
     /// `Some(enabled)` when the layer has a mask.
     pub mask: Option<bool>,
     pub mask_linked: bool,
+    /// The mask thumbnail is the target, so Delete means the mask.
+    pub mask_target: bool,
+    pub can_clip: bool,
+    pub in_folder: bool,
+    pub can_merge: bool,
 }
 
 /// `NativeLayerList.Coordinator.contextMenu(for:)`; no key equivalents are shown.
 pub fn layer_context(r: &RowState) -> Vec<Item> {
     let mut items = vec![
-        later("Duplicate Layer"),
-        later("Rename…"),
-        later(if r.mask.is_some() { "Delete Mask" } else { "Delete Layer" }),
+        Item::new("Duplicate Layer").run(Command::DuplicateLayer, true),
+        Item::new("Rename…").run(Command::RenameLayer, true),
+        Item::new(if r.mask.is_some() && r.mask_target { "Delete Mask" } else { "Delete Layer" }).run(Command::DeleteLayerOrMask, true),
         Item::separator(),
-        later(if r.clipped { "Release Clipping Mask" } else { "Create Clipping Mask" }),
-        later("Group Selected Layers"),
+        Item::new(if r.clipped { "Release Clipping Mask" } else { "Create Clipping Mask" }).run(Command::ToggleClipping, r.can_clip),
+        Item::new("Group Selected Layers").run(Command::GroupLayers, true),
     ];
     if r.is_folder {
-        items.push(later("Ungroup Layers"));
+        items.push(Item::new("Ungroup Layers").run(Command::UngroupLayers, true));
     }
     items.extend([
-        later("Move Out of Folder"),
-        later(if r.is_folder { "Merge Group" } else { "Merge Down" }),
+        Item::new("Move Out of Folder").run(Command::MoveOutOfFolder, r.in_folder),
+        Item::new(if r.is_folder { "Merge Group" } else { "Merge Down" }).run(Command::MergeLayers, r.can_merge),
         Item::separator(),
-        Item::new("Add Mask").sub(vec![later("Reveal All (White)"), later("Hide All (Black)")]),
+        Item::new("Add Mask").sub(vec![
+            Item::new("Reveal All (White)").run(Command::AddMask(true), r.mask.is_none()),
+            Item::new("Hide All (Black)").run(Command::AddMask(false), r.mask.is_none()),
+        ]),
         Item::new(if r.mask == Some(false) { "Enable Mask" } else { "Disable Mask" }).run(Command::ToggleLayerMask, r.mask.is_some()),
-        later("Delete Mask"),
-        later(if r.mask.is_some() && !r.mask_linked { "Link Mask" } else { "Unlink Mask" }),
+        Item::new("Delete Mask").run(Command::DeleteMask, r.mask.is_some()),
+        Item::new(if r.mask.is_some() && !r.mask_linked { "Link Mask" } else { "Unlink Mask" }).run(Command::ToggleMaskLink, r.mask.is_some() && !r.is_folder),
         Item::separator(),
         Item::new(if r.visible { "Hide Layer" } else { "Show Layer" }).run(Command::ToggleLayerVisibility, true),
     ]);

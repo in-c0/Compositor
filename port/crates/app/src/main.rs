@@ -5,9 +5,11 @@
 
 mod app;
 mod document;
+mod geometry;
 mod gfx;
 mod headless;
 mod icons;
+mod layer_ops;
 mod menus;
 mod theme;
 mod tools;

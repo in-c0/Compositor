@@ -47,7 +47,7 @@ impl Offscreen {
         let gpu = Arc::new(Gpu::new()?);
         let options = egui_wgpu::RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: false, predictable_texture_filtering: false };
         let renderer = egui_wgpu::Renderer::new(&gpu.device, wgpu::TextureFormat::Rgba8Unorm, options);
-        let gfx = Gfx { gpu, renderer: Arc::new(egui::mutex::RwLock::new(renderer)) };
+        let gfx = Gfx::new(gpu, Arc::new(egui::mutex::RwLock::new(renderer)));
         let ctx = egui::Context::default();
         theme::install_fonts(&ctx);
         theme::install_style(&ctx);
