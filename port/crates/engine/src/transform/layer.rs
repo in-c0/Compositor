@@ -86,10 +86,12 @@ pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &Gp
     let size = asset.pixels.dimensions();
     let placement = Placement::of(t);
     let width = t.size[0];
-    let level = halvings(t.sampling, width, size);
     let mut pixels = premultiplied(&asset.pixels);
-    for _ in 0..level {
+    // `DownsampleCache` stops halving at a single pixel.
+    let mut level = 0;
+    while level < halvings(t.sampling, width, size) && (pixels.width() > 1 || pixels.height() > 1) {
         pixels = halve::halve_color(&pixels);
+        level += 1;
     }
     let reduced = pixels.dimensions();
     let final_factor = width / size.0.max(1) as f64 * (1u64 << level) as f64;
@@ -109,9 +111,10 @@ pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &Gp
             _ => m.pixels.clone(),
         };
         let mask_size = mask.dimensions();
-        let mask_level = halvings(t.sampling, width, mask_size);
-        for _ in 0..mask_level {
+        let mut mask_level = 0;
+        while mask_level < halvings(t.sampling, width, mask_size) && (mask.width() > 1 || mask.height() > 1) {
             mask = halve::halve_mask(&mask);
+            mask_level += 1;
         }
         let coverage: Vec<u32> = mask.as_raw().iter().map(|&v| v as u32).collect();
         mask_pixels = gpu.bytes(bytemuck::cast_slice(&coverage));
