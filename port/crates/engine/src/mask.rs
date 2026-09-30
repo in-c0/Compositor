@@ -17,6 +17,9 @@ pub fn layer_coverage(project: &Project, layer: &LayerRecord, (width, height): (
         return Err("unlinked masks".into());
     }
     let mask = &project.masks.get(&layer.id).ok_or("missing mask")?.pixels;
+    if let Some(placed) = placed_coverage(layer, mask, (width, height)) {
+        return Ok(Some(placed));
+    }
     if mask.width() == 1 && mask.height() == 1 {
         return Ok(Some(vec![mask.as_raw()[0] as u32; (width * height) as usize]));
     }
@@ -24,6 +27,31 @@ pub fn layer_coverage(project: &Project, layer: &LayerRecord, (width, height): (
         return Err("resampled masks".into());
     }
     Ok(Some(mask.as_raw().iter().map(|&m| m as u32).collect()))
+}
+
+/// A mask placed on the document apart from its layer (as painting past a layer's edge leaves
+/// it), when both sit upright and 1:1 on whole pixels: `LayerMask.clipImage`, the mask over its
+/// place and its background (`LayerMask.background`) elsewhere.
+fn placed_coverage(layer: &LayerRecord, mask: &image::GrayImage, (width, height): (u32, u32)) -> Option<Vec<u32>> {
+    let p = layer.mask_placement.as_ref()?;
+    let t = &layer.transform;
+    let (mw, mh) = mask.dimensions();
+    let plain = |t: &comp_format::Transform, w: u32, h: u32| {
+        t.rotation == 0.0 && !t.flip_x && !t.flip_y && t.size == [w as f64, h as f64] && t.origin[0].fract() == 0.0 && t.origin[1].fract() == 0.0
+    };
+    if !plain(t, width, height) || !plain(p, mw, mh) || (mw > 96 || mh > 96) || (p.origin == t.origin && p.size == t.size) {
+        return None;
+    }
+    // The background is read from the mask's 96-pixel thumbnail; a mask this small is its own.
+    let edge: Vec<u32> = (0..mh).flat_map(|y| (0..mw).map(move |x| (x, y))).filter(|&(x, y)| x == 0 || y == 0 || x == mw - 1 || y == mh - 1).map(|(x, y)| mask.get_pixel(x, y)[0] as u32).collect();
+    let background = if edge.iter().sum::<u32>() * 2 >= edge.len() as u32 * 255 { 255 } else { 0 };
+    let (dx, dy) = ((t.origin[0] - p.origin[0]) as i64, (t.origin[1] - p.origin[1]) as i64);
+    Some(
+        (0..height as i64)
+            .flat_map(|y| (0..width as i64).map(move |x| (x + dx, y + dy)))
+            .map(|(u, v)| if u >= 0 && v >= 0 && u < mw as i64 && v < mh as i64 { mask.get_pixel(u as u32, v as u32)[0] as u32 } else { background })
+            .collect(),
+    )
 }
 
 /// A folder's enabled mask as coverage per canvas pixel: the mask over the folder's rectangle,

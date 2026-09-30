@@ -238,10 +238,12 @@ pub fn painting(w: &mut CaseWriter) -> Result<()> {
         let id = d.image("Photo", blemished(N, N), spec());
         w.write(F, case, label, d, vec![stroke("heal", &id, &[[28.0, 25.0], [32.0, 27.0]], settings)])?;
     }
+    // Off the pixel grid's half-pixel lines: a tip edge exactly half a level between two bytes
+    // follows the Mac GPU's square root (see the painting gaps in features.toml).
     let mut d = w.doc(F, "heal-scratch", N, N);
     let id = d.image("Photo", blemished(N, N), spec());
     let settings = json!({ "size": 6, "hardness": 1, "opacity": 1, "healingMode": "Content-Aware" });
-    w.write(F, "heal-scratch", "Spot Healing along a thin scratch", d, vec![stroke("heal", &id, &[[44.5, 35.0], [44.5, 42.0], [44.5, 50.5]], settings)])?;
+    w.write(F, "heal-scratch", "Spot Healing along a thin scratch", d, vec![stroke("heal", &id, &[[44.25, 35.0], [44.25, 42.0], [44.25, 50.5]], settings)])?;
 
     // Blur.
     let mut d = w.doc(F, "blur-pixels", N, N);
