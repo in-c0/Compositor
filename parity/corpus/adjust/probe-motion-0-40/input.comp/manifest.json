@@ -1,0 +1,138 @@
+{
+  "activeLayerID" : "D1B80374-E4A1-4185-8204-4C0946B04A36",
+  "colorSpace" : "sRGB",
+  "documentID" : "DD5B1D6B-F1B9-45B8-92D4-173C4EFC5840",
+  "format" : "com.compositor.project",
+  "height" : 128,
+  "layers" : [
+    {
+      "id" : "0B6E61FA-9510-4BA3-949D-93B786E4FE45",
+      "imageFile" : "0B6E61FA-9510-4BA3-949D-93B786E4FE45.png",
+      "isVisible" : true,
+      "name" : "Probe",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Motion Blur",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "motionAngle" : 0,
+        "motionDistance" : 40,
+        "saturation" : 0
+      },
+      "id" : "D1B80374-E4A1-4185-8204-4C0946B04A36",
+      "imageFile" : null,
+      "isVisible" : true,
+      "name" : "Motion blur 0 degrees, 40 px over an impulse and ramped steps",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          128,
+          128
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 128
+}

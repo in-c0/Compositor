@@ -1,0 +1,5 @@
+{
+  "feature": "adjust",
+  "input": "input.comp",
+  "label": "Gaussian blur 2 over ramped lines and a step"
+}

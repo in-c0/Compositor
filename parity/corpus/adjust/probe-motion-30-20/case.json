@@ -1,0 +1,5 @@
+{
+  "feature": "adjust",
+  "input": "input.comp",
+  "label": "Motion blur 30 degrees, 20 px over an impulse and ramped steps"
+}

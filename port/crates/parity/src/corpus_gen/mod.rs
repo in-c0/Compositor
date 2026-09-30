@@ -1,6 +1,7 @@
 //! Builds the parity corpus. Every byte comes from this code and fixed seeds, so running it twice
 //! gives the same files, and CI checks the committed corpus against a fresh run.
 
+mod blur_probes;
 mod builder;
 mod images;
 mod import_files;
@@ -21,6 +22,7 @@ pub fn generate(out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut w = CaseWriter::new(out);
     suites::all(&mut w)?;
+    blur_probes::blur_probes(&mut w)?;
     psd_suite::psd(&mut w)?;
     import_suite::import(&mut w)?;
     painting_suite::painting(&mut w)?;
