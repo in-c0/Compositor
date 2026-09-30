@@ -125,14 +125,9 @@ impl<'a> Compositor<'a> {
         };
         let t = &layer.transform;
         let (w, h) = asset.pixels.dimensions();
-        let upright = t.rotation == 0.0
-            && !t.flip_x
-            && !t.flip_y
-            && t.size == [w as f64, h as f64]
-            && t.origin[0].fract() == 0.0
-            && t.origin[1].fract() == 0.0;
-        if !upright {
-            return unsupported("transformed layers");
+        if crate::transform::needs_resampling(self.project, layer) {
+            let opacity = order::effective_opacity(layer, &self.by_id);
+            return crate::transform::draw_layer(self.gpu, self.project, layer, &target, opacity, clip);
         }
         let own_mask = mask::layer_coverage(self.project, layer, (w, h)).map_err(RenderError::Unsupported)?;
         let own_mask = own_mask.map(|c| self.gpu.bytes(bytemuck::cast_slice(&c)));
