@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: black to white over 96 px inside a wider canvas",
+  "ops": [
+    {
+      "background": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foreground": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        80.0,
+        0.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        176.0,
+        0.0
+      ]
+    }
+  ]
+}

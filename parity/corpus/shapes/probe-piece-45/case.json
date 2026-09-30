@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: black to white at 45 degrees",
+  "ops": [
+    {
+      "background": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foreground": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        0.0,
+        0.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        64.0,
+        64.0
+      ]
+    }
+  ]
+}

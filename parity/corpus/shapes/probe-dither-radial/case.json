@@ -1,0 +1,30 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: one color, radial",
+  "ops": [
+    {
+      "background": [
+        0.3928921568627451,
+        0.3941176470588235,
+        0.39534313725490194
+      ],
+      "foreground": [
+        0.3928921568627451,
+        0.3941176470588235,
+        0.39534313725490194
+      ],
+      "from": [
+        32.0,
+        32.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        64.0,
+        32.0
+      ],
+      "type": "Radial"
+    }
+  ]
+}

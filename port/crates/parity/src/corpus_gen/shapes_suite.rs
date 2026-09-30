@@ -288,6 +288,42 @@ fn gradient_probes(w: &mut CaseWriter) -> Result<()> {
         d.blank("Layer 1", width as f64, height as f64, spec());
         w.write(F, case, label, d, vec![op])?;
     }
+    // How the ramp's pieces depend on its colors and length.
+    let colored = |from: [f64; 2], to: [f64; 2], fg: [f64; 3], bg: [f64; 3]| {
+        json!({ "op": "gradient", "from": from, "to": to, "foreground": fg, "background": bg, "style": "Foreground to Background" })
+    };
+    let pieces: [(&str, &str, u32, Value); 9] = [
+        ("probe-piece-white-black", "Probe: white to black over 64 px", 64, colored([0.0, 0.0], [64.0, 0.0], [1.0; 3], [0.0; 3])),
+        ("probe-piece-grays", "Probe: two grays over 64 px", 64, colored([0.0, 0.0], [64.0, 0.0], [0.2; 3], [0.9; 3])),
+        ("probe-piece-black-gray", "Probe: black to 90% gray over 64 px", 64, colored([0.0, 0.0], [64.0, 0.0], [0.0; 3], [0.9; 3])),
+        ("probe-piece-red-blue", "Probe: red to blue over 64 px", 64, colored([0.0, 0.0], [64.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0])),
+        ("probe-piece-40", "Probe: black to white over 40 px", 64, colored([12.0, 0.0], [52.0, 0.0], [0.0; 3], [1.0; 3])),
+        ("probe-piece-128", "Probe: black to white over 128 px", 128, colored([0.0, 0.0], [128.0, 0.0], [0.0; 3], [1.0; 3])),
+        ("probe-piece-600", "Probe: black to white over 600 px", 256, colored([-100.0, 0.0], [500.0, 0.0], [0.0; 3], [1.0; 3])),
+        ("probe-piece-inside", "Probe: black to white over 96 px inside a wider canvas", 256, colored([80.0, 0.0], [176.0, 0.0], [0.0; 3], [1.0; 3])),
+        ("probe-piece-45", "Probe: black to white at 45 degrees", 64, colored([0.0, 0.0], [64.0, 64.0], [0.0; 3], [1.0; 3])),
+    ];
+    for (case, label, width, op) in pieces {
+        let height = if case.ends_with("-45") { 64 } else { 16 };
+        let mut d = w.doc(F, case, width, height);
+        d.blank("Layer 1", width as f64, height as f64, spec());
+        w.write(F, case, label, d, vec![op])?;
+    }
+    // The dither with the gradient's line turned: level, upright, slanted and radial.
+    let c: Vec<f64> = [3.0, 8.0, 13.0].iter().map(|f| (100.0 + f / 16.0) / 255.0).collect();
+    for (case, label, from, to, radial) in [
+        ("probe-dither-upright", "Probe: one color along an upright line", [0.0, 0.0], [0.0, 64.0], false),
+        ("probe-dither-slanted", "Probe: one color along a slanted line", [0.0, 0.0], [64.0, 40.0], false),
+        ("probe-dither-radial", "Probe: one color, radial", [32.0, 32.0], [64.0, 32.0], true),
+    ] {
+        let mut d = w.doc(F, case, 64, 64);
+        d.blank("Layer 1", 64.0, 64.0, spec());
+        let mut op = json!({ "op": "gradient", "from": from, "to": to, "foreground": c, "background": c, "style": "Foreground to Background" });
+        if radial {
+            op["type"] = json!("Radial");
+        }
+        w.write(F, case, label, d, vec![op])?;
+    }
     // Opacity and transparency on a tall ramp.
     let case = "probe-ramp-opacity";
     let mut d = w.doc(F, case, 256, 32);

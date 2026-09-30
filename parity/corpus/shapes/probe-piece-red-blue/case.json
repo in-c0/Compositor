@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: red to blue over 64 px",
+  "ops": [
+    {
+      "background": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "foreground": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        0.0,
+        0.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        64.0,
+        0.0
+      ]
+    }
+  ]
+}
