@@ -475,7 +475,6 @@ fn filter(st: &mut SheetState, ui: &mut Ui, rows: &[(&str, usize)]) {
         curves_controls(st, ui);
     }
     if dither {
-        let styles: Vec<&str> = DITHER_STYLES.iter().flat_map(|g| g.iter().copied()).collect();
         hstack(ui, 8.0, |ui| {
             body(ui, "Style", color::label());
             let wd = w::fill_width(ui, 0.0, 0);
@@ -485,7 +484,6 @@ fn filter(st: &mut SheetState, ui: &mut Ui, rows: &[(&str, usize)]) {
             };
             let group_refs: Vec<&[usize]> = groups.iter().map(|g| g.as_slice()).collect();
             let titles: Vec<&'static str> = DITHER_STYLES.iter().flat_map(|g| g.iter().copied()).collect();
-            let _ = styles;
             w::popup(ui, "dither-style", &mut st.dither_style, &group_refs, |i| titles[i], Some(wd), true);
         });
     }
