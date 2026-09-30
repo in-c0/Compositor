@@ -97,7 +97,7 @@ reason = "Glyph edges come from a different rasterizer than Core Text; measured 
 Two optional fields narrow an override:
 
 - `max_pixels_over` lets that many pixels go past `max_channel_diff`, for a gap confined to a few measured pixels.
-- `structure_max_channel_diff` sets a limit for the case's `#structure` check, which otherwise compares the saved layers and masks byte for byte. Use it when a layer or mask differs more than the flattened image shows, such as a mask made by a stand-in model. The flattened image stays at `max_channel_diff`.
+- `structure_max_channel_diff` sets a separate limit for the case's `#structure` check, which compares the saved layers and masks. Use it when a layer or mask differs more than the flattened image shows, such as a mask made by a stand-in model. The flattened image stays at `max_channel_diff`.
 
 ## PARITY.md
 

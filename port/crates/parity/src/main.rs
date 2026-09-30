@@ -176,12 +176,9 @@ fn run(
             .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
             .filter_map(|case| match build_project(&renderer, case) {
                 Ok(project) => {
-                    // An imported layer is what the decoder made, so it gets the case's limit.
-                    // Elsewhere layer and mask pixels match byte for byte, except where an
-                    // override sets a structure limit.
-                    let limit = tolerances
-                        .for_structure(&case.id)
-                        .or_else(|| (case.spec.feature == "import").then(|| tolerances.for_case(&case.id)));
+                    // Manifests must match exactly; layer and mask pixels are held to the case's
+                    // pixel limit, the same as its render, or to its override's structure limit.
+                    let limit = Some(tolerances.for_structure(&case.id));
                     roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, limit.as_ref())
                 }
                 Err(_) => None,
