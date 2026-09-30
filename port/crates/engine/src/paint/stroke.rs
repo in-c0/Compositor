@@ -326,6 +326,16 @@ impl Stroke {
             allocated = allocated.union(&self.tile_rect(key));
         }
         let coverage = self.coverage(gpu)?;
+        if let Ok(dir) = std::env::var("PAINT_DUMP") {
+            // Fitting aid: the grid's size, origin, coverage and base, raw.
+            let mut out = Vec::new();
+            for v in [self.width as u32, self.height as u32, self.tx as i32 as u32, self.ty as i32 as u32] {
+                out.extend_from_slice(&v.to_le_bytes());
+            }
+            out.extend_from_slice(bytemuck::cast_slice(&coverage));
+            out.extend_from_slice(bytemuck::cast_slice(&self.base));
+            let _ = std::fs::write(std::path::Path::new(&dir).join(format!("{}.bin", self.layer)), out);
+        }
         let painted = if self.settings.healing {
             self.heal(&coverage, &keys)
         } else {
