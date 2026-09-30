@@ -1,0 +1,18 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, scanlines without glow",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "4CC7DEEE-CBE7-45A9-B2CE-1AB96D466B9F",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "glow": 0,
+          "style": "Scanlines (CRT)"
+        }
+      }
+    }
+  ]
+}

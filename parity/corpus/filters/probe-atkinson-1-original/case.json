@@ -1,0 +1,21 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Atkinson, pixel size 1, 4 levels, Original, diffusion 80",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "FA853898-942C-4F5C-9553-9B0466532A48",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Original",
+          "diffusion": 80,
+          "levels": 4,
+          "pixelSize": 1,
+          "style": "Atkinson (Classic Mac)"
+        }
+      }
+    }
+  ]
+}

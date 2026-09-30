@@ -596,6 +596,45 @@ fn filters(w: &mut CaseWriter) -> Result<()> {
         }
         w.write("filters", case, label, d, vec![op])?;
     }
+    // Probes. Mac Patterns in Original colors at full contrast on a bright image marks every pixel,
+    // so the result is the image Dither worked on: Core Graphics's high-quality reduction by the
+    // pixel size, which isn't documented.
+    let reduced = |pixel_size: u32| json!({ "dither": { "style": "Mac Patterns", "colors": "Original", "contrast": 100, "pixelSize": pixel_size } });
+    let mut bright_photo = images::photo(N, N);
+    for p in bright_photo.pixels_mut() {
+        for c in 0..3 {
+            p[c] = 140 + ((p[c] as u32 * 115 + 127) / 255) as u8;
+        }
+    }
+    let probes: Vec<(&str, &str, RgbaImage, serde_json::Value)> = vec![
+        ("probe-reduce-2", "Dither's reduction by 2, shown through Mac Patterns", images::bright_noise(N, N, 71, Alpha::Opaque), reduced(2)),
+        ("probe-reduce-3", "Dither's reduction by 3, shown through Mac Patterns", images::bright_noise(N, N, 72, Alpha::Opaque), reduced(3)),
+        ("probe-reduce-2-alpha", "Dither's reduction by 2 of translucent pixels", images::bright_noise(N, N, 73, Alpha::Varied), reduced(2)),
+        ("probe-reduce-2-smooth", "Dither's reduction by 2 of a smooth picture", bright_photo, reduced(2)),
+        // The dithering itself, one pixel per pixel so no reduction is involved.
+        ("probe-floyd-1", "Dither, Floyd-Steinberg, pixel size 1", images::photo(N, N), json!({ "dither": { "style": "Floyd–Steinberg", "pixelSize": 1 } })),
+        ("probe-atkinson-1-original", "Dither, Atkinson, pixel size 1, 4 levels, Original, diffusion 80", images::photo(N, N),
+            json!({ "dither": { "style": "Atkinson (Classic Mac)", "pixelSize": 1, "levels": 4, "colors": "Original", "diffusion": 80 } })),
+        ("probe-bayer4-1-two", "Dither, Bayer 4x4, pixel size 1, two colors, contrast 30", images::photo(N, N),
+            json!({ "dither": { "style": "Bayer 4 × 4", "pixelSize": 1, "colors": "Two Colors", "dark": { "red": 0.1, "green": 0.2, "blue": 0.4 }, "light": { "red": 1, "green": 0.9, "blue": 0.6 }, "contrast": 30 } })),
+        ("probe-dots-1", "Dither, halftone dots, pixel size 1, cell 6, angle 30, dark on light", images::photo(N, N),
+            json!({ "dither": { "style": "Halftone Dots", "pixelSize": 1, "cellSize": 6, "angle": 30, "lightOnDark": false } })),
+        ("probe-lines-1-original", "Dither, halftone lines, pixel size 1, Original", images::photo(N, N),
+            json!({ "dither": { "style": "Halftone Lines", "pixelSize": 1, "colors": "Original" } })),
+        ("probe-diamonds-1", "Dither, halftone diamonds, pixel size 1, angle -20", images::photo(N, N),
+            json!({ "dither": { "style": "Halftone Diamonds", "pixelSize": 1, "angle": -20 } })),
+        ("probe-patterns-1", "Dither, Mac patterns, pixel size 1", images::photo(N, N), json!({ "dither": { "style": "Mac Patterns", "pixelSize": 1 } })),
+        ("probe-scanlines-flat", "Dither, scanlines without glow", images::photo(N, N), json!({ "dither": { "style": "Scanlines (CRT)", "glow": 0 } })),
+        ("probe-scanlines-dots", "Dither, scanlines without glow, dots 60, wobble 4, spacing 6, Original", images::photo(N, N),
+            json!({ "dither": { "style": "Scanlines (CRT)", "glow": 0, "dots": 60, "wobble": 4, "lineSpacing": 6, "colors": "Original" } })),
+        ("probe-dot-pixels", "Dither, Bayer 8x8 in round pixels of 4, two colors", images::photo(N, N),
+            json!({ "dither": { "style": "Bayer 8 × 8", "pixelSize": 4, "pixelShape": "Dot", "colors": "Two Colors", "dark": { "red": 0.2, "green": 0, "blue": 0.3 } } })),
+    ];
+    for (case, label, image, settings) in probes {
+        let mut d = w.doc("filters", case, N, N);
+        let target = d.image("Photo", image, spec());
+        w.write("filters", case, label, d, vec![json!({ "op": "filter", "layer": target, "kind": "Dither", "settings": settings })])?;
+    }
     Ok(())
 }
 

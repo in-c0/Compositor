@@ -1,0 +1,18 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Floyd-Steinberg, pixel size 1",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "CC710304-F270-4FA0-8E4A-E6C8742BA9C2",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "pixelSize": 1,
+          "style": "Floyd–Steinberg"
+        }
+      }
+    }
+  ]
+}

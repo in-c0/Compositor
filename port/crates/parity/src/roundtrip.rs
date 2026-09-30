@@ -1,7 +1,7 @@
 //! .comp round trips: a project the Mac app saved, opened and saved again by the port, must come
 //! back identical, and the port's manifest bytes should match the Mac's.
 
-use crate::compare::{CaseResult, Status};
+use crate::compare::{CaseResult, Limit, Status};
 use anyhow::Result;
 use std::path::Path;
 
@@ -60,8 +60,9 @@ fn round_trip(mac: &Path, out: &Path) -> Result<Option<String>> {
 /// Compares the project the port made for a case (after its ops or PSD import) with the one the
 /// Mac saved, `refs/<id>.comp`: the manifests as the Mac writes them, with layer and document IDs
 /// replaced by their positions (new layers get random IDs on both sides), and every layer and mask
-/// pixel.
-pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path) -> Option<CaseResult> {
+/// pixel. `layer_limit`, when given, holds layer and mask pixels to that limit instead of byte for
+/// byte: a mask a stand-in model made, for example (`structure_max_channel_diff` in tolerances.toml).
+pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path, layer_limit: Option<&Limit>) -> Option<CaseResult> {
     let mac = refs.join(format!("{id}.comp"));
     if !mac.is_dir() {
         return None;
@@ -71,14 +72,14 @@ pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, ref
         feature: feature.into(),
         label: format!("The project after {id} matches the one the Mac saved"),
         status: Status::Fail,
-        tolerance: 0,
+        tolerance: layer_limit.map_or(0, |l| l.max_channel_diff),
         max_channel_diff: None,
         differing_pixels: None,
         total_pixels: None,
         message: None,
         heatmap: None,
     };
-    match compare_projects(&engine::session::normalize(port), &mac) {
+    match compare_projects(&engine::session::normalize(port), &mac, layer_limit) {
         Ok(()) => result.status = Status::Pass,
         Err(e) => result.message = Some(format!("{e:#}")),
     }
@@ -127,7 +128,7 @@ fn canonical(project: &comp_format::Project) -> Result<serde_json::Value> {
     Ok(value)
 }
 
-fn compare_projects(port: &comp_format::Project, mac_path: &Path) -> Result<()> {
+fn compare_projects(port: &comp_format::Project, mac_path: &Path, layer_limit: Option<&Limit>) -> Result<()> {
     let mac = comp_format::load(mac_path)?;
     let (a, b) = (canonical(port)?, canonical(&mac)?);
     if a != b {
@@ -140,13 +141,24 @@ fn compare_projects(port: &comp_format::Project, mac_path: &Path) -> Result<()> 
     }
     for (i, (pl, ml)) in port.manifest.layers.iter().zip(&mac.manifest.layers).enumerate() {
         let same_image = match (port.images.get(&pl.id), mac.images.get(&ml.id)) {
-            (Some(p), Some(m)) => p.pixels == m.pixels,
+            (Some(p), Some(m)) => match layer_limit {
+                None => p.pixels == m.pixels,
+                Some(limit) => crate::compare::diff(&m.pixels, &p.pixels, limit.max_channel_diff)
+                    .is_ok_and(|d| d.differing_pixels <= limit.max_pixels_over),
+            },
             (None, None) => true,
             _ => false,
         };
         anyhow::ensure!(same_image, "layer {i} ({}) pixels differ", pl.name);
         let same_mask = match (port.masks.get(&pl.id), mac.masks.get(&ml.id)) {
-            (Some(p), Some(m)) => p.pixels == m.pixels,
+            (Some(p), Some(m)) => match layer_limit {
+                None => p.pixels == m.pixels,
+                Some(limit) => {
+                    p.pixels.dimensions() == m.pixels.dimensions()
+                        && p.pixels.as_raw().iter().zip(m.pixels.as_raw()).filter(|(a, b)| a.abs_diff(**b) > limit.max_channel_diff).count() as u64
+                            <= limit.max_pixels_over
+                }
+            },
             (None, None) => true,
             _ => false,
         };

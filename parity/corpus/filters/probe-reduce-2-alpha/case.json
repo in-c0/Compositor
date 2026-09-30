@@ -1,0 +1,20 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither's reduction by 2 of translucent pixels",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "0B79ED4C-1CFD-49BE-B4C3-A3C29A67C842",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Original",
+          "contrast": 100,
+          "pixelSize": 2,
+          "style": "Mac Patterns"
+        }
+      }
+    }
+  ]
+}

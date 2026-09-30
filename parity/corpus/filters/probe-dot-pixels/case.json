@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Bayer 8x8 in round pixels of 4, two colors",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "6ABAFDB4-7640-47DB-A4E4-EFDEC84E9ED5",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Two Colors",
+          "dark": {
+            "blue": 0.3,
+            "green": 0,
+            "red": 0.2
+          },
+          "pixelShape": "Dot",
+          "pixelSize": 4,
+          "style": "Bayer 8 × 8"
+        }
+      }
+    }
+  ]
+}

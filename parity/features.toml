@@ -42,7 +42,12 @@ paths = ["port/crates/engine/src/adjust/**"]
 [[feature]]
 key = "filters"
 name = "Filters"
-paths = ["port/crates/engine/src/filters/**"]
+# Filters reuse the adjustment kernels, and Remove Background's mask comes from `ml`.
+paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**"]
+gaps = [
+    "Dither with a pixel size above 1 dithers a copy Core Graphics reduces with its high-quality interpolation, which isn't reproduced yet, so those cases are pending. The `probe-reduce-*` cases show the reduced image directly: by 2, it samples output pixel i at source pixel i × 63/31 (the corners line up, not the pixel edges) through a Catmull-Rom- or Lanczos-2-like kernel about 2 source pixels wide, but no fixed kernel matches it closer than 0.7 levels RMS (3 at most), and by 3 the mapping is different again. The dithering itself matches exactly at pixel size 1 (the other probes).",
+    "Dither's ASCII style draws the system's bold monospaced font with Core Text, which the port doesn't have; its scanline glow is a Core Image blur of a Core Image scale. Both are pending.",
+]
 
 [[feature]]
 key = "effects"
@@ -105,6 +110,9 @@ paths = ["port/crates/engine/src/raw/**"]
 key = "ml"
 name = "Select Subject, Remove Background, Content-Aware Fill"
 paths = ["port/crates/engine/src/ml/**"]
+gaps = [
+    "Remove Background's subject mask comes from Apple's Vision (`VNGenerateForegroundInstanceMaskRequest`), which only runs on Apple's systems. The port stands in U²-Netp (Apache-2.0, 4.6 MB, run on the CPU through tract; `port/tools/fetch-models.sh` fetches it). Against Vision on `filters/remove-bg-basic` its mask has an IoU of 0.988 and a mean difference of 3.9/255 (Vision's edge is harder), which leaves 124 of 4,096 rendered pixels over 1/255, by up to 42. Advanced's refinement (the guided filter and matte contrast) is ported as the Swift does it and pulls both masks onto the same edges: on `filters/remove-bg-advanced` the IoU is 1.000, the mean difference 0.08/255, and the rendered pixels are within 3/255. Larger Apache/MIT models (IS-Net general-use, 176 MB; BiRefNet, about 220 MB) are the next step if real photographs show wider gaps.",
+]
 
 [[feature]]
 key = "ui"

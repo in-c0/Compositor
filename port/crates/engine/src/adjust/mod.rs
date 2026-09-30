@@ -8,7 +8,7 @@
 //! settings (lookup tables, the Hue/Saturation cube, blur kernels) is computed on the CPU in
 //! `f64`, as the Swift code does, and uploaded.
 
-mod blur;
+pub(crate) mod blur;
 mod tables;
 
 use crate::gpu::{Gpu, GpuImage};

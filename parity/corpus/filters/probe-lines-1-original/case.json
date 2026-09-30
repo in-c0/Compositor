@@ -1,0 +1,19 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, halftone lines, pixel size 1, Original",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "4716494B-C7D1-49C9-AC89-59A1A3EE7264",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Original",
+          "pixelSize": 1,
+          "style": "Halftone Lines"
+        }
+      }
+    }
+  ]
+}

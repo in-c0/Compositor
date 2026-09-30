@@ -1,0 +1,30 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Dither, Bayer 4x4, pixel size 1, two colors, contrast 30",
+  "ops": [
+    {
+      "kind": "Dither",
+      "layer": "37107C47-1B07-4EAF-B362-CA21A5EA3F9A",
+      "op": "filter",
+      "settings": {
+        "dither": {
+          "colors": "Two Colors",
+          "contrast": 30,
+          "dark": {
+            "blue": 0.4,
+            "green": 0.2,
+            "red": 0.1
+          },
+          "light": {
+            "blue": 0.6,
+            "green": 0.9,
+            "red": 1
+          },
+          "pixelSize": 1,
+          "style": "Bayer 4 × 4"
+        }
+      }
+    }
+  ]
+}

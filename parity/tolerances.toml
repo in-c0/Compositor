@@ -85,3 +85,17 @@ cases = "psd/fill-hard-mix"
 max_channel_diff = 1
 max_pixels_over = 1
 reason = "Hard Mix at an exact tie follows the Mac GPU's division rounding, which IEEE f32 can't reproduce: 1 of 4,096 pixels."
+# Remove Background's mask comes from Apple's Vision on the Mac and from U²-Netp in the port (see
+# the `ml` gap in features.toml): no open model reproduces Vision's. Measured on Windows (RTX 2080,
+# tract on the CPU); re-measure on the Mac runner.
+[[override]]
+cases = "filters/remove-bg-basic"
+max_channel_diff = 42
+structure_max_channel_diff = 157
+reason = "Vision's subject mask can't be reproduced off Apple's systems; U²-Netp's edge is softer: 124 of 4,096 pixels over 1/255, by up to 42. The mask itself differs more than the flattened image shows: 240 of 2,304 mask pixels over 1/255, by up to 157."
+
+[[override]]
+cases = "filters/remove-bg-advanced"
+max_channel_diff = 3
+structure_max_channel_diff = 6
+reason = "Vision's subject mask can't be reproduced off Apple's systems; after Advanced's guided refinement U²-Netp's mask lands within 3/255 (14 of 4,096 pixels over 1/255). The mask itself: 50 of 2,304 pixels over 1/255, by up to 6."
