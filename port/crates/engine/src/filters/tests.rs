@@ -42,6 +42,8 @@ fn filter_cases_match_the_mac_projects() {
         return;
     };
     let filter = std::env::var("FILTER_CASES").unwrap_or_default();
+    // FILTER_INEXACT=1 also runs the filters that aren't exact yet, to measure them.
+    let measure = std::env::var_os("FILTER_INEXACT").is_some();
     let gpu = Gpu::new().unwrap();
     let mut failures = Vec::new();
     let mut dirs: Vec<_> = std::fs::read_dir(corpus().join("filters")).unwrap().map(|e| e.unwrap().path()).collect();
@@ -56,7 +58,7 @@ fn filter_cases_match_the_mac_projects() {
         let mut project = comp_format::load(&dir.join("input.comp")).unwrap();
         let mut outcome = Ok(());
         for op in spec["ops"].as_array().unwrap() {
-            outcome = outcome.and_then(|_| apply(&gpu, &mut project, op));
+            outcome = outcome.and_then(|_| apply_measuring(&gpu, &mut project, op, measure));
         }
         if let Err(e) = outcome {
             println!("{id:<22} {e}");
@@ -102,7 +104,7 @@ fn filter_cases_match_the_mac_projects() {
             w * h,
             if placed { "matches" } else { "differs" }
         );
-        if max > 1 || !placed {
+        if (max > 1 || !placed) && !measure {
             failures.push(id);
         }
     }

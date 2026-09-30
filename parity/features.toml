@@ -44,6 +44,10 @@ key = "filters"
 name = "Filters"
 # Filters reuse the adjustment kernels, and Remove Background's mask comes from `ml`.
 paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**"]
+gaps = [
+    "Dither with a pixel size above 1 dithers a copy Core Graphics reduces with its high-quality interpolation, which isn't reproduced yet, so those cases are pending. The `probe-reduce-*` cases show the reduced image directly: by 2, it samples output pixel i at source pixel i × 63/31 (the corners line up, not the pixel edges) through a Catmull-Rom- or Lanczos-2-like kernel about 2 source pixels wide, but no fixed kernel matches it closer than 0.7 levels RMS (3 at most), and by 3 the mapping is different again. The dithering itself matches exactly at pixel size 1 (the other probes).",
+    "Dither's ASCII style draws the system's bold monospaced font with Core Text, which the port doesn't have; its scanline glow is a Core Image blur of a Core Image scale. Both are pending.",
+]
 
 [[feature]]
 key = "effects"

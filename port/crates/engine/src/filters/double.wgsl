@@ -48,3 +48,27 @@ fn dd_rec709(r: vec2<f32>, g: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
     let kb = vec2<f32>(0.0722000002861023, -2.861023085110048e-10);
     return dd_add(dd_mul(kb, b), dd_add(dd_mul(kr, r), dd_mul(kg, g)));
 }
+
+// e^x for |x| <= 40: x = k ln 2 + r with |r| <= ln 2 / 2, e^r by its Taylor series, then 2^k.
+fn dd_exp(x: vec2<f32>) -> vec2<f32> {
+    let ln2 = vec2<f32>(0.693147182464599609, -1.9046542121259336e-09);
+    let k = floor(x.x * 1.44269504 + 0.5);
+    let r = dd_sub(x, dd_mul(dd(k), ln2));
+    var term = DD_ONE;
+    var sum = DD_ONE;
+    for (var n = 1; n <= 20; n++) {
+        term = dd_div(dd_mul(term, r), dd(f32(n)));
+        sum = dd_add(sum, term);
+    }
+    let scale = exp2(k);
+    return vec2<f32>(sum.x * scale, sum.y * scale);
+}
+
+// tanh x as (e^{2|x|} − 1) / (e^{2|x|} + 1), with the sign put back.
+fn dd_tanh(x: vec2<f32>) -> vec2<f32> {
+    let negative = dd_less(x, DD_ZERO);
+    let a = select(x, -x, negative);
+    let e = dd_exp(dd_mul(a, dd(2.0)));
+    let t = dd_div(dd_sub(e, DD_ONE), dd_add(e, DD_ONE));
+    return select(t, -t, negative);
+}

@@ -95,6 +95,12 @@ fn unsupported<T>(what: &str) -> Result<T> {
 
 /// Applies one corpus `filter` op to `project`.
 pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
+    apply_measuring(gpu, project, op, false)
+}
+
+/// [`apply`], or with `inexact` also the filters that aren't exact yet (the Core Image blurs and
+/// what's built on them), so tests can measure how far off they are.
+fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) -> Result<()> {
     let layer_id = op.get("layer").and_then(Value::as_str).ok_or_else(|| failed("filter: layer is missing".into()))?;
     let kind_name = op.get("kind").and_then(Value::as_str).ok_or_else(|| failed("filter: kind is missing".into()))?;
     let kind = FilterKind::from_name(kind_name).ok_or_else(|| failed(format!("filter: unknown kind {kind_name}")))?;
@@ -169,7 +175,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
 
     let (w, h) = pixels.dimensions();
     let source = premultiply(gpu, &gpu.upload(w, h, pixels.as_raw()));
-    let result = run(gpu, kind, &s, seed, &source)?;
+    let result = run(gpu, kind, &s, seed, &source, inexact)?;
     let straight = crate::blend::unpremultiply(gpu, &result);
     let bytes = gpu.download(&straight).map_err(RenderError::Failed)?;
     let mut image = image::RgbaImage::from_raw(w, h, bytes).expect("filter output size");
@@ -206,7 +212,7 @@ fn effectively_visible(layers: &[LayerRecord], layer: &LayerRecord) -> bool {
 }
 
 /// The filter itself: `PixelFilter.run` on premultiplied pixels.
-fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuImage) -> Result<GpuImage> {
+fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuImage, inexact: bool) -> Result<GpuImage> {
     let region = Region::whole(image);
     let adjustment = |kind: AdjustmentKind| Adjustment::new(kind);
     Ok(match kind {
@@ -279,10 +285,28 @@ fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuIm
         FilterKind::Vignette => vignette(gpu, image, s),
         FilterKind::LensCorrection => lens(gpu, image, s.distortion / 100.0 * LENS_STRENGTH),
         FilterKind::Dither => dither::apply(gpu, image, &s.dither)?,
-        FilterKind::GaussianBlur | FilterKind::MotionBlur | FilterKind::BloomGlow => {
-            return unsupported("Core Image's blurs (Gaussian Blur, Motion Blur, Bloom / Glow) aren't exact yet");
+        // Core Image's blurs, through `adjust::blur`, which doesn't match them exactly yet.
+        FilterKind::GaussianBlur | FilterKind::MotionBlur | FilterKind::BloomGlow | FilterKind::TonalContrast if !inexact => {
+            return unsupported("Core Image's Gaussian and motion blurs aren't exact yet (Gaussian Blur, Motion Blur, Bloom / Glow, Tonal Contrast)");
         }
-        FilterKind::TonalContrast => return unsupported("Tonal Contrast (its base is Core Image's Gaussian blur)"),
+        FilterKind::GaussianBlur => adjust::blur::gaussian(gpu, image, s.radius),
+        FilterKind::MotionBlur => adjust::blur::motion(gpu, image, s.distance, s.angle),
+        FilterKind::BloomGlow => {
+            // `CIBloom`: its Gaussian blur, then the composite in `bloom.wgsl`. Core Image keeps the
+            // blur in floats; `adjust::blur` rounds it to bytes first.
+            let blurred = adjust::blur::gaussian(gpu, image, s.bloom_radius);
+            let intensity = (s.bloom_amount / 50.0) as f32;
+            kernel(gpu, "filters.bloom", include_str!("bloom.wgsl"), image, &[intensity.to_bits()], &[&blurred.buffer])
+        }
+        FilterKind::TonalContrast => {
+            // The base is the layer blurred by Core Image and stored as bytes.
+            let base = adjust::blur::gaussian(gpu, image, s.tonal_radius);
+            let mut params = vec![0];
+            for v in [s.tonal_shadows, s.tonal_midtones, s.tonal_highlights, s.tonal_amount / 50.0, 0.5 - 0.15, 0.85 - 0.5] {
+                params.extend(split(v).map(f32::to_bits));
+            }
+            kernel(gpu, "filters.tonal", include_str!("tonal.wgsl"), image, &params, &[&base.buffer])
+        }
         FilterKind::RemoveBackground | FilterKind::CameraRaw | FilterKind::ContentAwareFill => unreachable!("handled above"),
     })
 }
