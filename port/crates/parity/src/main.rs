@@ -175,7 +175,12 @@ fn run(
             .par_iter()
             .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
             .filter_map(|case| match build_project(&renderer, case) {
-                Ok(project) => roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs),
+                Ok(project) => {
+                    // Layer and mask pixels match byte for byte, except where an override sets
+                    // a structure limit.
+                    let limit = tolerances.for_structure(&case.id);
+                    roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, limit.as_ref())
+                }
                 Err(_) => None,
             })
             .collect::<Vec<_>>(),

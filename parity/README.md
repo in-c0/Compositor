@@ -93,6 +93,11 @@ max_channel_diff = 3
 reason = "Glyph edges come from a different rasterizer than Core Text; measured in PARITY.md."
 ```
 
+Two optional fields narrow an override:
+
+- `max_pixels_over` lets that many pixels go past `max_channel_diff`, for a gap confined to a few measured pixels.
+- `structure_max_channel_diff` sets a limit for the case's `#structure` check, which otherwise compares the saved layers and masks byte for byte. Use it when a layer or mask differs more than the flattened image shows, such as a mask made by a stand-in model. The flattened image stays at `max_channel_diff`.
+
 ## PARITY.md
 
 CI builds PARITY.md from each run's results: per-feature status on both platforms, the overall percentage, known gaps and every tolerance override. Every run shows it in the job summary. After a run on `main`, CI also commits it to the `parity-report` branch, so that branch always holds the report for the newest `main`. `main` only accepts pull requests whose parity checks pass, so CI can't push the report there.
