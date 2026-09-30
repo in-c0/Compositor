@@ -387,6 +387,20 @@ fn transform_probes(w: &mut CaseWriter) -> Result<()> {
     let id = d.image("Masked", white(64, 64), LayerSpec { transform: Some(smooth(8.0, 8.0, 31.99, 31.99, 0.0)), ..spec() });
     d.mask(&id, gray_noise(64, 64, 85));
     w.write("transform", "probe-halve-1-mask", "A mask halved once with its layer, then a near copy", d, vec![])?;
+    // A rotated, masked layer inside a masked folder, and one clipped to an upright base.
+    let mut d = w.doc("transform", "probe-folder-rotated-child", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    let folder = d.group("Folder", spec());
+    d.mask(&folder, images::gray_ramp(N, N, false));
+    let id = d.image("Inner", images::noise(40, 40, 86, Alpha::Opaque), LayerSpec { parent: Some(folder), transform: Some(smooth(12.0, 10.0, 40.0, 44.0, 20.0)), ..spec() });
+    d.mask(&id, gray_noise(40, 40, 87));
+    w.write("transform", "probe-folder-rotated-child", "A rotated masked layer inside a masked folder", d, vec![])?;
+    let mut d = w.doc("transform", "probe-clip-rotated", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    let base = d.image("Base", images::disc(N, N, [250, 250, 250]), spec());
+    let id = d.image("Clipped", images::noise(40, 40, 88, Alpha::Opaque), LayerSpec { transform: Some(smooth(10.0, 12.0, 44.0, 40.0, -25.0)), ..spec() });
+    d.layer(&id).mask_source_id = Some(base);
+    w.write("transform", "probe-clip-rotated", "A rotated layer clipped to an upright base", d, vec![])?;
     Ok(())
 }
 
