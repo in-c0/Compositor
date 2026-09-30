@@ -168,6 +168,11 @@ jobs:
       - name: Build
         run: cargo build --release --manifest-path port/Cargo.toml -p parity
 
+      - name: Fetch the DirectX Shader Compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: port/tools/fetch-dxc.ps1 -Into port/target/release
+
       - name: Run parity
         run: |
           args=()

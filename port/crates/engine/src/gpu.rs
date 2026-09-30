@@ -36,6 +36,7 @@ impl Gpu {
                 wgpu::Backends::all()
             };
         }
+        descriptor.backend_options.dx12.shader_compiler = dx12_compiler();
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -145,5 +146,16 @@ impl Gpu {
             pass.dispatch_workgroups(width.div_ceil(8), height.div_ceil(8), 1);
         }
         self.queue.submit([encoder.finish()]);
+    }
+}
+
+/// DX12 compiles WGSL through Microsoft's DXC, loaded from `dxcompiler.dll` next to the executable
+/// (`port/tools/fetch-dxc.ps1` puts it there) or on the PATH. The older FXC can't compile the
+/// engine's shaders.
+fn dx12_compiler() -> wgpu::Dx12Compiler {
+    let beside_exe = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|dir| dir.join("dxcompiler.dll")));
+    match beside_exe {
+        Some(path) if path.exists() => wgpu::Dx12Compiler::DynamicDxc { dxc_path: path.to_string_lossy().into_owned() },
+        _ => wgpu::Dx12Compiler::default_dynamic_dxc(),
     }
 }
