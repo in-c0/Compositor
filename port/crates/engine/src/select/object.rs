@@ -25,6 +25,9 @@ const HALO_LEVEL: f32 = 1.0 / 255.0;
 /// as Vision returns no instances for an image without a subject.
 const PEAK_LEVEL: f32 = 0.5;
 
+/// Why a region at the frame's edge is left pending.
+pub const AT_FRAME: &str = "a subject that runs into the image's edge, where U²-Netp can't tell whether Vision sees an object";
+
 /// `SubjectRemoval.Failure.noSubject`'s message.
 pub const NO_SUBJECT: &str = "No foreground subject was detected in this layer. Try an image with a more distinct subject.";
 
@@ -97,6 +100,16 @@ impl Instances {
         let x = ((point[0] / width as f64 * side) as i64).clamp(0, self.side as i64 - 1) as usize;
         let y = ((point[1] / height as f64 * side) as i64).clamp(0, self.side as i64 - 1) as usize;
         Some(self.labels[y * self.side + x]).filter(|&v| v != 0)
+    }
+
+    /// Whether an instance's own pixels reach the edge of the frame. U²-Netp marks a region there
+    /// as salient where Vision may see no object at all (the corpus's photo on its own, which
+    /// Vision leaves unselected and U²-Netp calls 39% subject), so the port doesn't guess.
+    pub fn touches_frame(&self, instance: u32) -> bool {
+        let side = self.side;
+        (0..side).any(|i| {
+            [i, (side - 1) * side + i, i * side, i * side + side - 1].iter().any(|&j| self.labels[j] == instance)
+        })
     }
 
     /// `VNInstanceMaskObservation.generateMask(forInstances:)`: the instance's soft mask on the
@@ -343,6 +356,11 @@ mod tests {
         // The faint pixel below the first instance belongs to it.
         assert_eq!(found.mask(&map, first)[3 * side + 1], 0.2);
         assert_eq!(found.mask(&map, second)[3 * side + 1], 0.0);
+        assert!(!found.touches_frame(first));
+        let mut edge = map.values.clone();
+        edge[7] = 1.0;
+        let framed = Instances::new(&Saliency { side, values: edge, peak: 0.9 });
+        assert!(framed.touches_frame(framed.at([7.5, 0.5], 8, 8).unwrap()));
         // A model that isn't confident finds nothing.
         assert_eq!(Instances::new(&Saliency { peak: 0.1, ..map }).count, 0);
     }

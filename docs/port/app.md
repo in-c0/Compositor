@@ -60,7 +60,7 @@ A few things work in the app but aren't what the Mac does exactly, because the e
 - The filter sheets run the engine's filters without the selection, and the engine's strokes don't take one, so the app limits them to the selection itself, blending the result over the layer through the selection's coverage. This isn't checked against the Mac, and it only works on layers placed 1:1 and upright.
 - Content-Aware Fill runs the engine's fill on the selection at once. The Mac opens its filter panel first, which has no settings for it, and waits for OK.
 - Image > Invert and Edit > Fill run the Mac's arithmetic in the app; Levels and Hue/Saturation on a layer's pixels run the adjustment layers' kernels over them. No parity case covers these yet.
-- Select > Subject and the Magic tool's Object mode find the subject with U²-Netp instead of Apple's Vision, so their outlines can differ from the Mac's by a few pixels, and on some images they pick out different objects (see the `ml` gap in `parity/features.toml`). Everything after the model follows the Mac.
+- Select > Subject and the Magic tool's Object mode find the subject with U²-Netp instead of Apple's Vision, so their outlines can differ from the Mac's by a few pixels (see the `ml` gap in `parity/features.toml`). Everything after the model follows the Mac. Where the model's region runs into the edge of the image, they say they can't make the selection exactly yet, because there the model often marks background that Vision wouldn't select.
 - Image Size reports that the engine can't do it on a layer whose mask it would redraw at a rotation.
 - The Gradient, Shape and Type tools show their headers but say they aren't available when used: their engine code isn't on this branch yet.
 

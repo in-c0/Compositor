@@ -243,8 +243,12 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
             // The canvas as shown, as `drawLiveComposite` draws it.
             let shown = object::straight(&sample(gpu, project, true)?, w, h);
             let map = crate::ml::saliency(&shown)?;
-            if object::Instances::new(&map).count == 0 {
+            let instances = object::Instances::new(&map);
+            if instances.count == 0 {
                 return failed(object::NO_SUBJECT.into());
+            }
+            if (1..=instances.count).any(|k| instances.touches_frame(k)) {
+                return unsupported(&format!("Select > Subject with {}", object::AT_FRAME));
             }
             // `SubjectRemoval.subjectMask` with the default (Basic) settings: the mask as the model
             // gives it, then `MaskTracing.whitePixels`.
@@ -370,6 +374,9 @@ fn object_outline(sample: &[u8], w: usize, h: usize, point: [f64; 2], edge: i64,
     let map = crate::ml::saliency(&object::straight(sample, w, h))?;
     let instances = object::Instances::new(&map);
     let Some(instance) = instances.at(point, w, h) else { return Ok(None) };
+    if instances.touches_frame(instance) {
+        return unsupported(&format!("Object Selection on {}", object::AT_FRAME));
+    }
     let coarse = instances.mask(&map, instance);
     let binary = object::edge_preserved_binary_mask(&coarse, map.side, sample, w, h);
     let mask = object::adjusted(&binary, w, h, edge);
