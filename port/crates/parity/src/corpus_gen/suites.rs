@@ -986,6 +986,56 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         w.write(F, case, label, d, ops)?;
     }
 
+    // Probes for Core Graphics' fill: combs whose teeth have edges at many fractions of a pixel,
+    // and long edges at several slopes. The combs sit on a 1/1024 grid, as the rasterizer's
+    // arithmetic is binary.
+    let comb = |horizontal: bool, fractions: &dyn Fn(usize) -> (f64, f64)| {
+        let mut points: Vec<[f64; 2]> = Vec::new();
+        let (f0, _) = fractions(0);
+        points.push([f0, 60.0]);
+        for i in 0..31 {
+            let (f, g) = fractions(i);
+            let (left, right) = (2.0 * i as f64 + f, 2.0 * i as f64 + 1.0 + g);
+            if i > 0 {
+                points.push([left, 44.0]);
+            }
+            points.push([left, 4.0]);
+            points.push([right, 4.0]);
+            points.push([right, if i == 30 { 60.0 } else { 44.0 }]);
+        }
+        let points: Vec<[f64; 2]> = if horizontal { points.iter().map(|p| [p[1], p[0]]).collect() } else { points };
+        polygon(&points)
+    };
+    let grid = |v: f64| (v * 1024.0).round() / 1024.0;
+    let spread = |i: usize| (grid((i as f64 + 0.37) / 31.0), grid((i as f64 + 0.71) / 31.0));
+    // Each tooth's left edge leaves its pixel a sliver of 1…31/1024; the right edge covers half.
+    let slivers = |i: usize| (1.0 - (i + 1) as f64 / 1024.0, 0.5);
+    let slope = |dx_dy: f64, top: f64, height: f64, x: f64| polygon(&[[x, top], [62.0, top], [62.0, top + height], [x + dx_dy * height, top + height]]);
+    let ellipse_then = |second: Value| vec![ellipse(), second];
+    let probes: Vec<(&str, &str, Vec<Value>)> = vec![
+        ("probe-comb-x", "Probe: vertical edges at 62 fractions of a pixel", vec![comb(false, &spread)]),
+        ("probe-comb-y", "Probe: horizontal edges at 62 fractions of a pixel", vec![comb(true, &spread)]),
+        ("probe-comb-x-tiny", "Probe: vertical edges leaving slivers of 1/1024 to 31/1024 px", vec![comb(false, &slivers)]),
+        ("probe-comb-x-tiny-aliased", "Probe: vertical edges leaving slivers of 1/1024 to 31/1024 px, aliased", vec![aliased(comb(false, &slivers))]),
+        ("probe-slope-0.0311", "Probe: an edge 0.0311 px across per row", vec![slope(0.0311, 2.3, 59.0, 3.4)]),
+        ("probe-slope-0.37", "Probe: an edge 0.37 px across per row", vec![slope(0.37, 2.3, 59.0, 3.4)]),
+        ("probe-slope-1.6", "Probe: an edge 1.6 px across per row", vec![slope(1.6, 10.0, 35.0, 1.2)]),
+        ("probe-slope-7.3", "Probe: an edge 7.3 px across per row", vec![slope(7.3, 20.2, 7.5, 2.1)]),
+        ("probe-slope-back", "Probe: an edge -0.23 px across per row", vec![slope(-0.23, 1.1, 60.0, 17.9)]),
+        ("probe-ellipse-subtract-far", "Probe: an ellipse, less a rectangle that doesn't touch it", ellipse_then(subtract(marquee("Rectangle", [58.0, 56.0], [62.0, 62.0])))),
+        ("probe-ellipse-add-far", "Probe: an ellipse, plus a rectangle that doesn't touch it", ellipse_then(add(marquee("Rectangle", [58.0, 56.0], [62.0, 62.0])))),
+        ("probe-ellipse-add-self", "Probe: an ellipse added to itself", ellipse_then(add(ellipse()))),
+        ("probe-ellipse-cut-center", "Probe: an ellipse, less the rectangle below its middle", ellipse_then(subtract(marquee("Rectangle", [0.0, 30.0], [64.0, 64.0])))),
+        ("probe-ellipse-cut-right", "Probe: an ellipse, less the rectangle right of x = 45", ellipse_then(subtract(marquee("Rectangle", [45.0, 0.0], [64.0, 64.0])))),
+        ("probe-circle-cut-thin", "Probe: a circle, less a one-pixel column through it", vec![marquee("Ellipse", [8.0, 8.0], [56.0, 56.0]), subtract(marquee("Rectangle", [31.0, 0.0], [32.0, 64.0]))]),
+        ("probe-ellipse-large", "Probe: an ellipse larger than the canvas, inside it at the corners", vec![marquee("Ellipse", [-6.0, -4.0], [70.0, 68.0])]),
+    ];
+    for (case, label, ops) in probes {
+        let mut d = w.doc(F, case, N, N);
+        d.image("Photo", images::photo(N, N), spec());
+        w.write(F, case, label, d, ops)?;
+    }
+
     // Select > Color Range, which reads every visible layer.
     let range = |samples: Value| json!({ "op": "colorRange", "samples": samples });
     let ranges: Vec<(&str, &str, Value)> = vec![

@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: an edge 0.0311 px across per row",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          3.4,
+          2.3
+        ],
+        [
+          62.0,
+          2.3
+        ],
+        [
+          62.0,
+          61.3
+        ],
+        [
+          5.2349,
+          61.3
+        ]
+      ]
+    }
+  ]
+}

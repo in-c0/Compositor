@@ -1,0 +1,32 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a circle, less a one-pixel column through it",
+  "ops": [
+    {
+      "from": [
+        8.0,
+        8.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        56.0
+      ]
+    },
+    {
+      "from": [
+        31.0,
+        0.0
+      ],
+      "mode": "Subtract",
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        32.0,
+        64.0
+      ]
+    }
+  ]
+}
