@@ -448,6 +448,22 @@ fn cg_high_probes(w: &mut CaseWriter) -> Result<()> {
         probe(w, &format!("cg-high-xy-{f}"), &format!("Core Graphics High shrinking noise to {f}"), images::noise(64, 64, 90, Alpha::Opaque), (n.ceil() as u32, n.ceil() as u32), [0.0, 0.0, n, n])?;
     }
     probe(w, "cg-high-xy-0.5-alpha", "Core Graphics High halving translucent noise", images::noise(64, 64, 91, Alpha::Varied), (32, 32), [0.0, 0.0, 32.0, 32.0])?;
+    // Noise on every line, the other axis 1:1: each line is its own experiment, so each output
+    // pixel's weights can be read off.
+    let lines = |across: bool, n: u32, seed: u32| {
+        let (width, height) = if across { (n, 32) } else { (32, n) };
+        RgbaImage::from_fn(width, height, |x, y| {
+            let v = |c: u32| (images::hash(seed.wrapping_mul(0x9e37_79b9) ^ ((y * width + x) * 3 + c)) >> 24) as u8;
+            image::Rgba([v(0), v(1), v(2), 255])
+        })
+    };
+    for width in [127.0, 120.0, 115.2, 115.0, 100.0, 96.0, 80.0, 64.0, 51.2, 42.24, 42.0, 32.0, 25.6] {
+        probe(w, &format!("cg-noise-x-{width}"), &format!("Core Graphics High shrinking noise lines across, 128 to {width}"), lines(true, 128, 92), ((width as f64).ceil() as u32, 32), [0.0, 0.0, width, 32.0])?;
+    }
+    // The sizes the gated cases shrink by: 64 to 40 down (`non-uniform`), and Dither's thirds.
+    probe(w, "cg-noise-y-64-40", "Core Graphics High shrinking noise lines down, 64 to 40", lines(false, 64, 93), (32, 40), [0.0, 0.0, 32.0, 40.0])?;
+    probe(w, "cg-noise-x-64-21.33", "Core Graphics High shrinking noise lines across, 64 to a third", lines(true, 64, 94), (22, 32), [0.0, 0.0, 64.0 / 3.0, 32.0])?;
+    probe(w, "cg-noise-x-128-96-at-0.25", "Core Graphics High shrinking noise lines across to 96, a quarter pixel right", lines(true, 128, 95), (97, 32), [0.25, 0.0, 96.0, 32.0])?;
     Ok(())
 }
 

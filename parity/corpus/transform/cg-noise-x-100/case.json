@@ -1,0 +1,20 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Core Graphics High shrinking noise lines across, 128 to 100",
+  "ops": [
+    {
+      "height": 32,
+      "layer": "7C2FCB1E-61E0-4BA5-B192-5E9750554D40",
+      "op": "probeDraw",
+      "quality": "high",
+      "rect": [
+        0.0,
+        0.0,
+        100.0,
+        32.0
+      ],
+      "width": 100
+    }
+  ]
+}
