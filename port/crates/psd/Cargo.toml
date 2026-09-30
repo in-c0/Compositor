@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 image.workspace = true
+comp-format.workspace = true
+uuid.workspace = true

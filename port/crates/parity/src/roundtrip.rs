@@ -106,6 +106,19 @@ fn canonical(project: &comp_format::Project) -> Result<serde_json::Value> {
         rename(&mut layer["imageFile"], ".png");
         rename(&mut layer["maskFile"], ".mask.png");
     }
+    // Swift writes a [ColorRange: …] dictionary as a flat key, value, key, value… array in its
+    // dictionary's order, which changes from run to run, so the pairs are compared sorted.
+    for layer in value["layers"].as_array_mut().into_iter().flatten() {
+        let hsv = &mut layer["adjustment"]["hsvSettings"];
+        for key in ["adjustments", "bands"] {
+            if let Some(flat) = hsv[key].as_array() {
+                let mut pairs: Vec<(String, serde_json::Value)> =
+                    flat.chunks(2).filter(|p| p.len() == 2).map(|p| (p[0].to_string(), p[1].clone())).collect();
+                pairs.sort_by(|a, b| a.0.cmp(&b.0));
+                hsv[key] = serde_json::Value::Array(pairs.into_iter().flat_map(|(k, v)| [serde_json::from_str(&k).unwrap(), v]).collect());
+            }
+        }
+    }
     if let Some(guides) = value["guides"].as_array_mut() {
         for g in guides {
             g["id"] = serde_json::Value::Null;

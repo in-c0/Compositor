@@ -99,7 +99,11 @@ impl Renderer {
     }
 
     /// Imports a Photoshop file as the Mac app's File > Open does.
-    pub fn import_psd(&self, _path: &std::path::Path) -> Result<Project, RenderError> {
-        Err(RenderError::Unsupported("PSD import".into()))
+    pub fn import_psd(&self, path: &std::path::Path) -> Result<Project, RenderError> {
+        match psd::import_file(path) {
+            Ok(imported) => Ok(imported.project),
+            Err(psd::ImportError::NotPorted(what)) => Err(RenderError::Unsupported(what)),
+            Err(e) => Err(RenderError::Failed(anyhow::anyhow!("{}: {e}", path.file_name().unwrap_or_default().to_string_lossy()))),
+        }
     }
 }

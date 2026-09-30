@@ -113,6 +113,9 @@ fn composite_float(mode: u32, backdrop: vec4<u32>, source: vec4<u32>, full_opaci
     if ba > 0u { b = vec3<f32>(backdrop.xyz) / f32(ba); }
     var s = vec3<f32>(0.0);
     if sa > 0u { s = vec3<f32>(source.xyz) / f32(sa); }
+    // A channel equal to its alpha is exactly 1, as IEEE division gives; DX12's `/` may not.
+    b = select(b, vec3<f32>(1.0), backdrop.xyz == vec3<u32>(ba) & vec3<bool>(ba > 0u));
+    s = select(s, vec3<f32>(1.0), source.xyz == vec3<u32>(sa) & vec3<bool>(sa > 0u));
     var mixed: vec3<f32>;
     for (var i = 0; i < 3; i++) {
         let s_multiply = 2u * source[i] <= sa + 1u;
