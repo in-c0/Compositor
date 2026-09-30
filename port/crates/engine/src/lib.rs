@@ -120,6 +120,10 @@ impl Renderer {
         let num = |key: &str| op.get(key).and_then(|v| v.as_f64());
         let pair = |key: &str| op.get(key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>());
         if shape::OPS.contains(&name) {
+            // The Mac clips a gradient to the selection; the port doesn't yet.
+            if name == "gradient" && selection.is_some() {
+                return Err(RenderError::Unsupported("a gradient inside a selection".into()));
+            }
             return shape::apply_op(&self.gpu, project, op);
         }
         *project = match name {

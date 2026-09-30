@@ -242,7 +242,8 @@ fn probes(w: &mut CaseWriter) -> Result<()> {
         w.write(F, case, label, d, vec![op])?;
     }
     gradient_probes(w)?;
-    line_probes(w)
+    line_probes(w)?;
+    selection_probes(w)
 }
 
 /// Core Graphics dithers gradients. Flat "gradients" (both ends one color) whose channels sit a
@@ -358,6 +359,19 @@ fn gradient_probes(w: &mut CaseWriter) -> Result<()> {
     let mut d = w.doc(F, case, 256, 32);
     d.blank("Layer 1", 256.0, 32.0, spec());
     w.write(F, case, "Probe: a color fading out over 256 px, 32 rows", d, vec![json!({ "op": "gradient", "from": [0, 0], "to": [256, 0], "foreground": [0.4, 0.6, 0.8] })])?;
+    Ok(())
+}
+
+/// The same ellipses the shape probes draw, as antialiased Marquee selections on a canvas exactly
+/// their size: the Mac fills the same `CGPath(ellipseIn:)` into a gray bitmap, so comparing its
+/// coverage with the shape layers' alpha tells a difference in the RGBA fill from one in the path.
+fn selection_probes(w: &mut CaseWriter) -> Result<()> {
+    for (width, height) in [(2u32, 2u32), (6, 6), (10, 10), (11, 11), (13, 13), (12, 7), (21, 21), (25, 10), (32, 32), (17, 40), (63, 31), (12, 51)] {
+        let case = format!("probe-select-ellipse-{width}x{height}");
+        let d = ground(w, &case, width, height);
+        let op = json!({ "op": "marquee", "shape": "Ellipse", "from": [0, 0], "to": [width, height] });
+        w.write(F, &case, &format!("Probe: a {width} by {height} ellipse selected with the Marquee"), d, vec![op])?;
+    }
     Ok(())
 }
 
