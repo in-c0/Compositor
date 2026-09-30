@@ -82,6 +82,7 @@ impl Renderer {
         let name = op.get("op").and_then(|v| v.as_str()).unwrap_or("unknown");
         if name == "filter" {
             return filters::apply(&self.gpu, project, op);
+        }
         if name == "stroke" {
             return paint::apply(&self.gpu, project, &mut paint::Session::default(), op);
         }
