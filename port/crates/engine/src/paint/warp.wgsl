@@ -26,7 +26,7 @@ struct Dab {
 // An 8-bit unorm texel as a float read gives it.
 fn texel_value(p: u32) -> vec4<f32> {
     let k = vec4<f32>(unpack(p));
-    return vec4<f32>(div(k.x, 255.0), div(k.y, 255.0), div(k.z, 255.0), div(k.w, 255.0));
+    return vec4<f32>(quotient_rn(k.x, 255.0), quotient_rn(k.y, 255.0), quotient_rn(k.z, 255.0), quotient_rn(k.w, 255.0));
 }
 
 fn texel(i: i32) -> u32 {
@@ -55,7 +55,7 @@ fn weight(u: f32, hardness: f32) -> f32 {
 }
 
 fn dab_weight(offset: vec2<i32>) -> f32 {
-    return weight(root(f32(offset.x * offset.x + offset.y * offset.y)) * params.inverse_radius, params.hardness);
+    return weight(root_rn(f32(offset.x * offset.x + offset.y * offset.y)) * params.inverse_radius, params.hardness);
 }
 
 fn inside(p: vec2<i32>) -> bool {

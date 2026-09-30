@@ -51,7 +51,7 @@ impl Warp<'_> {
     }
 
     fn dispatch(&self, dab: Dab, threads: i32) {
-        let source = format!("{}\n{}", include_str!("../adjust/float.wgsl"), include_str!("warp.wgsl"));
+        let source = [include_str!("../adjust/float.wgsl"), include_str!("exact.wgsl"), include_str!("warp.wgsl")].join("\n");
         let pipeline = self.gpu.pipeline("paint_warp", &source);
         let mut p = Vec::with_capacity(64);
         p.extend_from_slice(&f32::INFINITY.to_le_bytes());

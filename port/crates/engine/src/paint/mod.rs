@@ -11,6 +11,9 @@ mod heal;
 mod stroke;
 mod warp;
 
+#[cfg(test)]
+mod tests;
+
 use crate::RenderError;
 use crate::gpu::Gpu;
 use comp_format::Project;

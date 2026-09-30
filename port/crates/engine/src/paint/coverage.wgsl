@@ -26,23 +26,15 @@ struct Params {
 // Metal compiles this kernel with fast math, which the references show in the hard tip's
 // antialiased edge, where coverage ties at half a level: the nearest point on a segment is a
 // fused multiply-add, and the square root is x · rsqrt(x), with rsqrt rounded to nearest. The
-// dot products and the division are rounded as written (fusing them or dividing through a
-// reciprocal was measured to make no difference).
+// dot products are fused too and the division is correctly rounded; neither choice changed a
+// byte of the references. `exact.wgsl` builds all of this without the GPU's own `fma`.
 
 fn dot2(a: vec2<f32>, b: vec2<f32>) -> f32 {
-    return fma(a.x, b.x, keep(a.y * b.y));
+    return fused(a.x, b.x, keep(a.y * b.y));
 }
 
 fn quotient(a: f32, b: f32) -> f32 {
-    return sign(a) * div(abs(a), b);
-}
-
-// 1 / sqrt(x), rounded to nearest, from a double-single square root.
-fn rsqrt_rn(x: f32) -> f32 {
-    let s0 = root(x);
-    let e = fma(-s0, s0, x);
-    let s = fast_two_sum(s0, keep(e / (2.0 * s0)));
-    return dd_div(vec2<f32>(1.0, 0.0), s).x;
+    return sign(a) * quotient_rn(abs(a), b);
 }
 
 fn square_root(x: f32) -> f32 {
@@ -55,7 +47,7 @@ fn square_root(x: f32) -> f32 {
 fn segment_distance_squared(p: vec2<f32>, s: vec4<f32>) -> f32 {
     let v = s.zw - s.xy;
     let t = clamp(quotient(dot2(p - s.xy, v), max(dot2(v, v), 1e-12)), 0.0, 1.0);
-    let delta = p - vec2<f32>(fma(t, v.x, s.x), fma(t, v.y, s.y));
+    let delta = p - vec2<f32>(fused(t, v.x, s.x), fused(t, v.y, s.y));
     return dot2(delta, delta);
 }
 

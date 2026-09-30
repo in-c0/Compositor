@@ -316,7 +316,7 @@ impl Stroke {
     /// The tip's coverage over the grid, one byte per pixel.
     fn coverage(&self, gpu: &Gpu) -> Result<Vec<u32>> {
         let (segments, ends) = self.path.settled();
-        let source = format!("{}\n{}", include_str!("../adjust/float.wgsl"), include_str!("coverage.wgsl"));
+        let source = [include_str!("../adjust/float.wgsl"), include_str!("exact.wgsl"), include_str!("coverage.wgsl")].join("\n");
         let pipeline = gpu.pipeline("paint_coverage", &source);
         let s = &self.settings;
         let spacing = 0.25f64.max(s.diameter * if s.hardness >= 1.0 { 0.015 } else { 0.025 });
