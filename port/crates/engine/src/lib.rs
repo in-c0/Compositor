@@ -7,9 +7,11 @@ use image::RgbaImage;
 pub mod adjust;
 pub mod blend;
 pub mod composite;
+pub mod document;
 pub mod gpu;
 pub mod mask;
 pub mod order;
+pub mod session;
 
 #[derive(Debug)]
 pub enum RenderError {
@@ -57,9 +59,28 @@ impl Renderer {
     }
 
     /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`) to `project`.
-    pub fn apply_op(&self, _project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
+    pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
         let name = op.get("op").and_then(|v| v.as_str()).unwrap_or("unknown");
-        Err(RenderError::Unsupported(format!("operation `{name}`")))
+        let num = |key: &str| op.get(key).and_then(|v| v.as_f64());
+        let pair = |key: &str| op.get(key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>());
+        *project = match name {
+            "crop" => {
+                let r = pair("rect").filter(|r| r.len() == 4).ok_or_else(|| RenderError::Failed(anyhow::anyhow!("crop needs rect")))?;
+                document::crop(project, [r[0], r[1], r[2], r[3]])?
+            }
+            "canvasSize" => {
+                let options = document::CanvasSize {
+                    width: num("width").unwrap_or(0.0) as i64,
+                    height: num("height").unwrap_or(0.0) as i64,
+                    anchor: num("anchor").unwrap_or(4.0) as i64,
+                    fill: pair("fill").filter(|f| f.len() == 3).map(|f| [f[0], f[1], f[2]]),
+                    content_offset: pair("contentOffset").filter(|o| o.len() == 2).map(|o| [o[0], o[1]]),
+                };
+                document::canvas_size(project, &options)?
+            }
+            other => return Err(RenderError::Unsupported(format!("operation `{other}`"))),
+        };
+        Ok(())
     }
 
     /// Imports a Photoshop file as the Mac app's File > Open does.

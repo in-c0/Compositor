@@ -326,6 +326,7 @@ dependencies = [
  "image",
  "pollster",
  "serde_json",
+ "uuid",
  "wgpu",
 ]
 

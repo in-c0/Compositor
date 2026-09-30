@@ -131,6 +131,17 @@ fn run(
     let scratch = out.join("roundtrip");
     std::fs::create_dir_all(&scratch)?;
     results.extend(cases.par_iter().filter_map(|case| roundtrip::check(&case.id, refs, &scratch)).collect::<Vec<_>>());
+    // Cases the Mac saved a project for: compare the port's project with it.
+    results.extend(
+        cases
+            .par_iter()
+            .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
+            .filter_map(|case| match build_project(&renderer, case) {
+                Ok(project) => roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs),
+                Err(_) => None,
+            })
+            .collect::<Vec<_>>(),
+    );
     let baseline = match baseline {
         Some(path) if path.exists() => Some(RunResults::load(path)?),
         _ => None,
@@ -240,6 +251,12 @@ fn run_case(
 }
 
 fn render_case(renderer: &engine::Renderer, case: &cases::Case) -> Result<image::RgbaImage, engine::RenderError> {
+    let project = build_project(renderer, case)?;
+    renderer.render(&project)
+}
+
+/// The case's input, opened (or imported) and with its ops applied.
+fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp_format::Project, engine::RenderError> {
     let input = case.input_path();
     let ext = input.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     let mut project = match ext.as_str() {
@@ -250,5 +267,5 @@ fn render_case(renderer: &engine::Renderer, case: &cases::Case) -> Result<image:
     for op in &case.spec.ops {
         renderer.apply_op(&mut project, op)?;
     }
-    renderer.render(&project)
+    Ok(project)
 }

@@ -12,3 +12,4 @@ pollster.workspace = true
 wgpu.workspace = true
 comp-format.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
