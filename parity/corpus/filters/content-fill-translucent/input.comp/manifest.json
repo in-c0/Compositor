@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "50ED99D6-62BF-43DF-96E9-BE7B7B98F758",
+  "colorSpace" : "sRGB",
+  "documentID" : "7AC240CF-06D1-4960-A404-9C19F0769B0A",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "50ED99D6-62BF-43DF-96E9-BE7B7B98F758",
+      "imageFile" : "50ED99D6-62BF-43DF-96E9-BE7B7B98F758.png",
+      "isVisible" : true,
+      "name" : "Translucent",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

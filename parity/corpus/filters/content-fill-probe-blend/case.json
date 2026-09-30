@@ -1,0 +1,75 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Curves inverting through an ellipse feathered by 6: how a filter mixes back through a selection",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        8.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        54.0,
+        50.0
+      ]
+    },
+    {
+      "feather": 6,
+      "op": "modifySelection"
+    },
+    {
+      "kind": "Curves",
+      "layer": "218C416F-061D-49AD-BE22-670727390318",
+      "op": "filter",
+      "settings": {
+        "curves": {
+          "channel": "RGB",
+          "channels": [
+            [
+              {
+                "x": 0,
+                "y": 255
+              },
+              {
+                "x": 255,
+                "y": 0
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ],
+            [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 255,
+                "y": 255
+              }
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

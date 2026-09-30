@@ -21,7 +21,7 @@ extension EditorSession {
         beginFilter(kind)
         guard let edit = filterEdit else {
             let why = kind == .contentAwareFill
-                ? "Content-Aware Fill needs a selection, and no op makes one"
+                ? "Content-Aware Fill needs a selection that isn't empty; make one with the selection ops first"
                 : "filters need one visible pixel layer that isn't a folder, an adjustment layer or a mask"
             throw HarnessError(brushError ?? "the app won't open \(kind.rawValue) on layer “\(target.name)”: \(why)")
         }

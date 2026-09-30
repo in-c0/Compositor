@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill over a hole on the image's left edge",
+  "ops": [
+    {
+      "from": [
+        0.0,
+        30.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        12.0,
+        52.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "7B80C1BC-AE54-4184-AB5F-B2DDA9516123",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

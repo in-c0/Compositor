@@ -1,0 +1,35 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill over a polygonal lasso, anti-aliased",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          26.5,
+          14.25
+        ],
+        [
+          50.0,
+          24.75
+        ],
+        [
+          44.5,
+          50.0
+        ],
+        [
+          21.25,
+          40.5
+        ]
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "70600FAA-AF2A-4573-9549-459261857413",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

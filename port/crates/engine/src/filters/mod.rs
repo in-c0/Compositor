@@ -12,6 +12,8 @@
 //! adjustments are the same code as the adjustment layers, so they run through
 //! [`crate::adjust`].
 
+mod clip;
+mod content_fill;
 mod dither;
 mod settings;
 #[cfg(test)]
@@ -22,6 +24,7 @@ pub use settings::{DitherSettings, FilterSettings};
 use crate::RenderError;
 use crate::adjust::{self, Region};
 use crate::gpu::{Gpu, GpuImage};
+use crate::select::Selection;
 use comp_format::{Adjustment, AdjustmentKind, Asset, ExposureSettings, LayerRecord, Project, Transform};
 use serde_json::Value;
 
@@ -93,14 +96,15 @@ fn unsupported<T>(what: &str) -> Result<T> {
     Err(RenderError::Unsupported(what.to_string()))
 }
 
-/// Applies one corpus `filter` op to `project`.
-pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
-    apply_measuring(gpu, project, op, false)
+/// Applies one corpus `filter` op to `project`, inside `selection` when there is one, as
+/// `beginFilter` hands the session's selection to the filter.
+pub fn apply(gpu: &Gpu, project: &mut Project, selection: Option<&Selection>, op: &Value) -> Result<()> {
+    apply_measuring(gpu, project, selection, op, false)
 }
 
 /// [`apply`], or with `inexact` also the filters that aren't exact yet (the Core Image blurs and
 /// what's built on them), so tests can measure how far off they are.
-fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) -> Result<()> {
+fn apply_measuring(gpu: &Gpu, project: &mut Project, selection: Option<&Selection>, op: &Value, inexact: bool) -> Result<()> {
     let layer_id = op.get("layer").and_then(Value::as_str).ok_or_else(|| failed("filter: layer is missing".into()))?;
     let kind_name = op.get("kind").and_then(Value::as_str).ok_or_else(|| failed("filter: kind is missing".into()))?;
     let kind = FilterKind::from_name(kind_name).ok_or_else(|| failed(format!("filter: unknown kind {kind_name}")))?;
@@ -126,8 +130,9 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) 
         .position(|l| l.id.eq_ignore_ascii_case(layer_id))
         .ok_or_else(|| failed(format!("there's no layer {layer_id}")))?;
     let layer = project.manifest.layers[index].clone();
-    if kind == FilterKind::ContentAwareFill {
-        return Err(failed("Content-Aware Fill needs a selection, and no op makes one".into()));
+    // `canContentAwareFill`: the menu item is off without a selection, or with an empty one.
+    if kind == FilterKind::ContentAwareFill && !selection.is_some_and(|s| !s.is_empty()) {
+        return Err(failed("Content-Aware Fill needs a selection that isn't empty".into()));
     }
     // `canAdjustColors`: one visible pixel layer that isn't a folder or an adjustment layer.
     let refused = || failed(format!("the app won't open {kind_name} on layer “{}”", layer.name));
@@ -156,7 +161,17 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) 
         return Ok(());
     }
     if kind == FilterKind::RemoveBackground {
+        if selection.is_some() {
+            return unsupported("Remove Background inside a selection");
+        }
         return remove_background(project, index, &s);
+    }
+    // `FilterEdit` keeps the selection as it is on the canvas (`DocumentSelection.clip(canvas:)`).
+    let document = (project.manifest.width as u32, project.manifest.height as u32);
+    let clip = selection.map(|s| clip::clip(gpu, s, document)).transpose()?;
+    if kind == FilterKind::ContentAwareFill {
+        let (Some(selection), Some(clip)) = (selection, clip) else { unreachable!("checked above") };
+        return content_aware_fill(gpu, project, index, selection, &clip);
     }
 
     let original = asset.pixels.clone();
@@ -175,7 +190,14 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) 
 
     let (w, h) = pixels.dimensions();
     let source = premultiply(gpu, &gpu.upload(w, h, pixels.as_raw()));
-    let result = run(gpu, kind, &s, seed, &source, inexact)?;
+    let mut result = run(gpu, kind, &s, seed, &source, inexact)?;
+    if let Some(clip) = &clip {
+        // `PixelAdjust.blend`: only the selected part changes.
+        let coverage = clip::layer_coverage(clip, &clip::pixel_to_document(&transform, w, h), (w, h))?;
+        let filtered = gpu.download(&result).map_err(RenderError::Failed)?;
+        let original = gpu.download(&source).map_err(RenderError::Failed)?;
+        result = gpu.upload(w, h, &clip::blend(&filtered, &original, &coverage));
+    }
     let straight = crate::blend::unpremultiply(gpu, &result);
     let bytes = gpu.download(&straight).map_err(RenderError::Failed)?;
     let mut image = image::RgbaImage::from_raw(w, h, bytes).expect("filter output size");
@@ -183,9 +205,15 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) 
         (image, transform) = trimmed(image, &transform);
     }
 
+    commit(project, index, image, transform);
+    Ok(())
+}
+
+/// `commitFilter`: the result replaces the layer's pixels. The committed layer is rebuilt from its
+/// id, name, visibility, placement, folder, opacity, blend mode, mask and effects: a shape's or a
+/// text's live settings don't survive.
+fn commit(project: &mut Project, index: usize, image: image::RgbaImage, transform: Transform) {
     let record = &mut project.manifest.layers[index];
-    // The committed layer is rebuilt from its id, name, visibility, placement, folder, opacity, blend
-    // mode, mask and effects: a shape's or a text's live settings don't survive.
     record.transform = transform;
     record.shape = None;
     record.text = None;
@@ -194,6 +222,60 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, op: &Value, inexact: bool) 
         record.image_file = Some(format!("{}.png", record.id));
     }
     project.images.insert(record.id.clone(), Asset::new(image));
+}
+
+/// Content-Aware Fill (`ContentFill.run`, then `PixelAdjust.blend` as for every filter). The
+/// panel first grows the layer over the part of the selection's bounds on the canvas it doesn't
+/// reach (`FilterEdit.grow`), so the fill can extend the picture past its edge; the new pixels
+/// are clear, and the grown layer isn't trimmed afterwards.
+fn content_aware_fill(gpu: &Gpu, project: &mut Project, index: usize, selection: &Selection, clip: &clip::SelectionClip) -> Result<()> {
+    let layer = project.manifest.layers[index].clone();
+    let pixels = &project.images[&layer.id].pixels;
+    let (w, h) = pixels.dimensions();
+    let (cw, ch) = (project.manifest.width as f64, project.manifest.height as f64);
+    let mut grid = clip::premultiplied(pixels);
+    let (mut gw, mut gh, mut transform) = (w, h, layer.transform);
+    // `beginFilter`'s `area`: the outline's bounds on the canvas, in layer pixels, made whole.
+    if let Some(b) = clip::bounding_box(&selection.region) {
+        let area = [b[0].max(0.0), b[1].max(0.0), b[2].min(cw), b[3].min(ch)];
+        if area[2] > area[0] && area[3] > area[1] {
+            let to_pixels = clip::inverted(clip::pixel_to_document(&layer.transform, w, h));
+            let r = clip::rect_applying(area, to_pixels);
+            let (x0, y0) = (r[0].floor().min(0.0), r[1].floor().min(0.0));
+            let (x1, y1) = (r[2].ceil().max(w as f64), r[3].ceil().max(h as f64));
+            if (x0, y0, x1, y1) != (0.0, 0.0, w as f64, h as f64) {
+                let (tw, th) = (x1 - x0, y1 - y0);
+                // `DocumentLimits`: the app refuses a grid this large.
+                if tw > 30_000.0 || th > 30_000.0 || tw * th > 268_435_456.0 {
+                    return Err(failed("Content-Aware Fill: the layer would grow past the document limits".into()));
+                }
+                if project.masks.contains_key(&layer.id) {
+                    return unsupported("Content-Aware Fill growing a layer with a mask");
+                }
+                (gw, gh) = (tw as u32, th as u32);
+                let (ox, oy) = ((-x0) as usize, (-y0) as usize);
+                let row = w as usize * 4;
+                let mut grown = vec![0u8; gw as usize * gh as usize * 4];
+                for y in 0..h as usize {
+                    let to = ((y + oy) * gw as usize + ox) * 4;
+                    grown[to..to + row].copy_from_slice(&grid[y * row..(y + 1) * row]);
+                }
+                grid = grown;
+                transform = placed(&layer.transform, (w, h), (x0, y0, tw, th));
+            }
+        }
+    }
+    let mapping = clip::pixel_to_document(&transform, gw, gh);
+    let mask = clip::layer_coverage(clip, &mapping, (gw, gh))?;
+    let mut filled = grid.clone();
+    if content_fill::content_fill(&mut filled, gw as usize * 4, &mask, gw as usize, gw as i32, gh as i32) == 0 {
+        return Err(clip::no_source());
+    }
+    let blended = clip::blend(&filled, &grid, &mask);
+    let straight = crate::blend::unpremultiply(gpu, &gpu.upload(gw, gh, &blended));
+    let bytes = gpu.download(&straight).map_err(RenderError::Failed)?;
+    let image = image::RgbaImage::from_raw(gw, gh, bytes).expect("filter output size");
+    commit(project, index, image, transform);
     Ok(())
 }
 

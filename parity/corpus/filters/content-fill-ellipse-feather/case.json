@@ -1,0 +1,29 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill over an ellipse feathered by 4",
+  "ops": [
+    {
+      "from": [
+        18.0,
+        16.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        46.0,
+        42.0
+      ]
+    },
+    {
+      "feather": 4,
+      "op": "modifySelection"
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "DA01FAFA-3C1C-4B2B-A8A3-D0D9429847A7",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}
