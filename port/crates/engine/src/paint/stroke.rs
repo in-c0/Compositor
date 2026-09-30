@@ -20,10 +20,6 @@ pub struct Settings {
     pub healing_mode: i32,
 }
 
-/// Whether the port's Core Image Gaussian blur matches the Mac's to the byte. It doesn't yet
-/// (see `adjust/blur.rs`), so Blur strokes report as not supported.
-const BLUR_IS_EXACT: bool = false;
-
 /// `BrushStroke.tileSize`.
 const TILE: i64 = 256;
 
@@ -239,9 +235,6 @@ impl Stroke {
     /// Blur's sample (`blurSample`): the layer's pixels (or its mask) softened by Core Image's
     /// Gaussian blur, `radius` canvas pixels, with room around them for the blur to spread.
     pub fn set_blur(&mut self, gpu: &Gpu, radius: f64) -> Result<()> {
-        if !BLUR_IS_EXACT {
-            return unsupported("the Blur tool (Core Image's Gaussian blur isn't reproduced exactly yet)");
-        }
         let (sw, sh) = (self.source_rect.w, self.source_rect.h);
         let sigma = (0.5f64.max(radius).min(50.0)).min(sw.max(sh) / 2.0);
         let margin = (3.0 * sigma).ceil();
