@@ -208,7 +208,12 @@ pub fn render_ui(states: &Path, corpus: &Path, out: &Path) -> Result<()> {
         "platform": if cfg!(target_os = "macos") { "macos-port" } else { "windows" },
         "states": [
             { "id": "welcome", "document": null, "menus": menus::to_json(&menus::build(&welcome.menu_state())) },
-            { "id": "document", "document": "blend/stack", "tool": "move", "menus": menus::to_json(&menus::build(&document.menu_state())) },
+            {
+                "id": "document", "document": "blend/stack", "tool": "move",
+                "menus": menus::to_json(&menus::build(&document.menu_state())),
+                // Right-clicking the top row.
+                "layerContextMenu": menus::items_json(&menus::layer_context(&ui::layers::row_state(&crate::document::rows(&document.docs[0].project.manifest.layers, &Default::default())[0]))),
+            },
         ],
     });
     std::fs::create_dir_all(out)?;

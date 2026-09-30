@@ -214,6 +214,18 @@ impl App {
                     }
                 }
             }
+            Command::ToggleLayerMask => {
+                if let Some(d) = self.doc_mut() {
+                    if let Some(l) = d.active_layer().filter(|l| l.mask_file.is_some()) {
+                        let (id, on) = (l.id.clone(), l.mask_enabled());
+                        d.edit(if on { "Disable Mask" } else { "Enable Mask" }, false, |m| {
+                            if let Some(l) = m.layers.iter_mut().find(|l| l.id == id) {
+                                l.mask_enabled = Some(!on);
+                            }
+                        });
+                    }
+                }
+            }
             Command::MoveLayerUp | Command::MoveLayerDown => {
                 if let Some(d) = self.doc_mut() {
                     if let Some(id) = d.active.clone() {
@@ -297,6 +309,9 @@ impl App {
         if ctx.egui_wants_keyboard_input() {
             return;
         }
+        if self.tool == Tool::Move {
+            self.move_tool_keys(ctx);
+        }
         let tools: Vec<Tool> = Tool::RAIL.iter().copied().chain([Tool::Idle]).collect();
         for tool in tools {
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, tool.key()) || i.consume_key(egui::Modifiers::SHIFT, tool.key())) {
@@ -326,6 +341,44 @@ impl App {
                 }
                 _ => {}
             }
+        }
+    }
+}
+
+impl App {
+    /// With the Move tool: digits set the active layer's opacity (1 = 10% … 0 = 100%) and the
+    /// arrows nudge it by a pixel, ten with Shift.
+    fn move_tool_keys(&mut self, ctx: &egui::Context) {
+        use egui::Key;
+        let digits = [Key::Num0, Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9];
+        let mut opacity = None;
+        for (d, key) in digits.iter().enumerate() {
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, *key)) {
+                opacity = Some(if d == 0 { 1.0 } else { d as f64 / 10.0 });
+            }
+        }
+        let mut nudge = egui::Vec2::ZERO;
+        for (key, dir) in [(Key::ArrowLeft, egui::vec2(-1.0, 0.0)), (Key::ArrowRight, egui::vec2(1.0, 0.0)), (Key::ArrowUp, egui::vec2(0.0, -1.0)), (Key::ArrowDown, egui::vec2(0.0, 1.0))] {
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key)) {
+                nudge += dir;
+            }
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, key)) {
+                nudge += dir * 10.0;
+            }
+        }
+        let Some(doc) = self.doc_mut() else { return };
+        let Some(layer) = doc.active_layer() else { return };
+        let (id, group, adjustment) = (layer.id.clone(), layer.is_group(), layer.adjustment.is_some());
+        if let Some(o) = opacity {
+            doc.set_opacity(&id, o, false);
+        }
+        if nudge != egui::Vec2::ZERO && !group && !adjustment {
+            doc.edit("Nudge", true, |m| {
+                if let Some(l) = m.layers.iter_mut().find(|l| l.id == id) {
+                    l.transform.origin[0] += nudge.x as f64;
+                    l.transform.origin[1] += nudge.y as f64;
+                }
+            });
         }
     }
 }

@@ -147,9 +147,17 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
             if ui.is_rect_visible(rect) {
                 draw_row(ui, doc, row, rect, focused, &mut actions);
             }
-            if response.clicked() || response.drag_started() {
+            if response.clicked() || response.drag_started() || response.secondary_clicked() {
                 actions.push(Action::Select(row.layer.id.clone()));
             }
+            let menu = crate::menus::layer_context(&row_state(row));
+            response.context_menu(|ui| {
+                ui.set_min_width(200.0);
+                if let Some(c) = crate::menus::menu_items(ui, &menu) {
+                    actions.push(Action::Select(row.layer.id.clone()));
+                    actions.push(Action::Run(c));
+                }
+            });
             if response.drag_started() {
                 actions.push(Action::DragStart(row.layer.id.clone()));
             }
@@ -170,8 +178,10 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
     if ui.input(|i| i.pointer.any_released()) {
         actions.push(Action::DragEnd);
     }
+    let mut commands = Vec::new();
     for action in actions {
         match action {
+            Action::Run(c) => commands.push(c),
             Action::Select(id) => {
                 doc.active = Some(id);
                 app.layers_focused = true;
@@ -192,6 +202,9 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
             Action::DragEnd => app.dragging_layer = None,
         }
     }
+    for c in commands {
+        app.run(ui.ctx(), c);
+    }
 }
 
 enum Action {
@@ -201,6 +214,18 @@ enum Action {
     DragStart(String),
     Drop(String, String, bool),
     DragEnd,
+    Run(crate::menus::Command),
+}
+
+pub fn row_state(row: &document::Row) -> crate::menus::RowState {
+    let l = row.layer;
+    crate::menus::RowState {
+        is_folder: l.is_group(),
+        clipped: row.clipped,
+        visible: l.is_visible,
+        mask: l.mask_file.as_ref().map(|_| l.mask_enabled()),
+        mask_linked: l.mask_linked(),
+    }
 }
 
 /// `LayerCell`: eye, indent, disclosure, thumbnail, mask, name and detail; effect rows below.

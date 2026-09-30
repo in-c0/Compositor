@@ -121,6 +121,7 @@ pub enum Command {
     ToggleTransformControls,
     ToggleRulers,
     ToggleLayerVisibility,
+    ToggleLayerMask,
     MoveLayerUp,
     MoveLayerDown,
     Minimize,
@@ -400,6 +401,50 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
     ]
 }
 
+/// What the Layers list's context menu needs about the row it opened on.
+pub struct RowState {
+    pub is_folder: bool,
+    pub clipped: bool,
+    pub visible: bool,
+    /// `Some(enabled)` when the layer has a mask.
+    pub mask: Option<bool>,
+    pub mask_linked: bool,
+}
+
+/// `NativeLayerList.Coordinator.contextMenu(for:)`; no key equivalents are shown.
+pub fn layer_context(r: &RowState) -> Vec<Item> {
+    let mut items = vec![
+        later("Duplicate Layer"),
+        later("Rename…"),
+        later(if r.mask.is_some() { "Delete Mask" } else { "Delete Layer" }),
+        Item::separator(),
+        later(if r.clipped { "Release Clipping Mask" } else { "Create Clipping Mask" }),
+        later("Group Selected Layers"),
+    ];
+    if r.is_folder {
+        items.push(later("Ungroup Layers"));
+    }
+    items.extend([
+        later("Move Out of Folder"),
+        later(if r.is_folder { "Merge Group" } else { "Merge Down" }),
+        Item::separator(),
+        Item::new("Add Mask").sub(vec![later("Reveal All (White)"), later("Hide All (Black)")]),
+        Item::new(if r.mask == Some(false) { "Enable Mask" } else { "Disable Mask" }).run(Command::ToggleLayerMask, r.mask.is_some()),
+        later("Delete Mask"),
+        later(if r.mask.is_some() && !r.mask_linked { "Link Mask" } else { "Unlink Mask" }),
+        Item::separator(),
+        Item::new(if r.visible { "Hide Layer" } else { "Show Layer" }).run(Command::ToggleLayerVisibility, true),
+    ]);
+    items
+}
+
+/// Draws `items` as a context menu's contents; returns the command chosen.
+pub fn menu_items(ui: &mut egui::Ui, list: &[Item]) -> Option<Command> {
+    let mut chosen = None;
+    items(ui, list, &mut chosen);
+    chosen
+}
+
 /// Runs the first enabled item whose shortcut was pressed. Shortcuts with more modifiers go
 /// first, since egui lets a plain ⌘Z match while Shift is held too.
 pub fn shortcut_command(ctx: &egui::Context, menus: &[Menu]) -> Option<Command> {
@@ -488,6 +533,10 @@ fn items(ui: &mut egui::Ui, list: &[Item], chosen: &mut Option<Command>) {
 
 /// The menu tree as JSON (schema in parity/README.md, "UI states").
 pub fn to_json(menus: &[Menu]) -> Value {
+    Value::Array(menus.iter().map(|m| json!({ "title": m.title, "children": items_json(&m.items) })).collect())
+}
+
+pub fn items_json(items: &[Item]) -> Value {
     fn item(i: &Item) -> Value {
         if i.separator {
             let mut v = json!({ "separator": true });
@@ -512,5 +561,5 @@ pub fn to_json(menus: &[Menu]) -> Value {
         }
         v
     }
-    Value::Array(menus.iter().map(|m| json!({ "title": m.title, "children": m.items.iter().map(item).collect::<Vec<_>>() })).collect())
+    Value::Array(items.iter().map(item).collect())
 }
