@@ -21,8 +21,21 @@ pub fn draw_upright(gpu: &Gpu, canvas: &GpuImage, layer: &GpuImage, offset: (i32
     params.extend_from_slice(&offset.1.to_le_bytes());
     params.extend_from_slice(&mode_index(mode).to_le_bytes());
     params.extend_from_slice(&(opacity as f32).to_le_bytes());
-    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, &layer.buffer, &out.buffer], canvas.width, canvas.height);
+    let table = opacity_table(gpu, opacity);
+    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, &layer.buffer, &out.buffer, &table], canvas.width, canvas.height);
     out
+}
+
+/// round(v × opacity) for every byte v, in single precision as Core Graphics computes it.
+pub fn opacity_table(gpu: &Gpu, opacity: f64) -> wgpu::Buffer {
+    use wgpu::util::DeviceExt;
+    let alpha = opacity as f32;
+    let table: Vec<u32> = (0..256u32).map(|v| (v as f32 * alpha + 0.5).floor().clamp(0.0, 255.0) as u32).collect();
+    gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("opacity table"),
+        contents: bytemuck::cast_slice(&table),
+        usage: wgpu::BufferUsages::STORAGE,
+    })
 }
 
 /// Premultiplied canvas bytes to the straight bytes a PNG export holds.

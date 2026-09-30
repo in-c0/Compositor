@@ -17,6 +17,7 @@ struct Params {
 @group(0) @binding(1) var<storage, read> canvas_in: array<u32>;
 @group(0) @binding(2) var<storage, read> layer: array<u32>;
 @group(0) @binding(3) var<storage, read_write> canvas_out: array<u32>;
+@group(0) @binding(4) var<storage, read> opacity_table: array<u32, 256>;
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -31,6 +32,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         canvas_out[index] = backdrop;
         return;
     }
-    let source = scale_source(unpack(layer[u32(ly) * params.layer_width + u32(lx)]), params.opacity);
+    let source = scale_source(unpack(layer[u32(ly) * params.layer_width + u32(lx)]));
     canvas_out[index] = pack(composite(params.mode, unpack(backdrop), source, params.opacity >= 1.0));
 }
