@@ -163,7 +163,8 @@ fn run_case(
     tolerances: &Tolerances,
     mac_rejected: Option<&String>,
 ) -> CaseResult {
-    let tolerance = tolerances.for_case(&case.id);
+    let limit = tolerances.for_case(&case.id);
+    let tolerance = limit.max_channel_diff;
     let mut result = CaseResult {
         id: case.id.clone(),
         feature: case.spec.feature.clone(),
@@ -220,7 +221,7 @@ fn run_case(
             result.max_channel_diff = Some(d.max_channel_diff);
             result.differing_pixels = Some(d.differing_pixels);
             result.total_pixels = Some(d.total_pixels);
-            if d.differing_pixels == 0 {
+            if d.differing_pixels <= limit.max_pixels_over {
                 result.status = Status::Pass;
             } else {
                 result.status = Status::Fail;

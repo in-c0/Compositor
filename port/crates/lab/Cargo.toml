@@ -1,0 +1,16 @@
+[package]
+name = "lab"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+# Offline experiments against the Mac references: fits Core Graphics' and Core Image's integer
+# arithmetic on the CPU before it is written into WGSL. Not part of the app.
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+serde_json.workspace = true
+comp-format.workspace = true
+glob.workspace = true

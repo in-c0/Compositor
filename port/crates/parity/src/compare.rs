@@ -51,7 +51,17 @@ fn default_limit() -> u8 {
 pub struct Override {
     pub cases: String,
     pub max_channel_diff: u8,
+    /// Pixels allowed over `max_channel_diff`, for gaps confined to a few measured pixels.
+    #[serde(default)]
+    pub max_pixels_over: u64,
     pub reason: String,
+}
+
+/// The limits one case is held to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limit {
+    pub max_channel_diff: u8,
+    pub max_pixels_over: u64,
 }
 
 impl Tolerances {
@@ -74,13 +84,13 @@ impl Tolerances {
     }
 
     /// The loosest override matching `id`, or the default.
-    pub fn for_case(&self, id: &str) -> u8 {
-        self.overrides
-            .iter()
-            .filter(|o| glob::Pattern::new(&o.cases).is_ok_and(|p| p.matches(id)))
-            .map(|o| o.max_channel_diff)
-            .max()
-            .unwrap_or(self.default_max_channel_diff)
+    pub fn for_case(&self, id: &str) -> Limit {
+        let matching: Vec<&Override> =
+            self.overrides.iter().filter(|o| glob::Pattern::new(&o.cases).is_ok_and(|p| p.matches(id))).collect();
+        Limit {
+            max_channel_diff: matching.iter().map(|o| o.max_channel_diff).max().unwrap_or(self.default_max_channel_diff),
+            max_pixels_over: matching.iter().map(|o| o.max_pixels_over).max().unwrap_or(0),
+        }
     }
 }
 
@@ -175,6 +185,6 @@ mod tests {
         let dir = std::env::temp_dir().join("parity-tolerance-test.toml");
         std::fs::write(&dir, "[[override]]\ncases = \"type/*\"\nmax_channel_diff = 3\nreason = \"\"").unwrap();
         assert!(Tolerances::load(&dir).is_err());
-        assert_eq!(t.for_case("type/a"), 3);
+        assert_eq!(t.for_case("type/a").max_channel_diff, 3);
     }
 }
