@@ -402,6 +402,68 @@ fn transform_probes(w: &mut CaseWriter) -> Result<()> {
     let id = d.image("Clipped", images::noise(40, 40, 88, Alpha::Opaque), LayerSpec { transform: Some(smooth(10.0, 12.0, 44.0, 40.0, -25.0)), ..spec() });
     d.layer(&id).mask_source_id = Some(base);
     w.write("transform", "probe-clip-rotated", "A rotated layer clipped to an upright base", d, vec![])?;
+    cg_high_probes(w)
+}
+
+/// Core Graphics' High interpolation shrinking an image, drawn directly with `CGContext.draw`
+/// (the harness's `probeDraw`): per axis at several factors, the other axis 1:1, and both axes
+/// on noise.
+fn cg_high_probes(w: &mut CaseWriter) -> Result<()> {
+    // 128 pixels along the probed axis in four bands of 8 lines: white impulses on gray, black
+    // impulses on gray, a rising and a falling step, and noise.
+    let pattern = |t: u32, band: u32, c: u32| -> u8 {
+        match band {
+            0 => if t % 16 == 5 { 255 } else { 128 },
+            1 => if t % 16 == 5 { 0 } else { 128 },
+            2 => if (40..88).contains(&t) { 223 } else { 32 },
+            _ => (images::hash(0x5eed ^ (t * 3 + c)) >> 24) as u8,
+        }
+    };
+    let bands = |across: bool| {
+        let (width, height) = if across { (128, 32) } else { (32, 128) };
+        RgbaImage::from_fn(width, height, |x, y| {
+            let (t, band) = if across { (x, y / 8) } else { (y, x / 8) };
+            image::Rgba([pattern(t, band, 0), pattern(t, band, 1), pattern(t, band, 2), 255])
+        })
+    };
+    let probe = |w: &mut CaseWriter, case: &str, label: &str, src: RgbaImage, size: (u32, u32), rect: [f64; 4]| -> Result<()> {
+        let mut d = w.doc("transform", case, src.width(), src.height());
+        let id = d.image("Probe", src, spec());
+        let op = json!({ "op": "probeDraw", "layer": id, "width": size.0, "height": size.1, "rect": rect, "quality": "high" });
+        w.write("transform", case, label, d, vec![op])
+    };
+    for f in [0.9f64, 0.75, 0.5, 0.33, 0.25] {
+        let n = 128.0 * f;
+        probe(w, &format!("cg-high-x-{f}"), &format!("Core Graphics High shrinking across to {f}"), bands(true), (n.ceil() as u32, 32), [0.0, 0.0, n, 32.0])?;
+        probe(w, &format!("cg-high-y-{f}"), &format!("Core Graphics High shrinking down to {f}"), bands(false), (32, n.ceil() as u32), [0.0, 0.0, 32.0, n])?;
+    }
+    // The same off the pixel grid.
+    for (f, offset) in [(0.5f64, 0.25f64), (0.75, 0.5)] {
+        let n = 128.0 * f;
+        probe(w, &format!("cg-high-x-{f}-at-{offset}"), &format!("Core Graphics High shrinking across to {f}, {offset} pixels right"), bands(true), ((n + offset).ceil() as u32, 32), [offset, 0.0, n, 32.0])?;
+    }
+    // Both axes, on noise and on translucent noise.
+    for f in [0.75f64, 0.5, 0.33] {
+        let n = 64.0 * f;
+        probe(w, &format!("cg-high-xy-{f}"), &format!("Core Graphics High shrinking noise to {f}"), images::noise(64, 64, 90, Alpha::Opaque), (n.ceil() as u32, n.ceil() as u32), [0.0, 0.0, n, n])?;
+    }
+    probe(w, "cg-high-xy-0.5-alpha", "Core Graphics High halving translucent noise", images::noise(64, 64, 91, Alpha::Varied), (32, 32), [0.0, 0.0, 32.0, 32.0])?;
+    // Noise on every line, the other axis 1:1: each line is its own experiment, so each output
+    // pixel's weights can be read off.
+    let lines = |across: bool, n: u32, seed: u32| {
+        let (width, height) = if across { (n, 32) } else { (32, n) };
+        RgbaImage::from_fn(width, height, |x, y| {
+            let v = |c: u32| (images::hash(seed.wrapping_mul(0x9e37_79b9) ^ ((y * width + x) * 3 + c)) >> 24) as u8;
+            image::Rgba([v(0), v(1), v(2), 255])
+        })
+    };
+    for width in [127.0, 120.0, 115.2, 115.0, 100.0, 96.0, 80.0, 64.0, 51.2, 42.24, 42.0, 32.0, 25.6] {
+        probe(w, &format!("cg-noise-x-{width}"), &format!("Core Graphics High shrinking noise lines across, 128 to {width}"), lines(true, 128, 92), ((width as f64).ceil() as u32, 32), [0.0, 0.0, width, 32.0])?;
+    }
+    // The sizes the gated cases shrink by: 64 to 40 down (`non-uniform`), and Dither's thirds.
+    probe(w, "cg-noise-y-64-40", "Core Graphics High shrinking noise lines down, 64 to 40", lines(false, 64, 93), (32, 40), [0.0, 0.0, 32.0, 40.0])?;
+    probe(w, "cg-noise-x-64-21.33", "Core Graphics High shrinking noise lines across, 64 to a third", lines(true, 64, 94), (22, 32), [0.0, 0.0, 64.0 / 3.0, 32.0])?;
+    probe(w, "cg-noise-x-128-96-at-0.25", "Core Graphics High shrinking noise lines across to 96, a quarter pixel right", lines(true, 128, 95), (97, 32), [0.25, 0.0, 96.0, 32.0])?;
     Ok(())
 }
 

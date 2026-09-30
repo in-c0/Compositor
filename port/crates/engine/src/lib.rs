@@ -87,7 +87,8 @@ impl Renderer {
         Ok(selection)
     }
 
-    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`, `text`, `editText`) to `project`.
+    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `probeDraw`, `stroke`, `text`,
+    /// `editText`) to `project`.
     /// The selection ops leave the project as it is (the selection isn't part of it) and are
     /// checked here; to keep the selection they make, use [`Renderer::apply_op_with_selection`].
     pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
@@ -108,6 +109,9 @@ impl Renderer {
         }
         if name == "filter" {
             return filters::apply(&self.gpu, project, op);
+        }
+        if name == "probeDraw" {
+            return transform::high::probe_draw(&self.gpu, project, op);
         }
         if name == "stroke" {
             return paint::apply(&self.gpu, project, &mut paint::Session::default(), op);
@@ -131,6 +135,19 @@ impl Renderer {
             }
             "text" => text::apply_text(project, op)?,
             "editText" => text::apply_edit_text(project, op)?,
+            "imageSize" => {
+                let sampling = match op.get("sampling") {
+                    Some(v) => serde_json::from_value(v.clone()).map_err(|e| RenderError::Failed(anyhow::anyhow!("imageSize sampling: {e}")))?,
+                    None => comp_format::Sampling::High,
+                };
+                let options = transform::resize::ImageSize {
+                    width: num("width").unwrap_or(0.0) as i64,
+                    height: num("height").unwrap_or(0.0) as i64,
+                    resolution: num("resolution"),
+                    sampling,
+                };
+                transform::resize::image_size(&self.gpu, project, &options)?
+            }
             other => return Err(RenderError::Unsupported(format!("operation `{other}`"))),
         };
         Ok(())

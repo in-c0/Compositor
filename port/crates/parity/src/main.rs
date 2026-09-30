@@ -184,9 +184,15 @@ fn run(
             .par_iter()
             .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
             .filter_map(|case| match build_project(&renderer, case) {
-                // Layer and mask pixels are held to the case's limit, or to its override's
-                // structure limit.
-                Ok(project) => roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, tolerances.for_structure(&case.id)),
+                Ok(project) => {
+                    // For debugging: PARITY_SAVE_PROJECTS=1 keeps the port's project in <out>/projects.
+                    if std::env::var_os("PARITY_SAVE_PROJECTS").is_some() {
+                        let _ = comp_format::save(&project, &out_dir.join("projects").join(format!("{}.comp", case.id.replace('/', "__"))));
+                    }
+                    // Layer and mask pixels are held to the case's limit, or to its override's
+                    // structure limit.
+                    roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, tolerances.for_structure(&case.id))
+                }
                 Err(_) => None,
             })
             .collect::<Vec<_>>(),

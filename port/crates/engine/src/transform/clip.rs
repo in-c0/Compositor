@@ -50,17 +50,21 @@ pub enum Filter {
 
 /// A mask drawn through `placement` into its rectangle, sampled per target pixel: the mask value
 /// and the rectangle's edge coverage (0 outside), both bytes, for a `width` x `height` target.
-pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filter, (width, height): (u32, u32)) -> Vec<(u32, u32)> {
+/// Without `antialias`, a pixel the rectangle overlaps at all is covered.
+pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filter, antialias: bool, (width, height): (u32, u32)) -> Vec<(u32, u32)> {
     let (mw, mh) = mask.dimensions();
     let dda = placement.dda(rect, mw, mh);
     let (u0, udx, udy) = (fixed(dda.u0), fixed(dda.u_dx), fixed(dda.u_dy));
     let (v0, vdx, vdy) = (fixed(dda.v0), fixed(dda.v_dx), fixed(dda.v_dy));
     let at = |x: i64, y: i64| mask.as_raw()[(y.clamp(0, mh as i64 - 1) * mw as i64 + x.clamp(0, mw as i64 - 1)) as usize] as u32;
-    let l1 = placement.l1() as f32;
     let upright = placement.upright();
     let table = if upright { placement.edge_table(rect, width, height) } else { Vec::new() };
-    let scale = [((rect.max_x - rect.min_x) / mw as f64) as f32, ((rect.max_y - rect.min_y) / mh as f64) as f32];
+    let (scale, reach) = placement.edge_scales(rect, mw, mh);
     let to_float = |p: i64| (p >> 32) as i32 as f32 + ((p as u32) >> 8) as f32 / 16777216.0;
+    let corners = placement.corners(rect);
+    let min = |i: usize| corners.iter().map(|c| c[i]).fold(f64::INFINITY, f64::min) as f32;
+    let max = |i: usize| corners.iter().map(|c| c[i]).fold(f64::NEG_INFINITY, f64::max) as f32;
+    let bounds = [min(0), min(1), max(0), max(1)];
     let mut out = Vec::with_capacity((width * height) as usize);
     for y in 0..height as i64 {
         for x in 0..width as i64 {
@@ -71,7 +75,9 @@ pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filt
                 let row = table[(width as i64 + y) as usize];
                 let fade = [f32::from_bits(col[0]), f32::from_bits(row[0]), f32::from_bits(col[1]), f32::from_bits(row[1])];
                 let (across, down) = (fade[0] * fade[2], fade[1] * fade[3]);
-                let covered = if down >= 1.0 {
+                let covered = if !antialias {
+                    if fade.iter().all(|&f| f > 0.0) { 255 } else { 0 }
+                } else if down >= 1.0 {
                     col[2]
                 } else if across >= 1.0 {
                     row[2]
@@ -83,9 +89,15 @@ pub fn sample(mask: &GrayImage, placement: &Placement, rect: &Rect, filter: Filt
                 let right = ((mw as i64) << 32).wrapping_add(!u);
                 let bottom = ((mh as i64) << 32).wrapping_add(!v);
                 let d = [to_float(u) * scale[0], to_float(v) * scale[1], to_float(right) * scale[0], to_float(bottom) * scale[1]];
-                let fade = d.map(|d| (0.5 + d / l1).clamp(0.0, 1.0));
-                let p = fade[0] * fade[1] * fade[2] * fade[3];
-                (fade, ((p * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32)
+                if !antialias {
+                    let (px, py) = (x as f32, y as f32);
+                    let inside = (0..4).all(|i| d[i] > -0.5 * reach[i % 2]) && px + 1.0 > bounds[0] && px < bounds[2] && py + 1.0 > bounds[1] && py < bounds[3];
+                    ([1.0; 4], if inside { 255 } else { 0 })
+                } else {
+                    let fade = [0, 1, 2, 3].map(|i| (0.5 + d[i] / reach[i % 2]).clamp(0.0, 1.0));
+                    let p = fade[0] * fade[1] * fade[2] * fade[3];
+                    (fade, ((p * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32)
+                }
             };
             if covered == 0 {
                 out.push((0, 0));
@@ -136,7 +148,7 @@ pub fn resampled(project: &Project, layer: &LayerRecord) -> bool {
 pub fn folder_coverage(mask: &GrayImage, t: &Transform, (width, height): (u32, u32)) -> Result<Vec<u32>, String> {
     let placement = Placement::of(t);
     let rect = placement.rect(1.0, 1.0);
-    Ok(sample(mask, &placement, &rect, Filter::Nearest, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
+    Ok(sample(mask, &placement, &rect, Filter::Nearest, true, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
 }
 
 /// `LayerMask.background(of:)`: what an unlinked mask shows beyond its pixels, white or black,
@@ -222,8 +234,11 @@ fn apply(taps: &AxisTaps, at: impl Fn(i64) -> u32) -> u32 {
 /// with High into the `width` x `height` pixel grid of a layer at `layer`, what lies beyond it
 /// filled with its background. Errors name what isn't reproduced yet.
 pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (width, height): (u32, u32)) -> Result<GrayImage, String> {
-    if placement.rotation % 360.0 != 0.0 || layer.rotation % 360.0 != 0.0 {
-        return Err("unlinked masks placed at another rotation".into());
+    if layer.rotation % 360.0 != 0.0 {
+        return Err("unlinked masks over rotated layers".into());
+    }
+    if placement.rotation % 360.0 != 0.0 {
+        return rotated_mask(mask, placement, layer, (width, height));
     }
     let (mw, mh) = mask.dimensions();
     let covered = placement.size[0] / layer.size[0].max(1.0) * width as f64;
@@ -291,6 +306,38 @@ pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (
             };
             out.put_pixel(x as u32, y as u32, image::Luma([value as u8]));
         }
+    }
+    Ok(out)
+}
+
+/// `placed_mask` for a mask placed at a rotation of its own over an upright layer: the mask drawn
+/// into the layer's grid as a layer at `placement` would be, with Low (High neither shrinking nor
+/// enlarging it), its rectangle's own fills covering the pixels by area.
+fn rotated_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (width, height): (u32, u32)) -> Result<GrayImage, String> {
+    if layer.flip_x || layer.flip_y {
+        return Err("unlinked masks over flipped layers".into());
+    }
+    let (mw, mh) = mask.dimensions();
+    let scale = [width as f64 / layer.size[0], height as f64 / layer.size[1]];
+    // Shrinking a clip mask at a rotation, High's filter isn't measured.
+    if placement.size[0] * scale[0] < mw as f64 || placement.size[1] * scale[1] < mh as f64 {
+        return Err("unlinked masks shrunk at a rotation".into());
+    }
+    let grid = Placement::in_context(placement, scale, [-layer.origin[0] * scale[0], -layer.origin[1] * scale[1]]);
+    let rect = grid.rect(1.0, 1.0);
+    let samples = sample(mask, &grid, &rect, Filter::Low, true, (width, height));
+    let corners = grid.corners(&rect);
+    let bg = background(mask);
+    let mut out = GrayImage::new(width, height);
+    for (i, (value, covered)) in samples.into_iter().enumerate() {
+        let (x, y) = (i as u32 % width, i as u32 / width);
+        let area = super::resize::area_in_pixel(&corners, x as f64, y as f64);
+        let fill = ((area * 256.0).floor() as u32).min(255);
+        // `LayerMask.placed`: the background, black filled over the rectangle, then white through
+        // the mask clipped to it.
+        let under = (bg * (255 - fill) + 127) / 255;
+        let through = ((value * covered / 255) * fill + 127) / 255;
+        out.put_pixel(x, y, image::Luma([(under + ((255 - under) * through + 127) / 255) as u8]));
     }
     Ok(out)
 }

@@ -1,0 +1,20 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Core Graphics High halving translucent noise",
+  "ops": [
+    {
+      "height": 32,
+      "layer": "1AF1F438-D55B-4D31-BE27-AED1B1BA3DDF",
+      "op": "probeDraw",
+      "quality": "high",
+      "rect": [
+        0.0,
+        0.0,
+        32.0,
+        32.0
+      ],
+      "width": 32
+    }
+  ]
+}

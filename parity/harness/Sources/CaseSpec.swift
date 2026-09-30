@@ -59,6 +59,8 @@ enum ParityOp {
     case text(point: CGPoint?, rect: CGRect?, style: [String: Any], path: String)
     /// Layer > Edit Text on `layer`, `style`'s fields changed, then committed.
     case editText(layer: UUID, style: [String: Any], path: String)
+    /// A probe of Core Graphics' own drawing (see `ProbeDraw`), not an app command.
+    case probeDraw(ProbeDraw)
 
     var name: String {
         switch self {
@@ -70,6 +72,7 @@ enum ParityOp {
         case let .selection(name, _): name
         case .text: "text"
         case .editText: "editText"
+        case .probeDraw: "probeDraw"
         }
     }
 
@@ -91,6 +94,8 @@ enum ParityOp {
             try session.parityText(point: point, rect: rect, style: style, path: path)
         case let .editText(layer, style, path):
             try session.parityEditText(layer: layer, style: style, path: path)
+        case let .probeDraw(probe):
+            try await session.parityProbeDraw(probe)
         }
     }
 
@@ -158,9 +163,10 @@ enum ParityOp {
             guard let layer = UUID(uuidString: layerText) else { throw HarnessError("\(path).layer “\(layerText)” isn't a UUID") }
             let style = try TextStyleJSON.check(fields.required("style"), "\(path).style")
             result = .editText(layer: layer, style: style, path: "\(path).style")
-
+        case "probeDraw":
+            result = .probeDraw(try ProbeDraw.parse(fields, path: path))
         default:
-            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, text, editText, \(SelectionOp.names.joined(separator: ", "))")
+            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, text, editText, probeDraw, \(SelectionOp.names.joined(separator: ", "))")
         }
         try fields.rejectUnknown()
         return result
