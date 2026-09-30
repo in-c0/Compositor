@@ -39,10 +39,8 @@ const LUMINOSITY: u32 = 23u;
 
 // Layer opacity as Core Graphics applies it: the opacity quantized to a byte, every premultiplied
 // byte, alpha included, scaled by it and rounded. The CPU builds the 256 answers (`opacity_table`).
-fn scale_source(straight: vec4<u32>) -> vec4<u32> {
-    let a = straight.w;
-    let premultiplied = vec4<u32>(div255v(vec4<u32>(straight.xyz * a, 0u)).xyz, a);
-    return vec4<u32>(opacity_table[premultiplied.x], opacity_table[premultiplied.y], opacity_table[premultiplied.z], opacity_table[premultiplied.w]);
+fn scale_premultiplied(p: vec4<u32>) -> vec4<u32> {
+    return vec4<u32>(opacity_table[p.x], opacity_table[p.y], opacity_table[p.z], opacity_table[p.w]);
 }
 
 fn color_dodge(b: f32, s: f32) -> f32 {
