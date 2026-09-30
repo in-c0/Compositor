@@ -1,6 +1,6 @@
-// A convex outline filled as Core Graphics fills a path: each pixel's coverage is the exact area
-// of the outline inside it, `min(255, floor(area * 256))`, and the color is premultiplied by that
-// coverage with truncation, `(color * coverage) / 255`.
+// An outline filled as Core Graphics fills a path: each pixel's coverage is the exact area of the
+// outline's (stepped) edges inside it, `min(255, floor(area * 256))`, and the color is
+// premultiplied by that coverage with truncation, `(color * coverage) / 255`.
 
 struct Params {
     width: u32,
@@ -10,8 +10,8 @@ struct Params {
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
-// The outline's corners in pixels, y down, in order.
-@group(0) @binding(1) var<storage, read> points: array<vec2<f32>>;
+// Directed edges [x0, y0, x1, y1] in pixels, y down, together closing the outline.
+@group(0) @binding(1) var<storage, read> edges: array<vec4<f32>>;
 @group(0) @binding(2) var<storage, read_write> out: array<u32>;
 
 // The integral of clamp(u, 0, 1).
@@ -56,11 +56,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let corner = vec2<f32>(f32(id.x), f32(id.y));
     var area = 0.0;
     for (var i = 0u; i < params.count; i = i + 1u) {
-        let p = points[i];
-        let q = points[(i + 1u) % params.count];
-        area = area + edge_area(p, q, corner);
+        let e = edges[i];
+        area = area + edge_area(e.xy, e.zw, corner);
     }
-    let coverage = u32(clamp(floor(abs(area) * 256.0), 0.0, 255.0));
+    let coverage = u32(clamp(floor(min(abs(area), 1.0) * 256.0), 0.0, 255.0));
     let color = unpack(params.color);
     let rgb = (color.xyz * coverage) / vec3<u32>(255u);
     out[id.y * params.width + id.x] = pack(vec4<u32>(rgb, coverage));

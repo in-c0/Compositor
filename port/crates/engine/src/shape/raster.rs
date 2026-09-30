@@ -1,9 +1,10 @@
 //! Core Graphics' fills, on the GPU.
 //!
 //! Fitted to references: Core Graphics flattens each cubic by halving it until both second
-//! differences of its control points are within `FLATNESS` on each axis; coverage is the exact
-//! area of the flattened outline in each pixel, `min(255, floor(area * 256))`; and the color is
-//! premultiplied with truncation. A stroke's round caps are two quarter circles each, turned with
+//! differences of its control points are within `FLATNESS` on each axis; walks each edge in
+//! 1/16 px steps along its major axis with a truncated 16.16 minor step (`stepped`, the model
+//! feature/selections fitted to its fills); covers each pixel by the exact area of those edges
+//! inside it, `min(255, floor(area * 256))`; and premultiplies the color with truncation. A stroke's round caps are two quarter circles each, turned with
 //! the line (a zero-length line's with a line at 45 degrees).
 
 use super::Result;
@@ -128,22 +129,86 @@ fn outline(style: &ShapeStyle, size: [f64; 2]) -> Result<Vec<Point>> {
 pub fn shape_image(gpu: &Gpu, style: &ShapeStyle, size: [f64; 2]) -> Result<image::RgbaImage> {
     let (width, height) = (size[0] as u32, size[1] as u32);
     let points = outline(style, size)?;
+    let mut edges: Vec<f32> = Vec::new();
+    for i in 0..points.len() {
+        for e in stepped(points[i], points[(i + 1) % points.len()], size[1]) {
+            if e[1] != e[3] {
+                edges.extend(e.map(|v| v as f32));
+            }
+        }
+    }
+    if edges.is_empty() {
+        edges.extend([0.0; 4]);
+    }
     let byte = |c: f64| (c.clamp(0.0, 1.0) * 255.0 + 0.5).floor() as u32;
     let color = byte(style.red) | byte(style.green) << 8 | byte(style.blue) << 16 | 255 << 24;
-    let flat: Vec<f32> = points.iter().flat_map(|p| [p[0] as f32, p[1] as f32]).collect();
     let pipeline = gpu.pipeline("shape_fill", include_str!("fill.wgsl"));
     let out = gpu.image(width, height);
-    let params = [width, height, points.len() as u32, color].map(u32::to_le_bytes).concat();
-    gpu.dispatch(&pipeline, &params, &[&gpu.bytes(bytemuck::cast_slice(&flat)), &out.buffer], width, height);
+    let params = [width, height, (edges.len() / 4) as u32, color].map(u32::to_le_bytes).concat();
+    gpu.dispatch(&pipeline, &params, &[&gpu.bytes(bytemuck::cast_slice(&edges)), &out.buffer], width, height);
     let mut pixels = gpu.download(&out)?;
     super::unpremultiply(&mut pixels);
     Ok(image::RgbaImage::from_raw(width, height, pixels).expect("image size"))
+}
+
+/// Sub-steps per pixel along an edge's major axis.
+const STEPS: f64 = 16.0;
+
+/// The edge from `a` to `b` (pixels, y down, in a bitmap `height` tall) as Core Graphics' rasterizer
+/// walks it: in device space (y up) from its lower end, along its major axis in 1/16 px steps, the
+/// minor coordinate advancing by a 16.16 fixed-point step truncated toward zero. The stepped
+/// points lie on one line, so the edge becomes at most three pieces: from its start to the first
+/// step, the stepped line, and from the last step to its true end.
+fn stepped(a: Point, b: Point, height: f64) -> Vec<[f64; 4]> {
+    let (mut p0, mut p1) = ([a[0], height - a[1]], [b[0], height - b[1]]);
+    let (dx, dy) = (p1[0] - p0[0], p1[1] - p0[1]);
+    let doc = |p: Point, q: Point| [p[0], height - p[1], q[0], height - q[1]];
+    if dx == 0.0 || dy == 0.0 {
+        return vec![doc(p0, p1)];
+    }
+    let reversed = p0[1] > p1[1];
+    if reversed {
+        std::mem::swap(&mut p0, &mut p1);
+    }
+    let y_major = dx.abs() <= dy.abs();
+    let (u, v) = if y_major { (1, 0) } else { (0, 1) };
+    let point = |uu: f64, vv: f64| if y_major { [vv, uu] } else { [uu, vv] };
+    let (u0, v0, u1, v1) = (p0[u], p0[v], p1[u], p1[v]);
+    let slope = (v1 - v0) / (u1 - u0);
+    let step = if u1 > u0 { 1.0 } else { -1.0 };
+    let dq = (slope * step / STEPS * 65536.0).trunc() / 65536.0;
+    let n0 = if step > 0.0 { (u0 * STEPS).ceil() } else { (u0 * STEPS).floor() };
+    let n1 = if step > 0.0 { (u1 * STEPS).floor() } else { (u1 * STEPS).ceil() };
+    let count = (n1 - n0) * step;
+    let mut points = vec![p0];
+    if count >= 0.0 {
+        let vs = v0 + (n0 / STEPS - u0) * slope;
+        points.push(point(n0 / STEPS, vs));
+        points.push(point(n1 / STEPS, vs + count * dq));
+    }
+    points.push(p1);
+    points.dedup();
+    if reversed {
+        points.reverse();
+    }
+    points.windows(2).map(|w| doc(w[0], w[1])).collect()
 }
 
 /// How many colors Core Graphics' gradient table holds for a line (or radius) this long: the
 /// length rounded up to whole pixels, then up past the next multiple of 16, less two.
 fn slots(length: f64) -> f64 {
     16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0
+}
+
+/// `v` truncated to 14 significant bits, as Core Graphics keeps a linear gradient's direction and a
+/// radial one's slots per pixel: fitted to the slot the Mac picks where t × slots falls just past
+/// a whole number.
+fn coarse(v: f64) -> f64 {
+    if v == 0.0 || !v.is_finite() {
+        return v;
+    }
+    let scale = 2f64.powi(13 - v.abs().log2().floor() as i32);
+    (v * scale).trunc() / scale
 }
 
 /// Core Graphics' 16 x 16 gradient dither thresholds, in 256ths, row by row.
@@ -174,11 +239,15 @@ pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i
     let length = dx.hypot(dy);
     let slots = slots(length);
     let (kind, base_point, step) = match fill.shape {
-        Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [slots / length, 0.0]),
+        // The distance from the center, times slots / radius kept to 14 significant bits.
+        Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [coarse(slots / length), 0.0]),
         Shape::Linear => {
-            let l2 = dx * dx + dy * dy;
+            // t is the distance along the line's unit direction, whose components Core Graphics
+            // keeps to 14 significant bits, truncated; divided by the true length.
+            let (c, s) = (coarse(dx / length), coarse(dy / length));
             let (px, py) = (offset[0] as f64 + 0.5 - fill.start[0], offset[1] as f64 + 0.5 - fill.start[1]);
-            (0, [(px * dx + py * dy) / l2 * slots, 0.0], [dx / l2 * slots, dy / l2 * slots])
+            let k = slots / length;
+            (0, [(px * c + py * s) * k, 0.0], [c * k, s * k])
         }
     };
     let premultiplied = |c: [f64; 4]| [c[0] * c[3] * 255.0, c[1] * c[3] * 255.0, c[2] * c[3] * 255.0, c[3] * 255.0];
@@ -222,5 +291,25 @@ mod tests {
         assert_eq!(ellipse(6.0, 6.0).len(), 32);
         // Square corners stay four points.
         assert_eq!(rounded_rect(9.0, 7.0, 0.0).len(), 4);
+    }
+
+    #[test]
+    fn directions_keep_fourteen_bits() {
+        assert_eq!(coarse(1.0), 1.0);
+        assert_eq!(coarse(0.95448), 15638.0 / 16384.0);
+        assert_eq!(coarse(-0.29828), -9774.0 / 32768.0);
+        assert_eq!(coarse(0.0), 0.0);
+    }
+
+    #[test]
+    fn edges_step_from_their_lower_end() {
+        // A level edge is left as it is; a slanted one gains the stepped line between its ends.
+        assert_eq!(stepped([0.0, 1.0], [5.0, 1.0], 4.0), vec![[0.0, 1.0, 5.0, 1.0]]);
+        let pieces = stepped([0.0, 0.0], [60.0, 18.0], 20.0);
+        assert_eq!(pieces.first().unwrap()[..2], [0.0, 0.0]);
+        assert_eq!(pieces.last().unwrap()[2..], [60.0, 18.0]);
+        // The truncated step leaves the far end short of the true line by up to 16 * 60 / 65536.
+        let far = pieces[0];
+        assert!((far[3] - 0.3 * far[2]).abs() < 0.015);
     }
 }
