@@ -22,28 +22,30 @@ struct States {
 }
 
 #[derive(Deserialize, Clone)]
-struct State {
-    id: String,
-    view: String,
-    document: Option<String>,
-    tool: Option<String>,
-    sheet: Option<String>,
-    layer: Option<usize>,
+pub(crate) struct State {
+    pub(crate) id: String,
+    pub(crate) view: String,
+    pub(crate) document: Option<String>,
+    pub(crate) tool: Option<String>,
+    pub(crate) sheet: Option<String>,
+    pub(crate) layer: Option<usize>,
 }
 
 /// The editor's size in the window state: the default window less the Mac's compact toolbar,
 /// which lives in the title bar and isn't part of `ContentView`.
-fn editor_size() -> egui::Vec2 {
+pub(crate) fn editor_size() -> egui::Vec2 {
     vec2(metric::WINDOW[0], metric::WINDOW[1] - metric::MAC_TOOLBAR)
 }
 
-struct Offscreen {
-    gfx: Gfx,
+pub(crate) struct Offscreen {
+    pub(crate) gfx: Gfx,
     ctx: egui::Context,
+    /// egui's clock, which must keep going forward from one render to the next.
+    clock: std::cell::Cell<f64>,
 }
 
 impl Offscreen {
-    fn new() -> Result<Self> {
+    pub(crate) fn new() -> Result<Self> {
         let gpu = Arc::new(Gpu::new()?);
         let options = egui_wgpu::RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: false, predictable_texture_filtering: false };
         let renderer = egui_wgpu::Renderer::new(&gpu.device, wgpu::TextureFormat::Rgba8Unorm, options);
@@ -51,7 +53,7 @@ impl Offscreen {
         let ctx = egui::Context::default();
         theme::install_fonts(&ctx);
         theme::install_style(&ctx);
-        Ok(Self { gfx, ctx })
+        Ok(Self { gfx, ctx, clock: std::cell::Cell::new(0.0) })
     }
 
     /// Runs `draw` for a few passes (layout settles, fonts and textures load, animations finish),
@@ -61,11 +63,11 @@ impl Offscreen {
     }
 
     /// `render`, feeding each `(pass, event)` to its pass: tests click through the UI this way.
-    fn render_with_events(&self, size: egui::Vec2, events: &[(usize, egui::Event)], mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
+    pub(crate) fn render_with_events(&self, size: egui::Vec2, events: &[(usize, egui::Event)], mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
         let (w, h) = (size.x.round() as u32, size.y.round() as u32);
         let mut output = None;
         for pass in 0..4 {
-            let mut input = egui::RawInput { screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)), time: Some(pass as f64 * 0.25), predicted_dt: 0.25, ..Default::default() };
+            let mut input = egui::RawInput { screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)), time: Some(self.clock.get() + pass as f64 * 0.25), predicted_dt: 0.25, ..Default::default() };
             input.viewports.entry(egui::ViewportId::ROOT).or_default().native_pixels_per_point = Some(1.0);
             input.events = events.iter().filter(|(p, _)| *p == pass).map(|(_, e)| e.clone()).collect();
             let mut out = self.ctx.run_ui(input, |ui| {
@@ -87,6 +89,7 @@ impl Offscreen {
             drop(renderer);
             output = Some(out);
         }
+        self.clock.set(self.clock.get() + 1.0);
         let out = output.unwrap();
         let primitives = self.ctx.tessellate(out.shapes, 1.0);
         let device = &self.gfx.gpu.device;
@@ -151,7 +154,7 @@ impl Offscreen {
     }
 }
 
-fn app_for(off: &Offscreen, state: &State, corpus: &Path) -> Result<App> {
+pub(crate) fn app_for(off: &Offscreen, state: &State, corpus: &Path) -> Result<App> {
     let mut app = App::new(off.gfx.clone());
     app.headless = true;
     if let Some(case) = &state.document {

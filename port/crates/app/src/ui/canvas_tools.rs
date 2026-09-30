@@ -216,10 +216,17 @@ pub fn placed(project: &Project, id: &str, t: Transform) -> Project {
 }
 
 pub fn set_transform(p: &mut Project, id: &str, t: Transform) {
-    let Some(index) = p.manifest.layers.iter().position(|l| l.id == id) else { return };
-    let layer = &p.manifest.layers[index];
-    let placement = if layer.mask_file.is_some() { mask_follows(p, layer, &t) } else { layer.mask_placement };
-    let layer = &mut p.manifest.layers[index];
+    let mut manifest = p.manifest.clone();
+    set_transform_in(&mut manifest, p, id, t);
+    p.manifest = manifest;
+}
+
+/// `set_transform` on a manifest, reading the masks from `project`.
+pub fn set_transform_in(manifest: &mut comp_format::Manifest, project: &Project, id: &str, t: Transform) {
+    let Some(index) = manifest.layers.iter().position(|l| l.id == id) else { return };
+    let layer = &manifest.layers[index];
+    let placement = if layer.mask_file.is_some() { mask_follows(project, layer, &t) } else { layer.mask_placement };
+    let layer = &mut manifest.layers[index];
     layer.mask_placement = placement;
     layer.transform = t;
 }
@@ -278,7 +285,8 @@ pub fn interact(app: &mut App, ui: &Ui, response: &Response, canvas: Rect, panni
         polygon.cursor = app.hover_pixel;
     }
     if response.drag_started_by(egui::PointerButton::Primary) || (response.clicked_by(egui::PointerButton::Primary) && app.gesture.is_none()) {
-        if let Some(pos) = response.interact_pointer_pos() {
+        // Where the button went down: a drag is only recognized once the pointer has moved.
+        if let Some(pos) = ui.input(|i| i.pointer.press_origin()).or(response.interact_pointer_pos()) {
             let p = pixel(app, pos);
             if app.sheet.is_some() {
                 crate::ui::dialogs::canvas_press(app, p, modifiers);
@@ -293,8 +301,20 @@ pub fn interact(app: &mut App, ui: &Ui, response: &Response, canvas: Rect, panni
         }
     }
     if response.dragged_by(egui::PointerButton::Primary) {
-        if let Some(pos) = pointer {
+        // Every move this frame, as the Mac gets a mouseDragged for each: strokes and lassos
+        // follow them all; other drags only need where the pointer ended up.
+        let moves: Vec<Pos2> = ui.input(|i| i.events.iter().filter_map(|e| if let egui::Event::PointerMoved(p) = e { Some(*p) } else { None }).collect());
+        let every = matches!(app.gesture, Some(Gesture::Paint(_) | Gesture::Lasso { .. }));
+        let path = if every && !moves.is_empty() { moves } else { pointer.into_iter().collect() };
+        for pos in path {
             drag(app, pos, pixel(app, pos), modifiers);
+        }
+        // The stroke so far, once a frame.
+        if matches!(app.gesture, Some(Gesture::Paint(_))) {
+            if let Some(Gesture::Paint(mut stroke)) = app.gesture.take() {
+                preview_stroke(app, &mut stroke);
+                app.gesture = Some(Gesture::Paint(stroke));
+            }
         }
     }
     if response.drag_stopped_by(egui::PointerButton::Primary) || (response.clicked_by(egui::PointerButton::Primary) && app.gesture.is_some()) {
@@ -381,8 +401,9 @@ fn drag(app: &mut App, pos: Pos2, pixel: Point, modifiers: egui::Modifiers) {
             }
             let draft = drag_transform(app, &layer, &drag, pixel, modifiers);
             if let Some(d) = app.doc_mut() {
-                let preview = placed(&d.project, &layer, draft);
-                d.set_preview(Some(preview));
+                let mut manifest = d.project.manifest.clone();
+                set_transform_in(&mut manifest, &d.project, &layer, draft);
+                d.preview_manifest(manifest);
             }
             app.gesture = Some(Gesture::Transform { layer, drag, draft, duplicate: false });
         }
@@ -420,7 +441,6 @@ fn drag(app: &mut App, pos: Pos2, pixel: Point, modifiers: egui::Modifiers) {
             if stroke.points.last() != Some(&p) {
                 stroke.points.push(p);
             }
-            preview_stroke(app, &mut stroke);
             app.gesture = Some(Gesture::Paint(stroke));
         }
         Some(Gesture::Zoom { start, zoom, mut moved }) => {
@@ -665,10 +685,22 @@ fn preview_stroke(app: &mut App, stroke: &mut PaintStroke) {
     let Some(doc) = app.doc_mut() else { return };
     let mut op = stroke.op.clone();
     op["points"] = json!(stroke.points);
-    let mut project = doc.project.clone();
     let mut session = doc.paint.clone();
-    match engine::paint::apply(&engine.gpu, &mut project, &mut session, &op) {
-        Ok(()) => doc.set_preview(Some(project)),
+    // The layer being painted starts again from the project's pixels; the rest of the preview
+    // is copied once.
+    let layer = op["layer"].as_str().unwrap_or_default().to_string();
+    let (project, preview) = doc.preview_mut();
+    preview.manifest = project.manifest.clone();
+    match project.images.get(&layer) {
+        Some(a) => preview.images.insert(layer.clone(), a.clone()),
+        None => preview.images.remove(&layer),
+    };
+    match project.masks.get(&layer) {
+        Some(a) => preview.masks.insert(layer.clone(), a.clone()),
+        None => preview.masks.remove(&layer),
+    };
+    match engine::paint::apply(&engine.gpu, preview, &mut session, &op) {
+        Ok(()) => doc.preview_changed(),
         Err(_) => doc.set_preview(None),
     }
 }

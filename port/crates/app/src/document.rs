@@ -434,6 +434,25 @@ impl Doc {
         self.needs_render = true;
     }
 
+    /// A preview that differs from the project only in its manifest (a drag in progress): the
+    /// pixels are copied once, when the preview starts.
+    pub fn preview_manifest(&mut self, manifest: Manifest) {
+        let preview = self.preview.get_or_insert_with(|| self.project.clone());
+        preview.manifest = manifest;
+        self.needs_render = true;
+    }
+
+    /// The preview to change in place, starting as a copy of the project; call `preview_changed`
+    /// after changing it.
+    pub fn preview_mut(&mut self) -> (&Project, &mut Project) {
+        let preview = self.preview.get_or_insert_with(|| self.project.clone());
+        (&self.project, preview)
+    }
+
+    pub fn preview_changed(&mut self) {
+        self.needs_render = true;
+    }
+
     /// The project on the canvas: the preview while there is one.
     pub fn shown(&self) -> &Project {
         self.preview.as_ref().unwrap_or(&self.project)

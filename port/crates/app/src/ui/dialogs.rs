@@ -431,6 +431,15 @@ pub struct FilterSheet {
 }
 
 impl FilterSheet {
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    /// Sets one setting by its path in the op's settings (`exposure.exposure`).
+    pub fn set_setting(&mut self, path: &str, value: Value) {
+        set(&mut self.settings, path, value);
+    }
+
     /// Levels' eyedroppers: the sampled color sets the input black, gray or white point.
     fn levels_sample(&mut self, which: u8, c: [f32; 3]) {
         let values = c.map(|v| (v * 255.0).round() as f64);

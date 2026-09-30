@@ -11,6 +11,8 @@ mod headless;
 mod icons;
 mod layer_ops;
 mod menus;
+#[cfg(test)]
+mod tests;
 mod theme;
 mod tools;
 mod ui;
