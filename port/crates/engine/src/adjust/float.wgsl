@@ -7,8 +7,7 @@
 // sets to +infinity: `min(x, params.guard)` returns `x` unchanged, but the compiler can't see
 // through it, so the rounding of `x` is kept. Division, square roots, logarithms and cosines are
 // rebuilt from exact pieces: `fma` (fused on Metal by definition, and measured fused on DX12 by
-// the `float_helpers_are_correctly_rounded` test) and
-// double-single arithmetic.
+// the `float_helpers_are_correctly_rounded` test) and double-single arithmetic.
 
 // `x`, rounded on its own: no fusing or reassociating it with what uses it.
 fn keep(x: f32) -> f32 {
