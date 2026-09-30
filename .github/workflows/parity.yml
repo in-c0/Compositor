@@ -237,15 +237,26 @@ jobs:
           cargo run --quiet --manifest-path port/Cargo.toml -p parity -- report "${args[@]}" --commit "${GITHUB_SHA::10}"
           cat PARITY.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit PARITY.md to main
-        if: github.ref == 'refs/heads/main'
+      # main only takes changes through pull requests that pass parity, so CI publishes the report
+      # on a branch of its own: parity-report always holds PARITY.md for the newest main.
+      - name: Publish PARITY.md
+        if: github.ref == 'refs/heads/main' && hashFiles('PARITY.md') != ''
         run: |
-          git diff --quiet -- PARITY.md && exit 0
+          cp PARITY.md "$RUNNER_TEMP/PARITY.md"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code origin parity-report >/dev/null; then
+            git fetch origin parity-report
+            git switch -c parity-report FETCH_HEAD
+          else
+            git switch --orphan parity-report
+          fi
+          git rm -rq --ignore-unmatch . || true
+          cp "$RUNNER_TEMP/PARITY.md" PARITY.md
           git add PARITY.md
-          git commit -m "Update PARITY.md [skip ci]"
-          git push
+          git diff --cached --quiet && exit 0
+          git commit -m "PARITY.md for ${GITHUB_SHA::10}"
+          git push origin parity-report
 
       - uses: actions/upload-artifact@v7
         with:
