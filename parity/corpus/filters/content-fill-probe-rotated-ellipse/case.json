@@ -1,7 +1,7 @@
 {
   "feature": "filters",
   "input": "input.comp",
-  "label": "Content-Aware Fill on a layer rotated -15 degrees, flipped and shrunk, through an ellipse",
+  "label": "Content-Aware Fill on a layer rotated -15 degrees and flipped, through an ellipse",
   "ops": [
     {
       "from": [

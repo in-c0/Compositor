@@ -3,7 +3,7 @@
 //! through the layer's placement onto the layer's own pixel grid, and `PixelAdjust.blend` mixes
 //! the filtered pixels back over the original through it with `CIBlendWithMask`.
 
-use super::{Result, failed};
+use super::{Result, failed, unsupported};
 use crate::gpu::Gpu;
 use crate::select::{self, Selection, geom};
 use comp_format::Transform;
@@ -138,6 +138,12 @@ pub fn layer_coverage(clip: &SelectionClip, mapping: &Affine, (width, height): (
     let mut out = vec![0u8; width as usize * height as usize];
     let Some(coverage) = &clip.coverage else { return Ok(out) };
     if !aligned(mapping) {
+        // Where each layer pixel spans more than two canvas pixels, the Mac's clip reaches
+        // further than the sampler: on a layer drawn at three times its size, one canvas pixel
+        // further on each side (`content-fill-probe-third`). How isn't measured yet.
+        if mapping[0].hypot(mapping[1]) > 2.0 + 1e-9 || mapping[2].hypot(mapping[3]) > 2.0 + 1e-9 {
+            return unsupported("a selection drawn onto a layer shown at more than twice its size");
+        }
         return Ok(resampled(clip, coverage, mapping, (width, height)));
     }
     let [rx, ry, rw, rh] = clip.rect;

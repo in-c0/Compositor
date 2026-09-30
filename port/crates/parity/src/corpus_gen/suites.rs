@@ -907,7 +907,7 @@ fn content_fill(w: &mut CaseWriter) -> Result<()> {
     w.write(F, "content-fill-rotated", "Content-Aware Fill on a layer rotated 30 degrees", d, vec![marquee("Rectangle", [22.0, 20.0], [40.0, 36.0]), fill(&id)])?;
 
     // Probes of that resampling. On a half-pixel offset every layer pixel's center falls halfway
-    // between two canvas pixels; at a third of the size it falls on one; at twice the size between
+    // between two canvas pixels; drawn at three times its size, on one; at half its size, between
     // four.
     let mut d = w.doc(F, "content-fill-probe-half-offset", N, N);
     let id = d.image("Photo", textured(), at(0.5, -0.5, N, N));
@@ -929,8 +929,8 @@ fn content_fill(w: &mut CaseWriter) -> Result<()> {
         fill(&id),
     ])?;
     let mut d = w.doc(F, "content-fill-probe-rotated-ellipse", N, N);
-    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: -15.0, flip_y: true, ..Transform::at(2.0, 1.0, 60.0, 60.0) }), ..spec() });
-    w.write(F, "content-fill-probe-rotated-ellipse", "Content-Aware Fill on a layer rotated -15 degrees, flipped and shrunk, through an ellipse", d, vec![
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: -15.0, flip_y: true, ..Transform::at(2.0, 1.0, 64.0, 64.0) }), ..spec() });
+    w.write(F, "content-fill-probe-rotated-ellipse", "Content-Aware Fill on a layer rotated -15 degrees and flipped, through an ellipse", d, vec![
         marquee("Ellipse", [18.0, 20.0], [44.0, 42.0]),
         fill(&id),
     ])?;
