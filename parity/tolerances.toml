@@ -73,3 +73,15 @@ reason = "Different JPEG encoder than Apple's (same tables and 4:2:0 chroma): on
 cases = "export/jpeg-table-*#jpeg"
 max_channel_diff = 27
 reason = "Different JPEG encoder than Apple's (same tables, checked exactly by #jpeg-tables): DCT and quantization rounding differ on these 16x16 probes; measured max 27/255, at the lowest qualities."
+
+[[override]]
+cases = "psd/blend-hard-mix"
+max_channel_diff = 1
+max_pixels_over = 3
+reason = "Hard Mix at exact ties follows the Mac GPU's division rounding (Core Image unpremultiplies with a reciprocal, so c/a lands on 0.99999994 for some alphas), which IEEE f32 can't reproduce: 3 of 4,096 pixels."
+
+[[override]]
+cases = "psd/fill-hard-mix"
+max_channel_diff = 1
+max_pixels_over = 1
+reason = "Hard Mix at an exact tie follows the Mac GPU's division rounding, which IEEE f32 can't reproduce: 1 of 4,096 pixels."
