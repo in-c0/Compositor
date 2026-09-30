@@ -12,7 +12,7 @@
 //   3/16, 5/16 or 7/16 of a pixel (none below 1/16). The image is clamped at its edges.
 // - With antialiasing, each edge of the image rectangle fades linearly across the canvas pixel's
 //   width measured along the edge's normal (|cos| + |sin|); the four edges multiply, and the
-//   coverage is floor(product × 256), at most 255. In a pixel that an edge only partly covers, the
+//   coverage is ceil(product × 256) − 1, at most 255. In a pixel that an edge only partly covers, the
 //   image isn't interpolated across that edge: that axis takes its heavy pixel alone.
 // - Without antialiasing (Nearest), a pixel is drawn when the rectangle overlaps it at all.
 // - A mask clipped through its own rectangle is sampled the same way. Its coverage combines with the
@@ -48,8 +48,9 @@ struct Params {
     antialias: u32,
     // A canvas pixel's width across any edge of the layer, |cos| + |sin|.
     l1: f32,
+    // 1 when the layer isn't rotated, so `tables` holds its edges.
+    upright: u32,
     pad0: u32,
-    pad1: u32,
     // The image rectangle's bounding box on the canvas: min x, min y, max x, max y.
     bounds: vec4<f32>,
     image_dda: Dda,
@@ -63,6 +64,7 @@ struct Params {
 @group(0) @binding(4) var<storage, read> opacity_table: array<u32, 256>;
 @group(0) @binding(5) var<storage, read> mask: array<u32>;
 @group(0) @binding(6) var<storage, read> clip: array<u32>;
+@group(0) @binding(7) var<storage, read> tables: array<vec4<u32>>;
 
 // 64-bit two's complement arithmetic on (low, high) word pairs.
 fn add64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
@@ -180,13 +182,54 @@ fn edge_distances(u: vec2<u32>, v: vec2<u32>, dda: Dda) -> vec4<f32> {
     return vec4<f32>(to_float(u) * dda.scale.x, to_float(v) * dda.scale.y, to_float(right) * dda.scale.x, to_float(bottom) * dda.scale.y);
 }
 
-// Each edge's fade, 0...1.
-fn fades(distances: vec4<f32>) -> vec4<f32> {
-    return clamp(vec4<f32>(0.5) + distances / params.l1, vec4<f32>(0.0), vec4<f32>(1.0));
+// The coverage byte for a product of fades: ceil(p × 256) − 1, so an exact multiple of 1/256
+// counts one less.
+fn coverage_byte(p: f32) -> u32 {
+    return u32(clamp(ceil(p * 256.0) - 1.0, 0.0, 255.0));
 }
 
-fn coverage_byte(f: vec4<f32>) -> u32 {
-    return min(255u, u32(floor(f.x * f.y * f.z * f.w * 256.0)));
+// How a rectangle covers a canvas pixel: each edge's fade (left, top, right, bottom in source
+// terms) and the coverage byte, 0 when the pixel isn't drawn.
+struct Edges {
+    fade: vec4<f32>,
+    covered: u32,
+}
+
+// `tables` holds, for an upright layer, each canvas column's left and right fades and each row's top
+// and bottom fades with their coverage bytes, worked out in double precision: image columns, image
+// rows, then mask columns and mask rows.
+fn edges(u: vec2<u32>, v: vec2<u32>, dda: Dda, table: u32, x: u32, y: u32) -> Edges {
+    var e = Edges(vec4<f32>(1.0), 255u);
+    if params.upright != 0u {
+        let col = tables[table + x];
+        let row = tables[table + params.canvas_width + y];
+        e.fade = vec4<f32>(bitcast<f32>(col.x), bitcast<f32>(row.x), bitcast<f32>(col.y), bitcast<f32>(row.y));
+        if params.antialias == 0u {
+            e.covered = select(0u, 255u, all(e.fade > vec4<f32>(0.0)));
+            return e;
+        }
+        let across = e.fade.x * e.fade.z;
+        let down = e.fade.y * e.fade.w;
+        if down >= 1.0 {
+            e.covered = col.z;
+        } else if across >= 1.0 {
+            e.covered = row.z;
+        } else {
+            e.covered = coverage_byte(across * down);
+        }
+        return e;
+    }
+    let distances = edge_distances(u, v, dda);
+    if params.antialias == 0u {
+        let b = params.bounds;
+        let pixel = vec2<f32>(f32(x), f32(y));
+        let overlaps = all(distances > vec4<f32>(-0.5 * params.l1)) && pixel.x + 1.0 > b.x && pixel.x < b.z && pixel.y + 1.0 > b.y && pixel.y < b.w;
+        e.covered = select(0u, 255u, overlaps);
+        return e;
+    }
+    e.fade = clamp(vec4<f32>(0.5) + distances / params.l1, vec4<f32>(0.0), vec4<f32>(1.0));
+    e.covered = coverage_byte(e.fade.x * e.fade.y * e.fade.z * e.fade.w);
+    return e;
 }
 
 @compute @workgroup_size(8, 8)
@@ -199,34 +242,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let d = params.image_dda;
     let u = position(d.u0, d.u_dx, d.u_dy, id.x, id.y);
     let v = position(d.v0, d.v_dx, d.v_dy, id.x, id.y);
-    let distances = edge_distances(u, v, d);
-    var covered = 255u;
-    var f = vec4<f32>(1.0);
-    if params.antialias != 0u {
-        f = fades(distances);
-        covered = coverage_byte(f);
-    } else {
-        let b = params.bounds;
-        let pixel = vec2<f32>(f32(id.x), f32(id.y));
-        let overlaps = all(distances > vec4<f32>(-0.5 * params.l1)) && pixel.x + 1.0 > b.x && pixel.x < b.z && pixel.y + 1.0 > b.y && pixel.y < b.w;
-        covered = select(0u, 255u, overlaps);
-    }
-    if covered == 0u {
+    let e = edges(u, v, d, 0u, id.x, id.y);
+    if e.covered == 0u {
         canvas_out[index] = backdrop;
         return;
     }
+    let f = e.fade;
     let source = sample_image(taps(u, f.x < 1.0 || f.z < 1.0), taps(v, f.y < 1.0 || f.w < 1.0));
+    let covered = e.covered;
     var coverage = covered;
     if params.has_mask != 0u {
         let m = params.mask_dda;
         let mu = position(m.u0, m.u_dx, m.u_dy, id.x, id.y);
         let mv = position(m.v0, m.v_dx, m.v_dy, id.x, id.y);
-        var mf = vec4<f32>(1.0);
-        var mask_covered = 255u;
-        if params.antialias != 0u {
-            mf = fades(edge_distances(mu, mv, m));
-            mask_covered = coverage_byte(mf);
-        }
+        let me = edges(mu, mv, m, params.canvas_width + params.canvas_height, id.x, id.y);
+        let mf = me.fade;
+        let mask_covered = me.covered;
         let value = sample_mask(taps(mu, mf.x < 1.0 || mf.z < 1.0), taps(mv, mf.y < 1.0 || mf.w < 1.0));
         coverage = (value * mask_covered / 255u) * covered / 255u;
     }

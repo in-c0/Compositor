@@ -224,6 +224,33 @@ fn dda_block(d: &Dda, rect: &Rect, width: u32, height: u32) -> Vec<u8> {
     b
 }
 
+impl Placement {
+    /// For a layer that isn't rotated, each canvas column's fades at the rectangle's left and
+    /// right edges and each row's at its top and bottom, in source terms, with the coverage byte
+    /// of their product: in double precision, as Core Graphics measures them, so an edge exactly on
+    /// a pixel boundary or center stays exact.
+    fn edge_table(&self, rect: &Rect, width: u32, height: u32) -> Vec<[u32; 4]> {
+        let sx = if self.flip_x { -1.0 } else { 1.0 };
+        let sy = if self.flip_y { 1.0 } else { -1.0 };
+        let [cx, cy] = self.center;
+        let entry = |a: f64, b: f64| {
+            let (a, b) = (a.clamp(0.0, 1.0), b.clamp(0.0, 1.0));
+            let byte = ((a * b * 256.0).ceil() - 1.0).clamp(0.0, 255.0) as u32;
+            [(a as f32).to_bits(), (b as f32).to_bits(), byte, 0]
+        };
+        let mut table = Vec::with_capacity((width + height) as usize);
+        for x in 0..width {
+            let qx = (x as f64 + 0.5 - cx) * sx;
+            table.push(entry(0.5 + (qx - rect.min_x), 0.5 + (rect.max_x - qx)));
+        }
+        for y in 0..height {
+            let qy = (y as f64 + 0.5 - cy) * sy;
+            table.push(entry(0.5 + (rect.max_y - qy), 0.5 + (qy - rect.min_y)));
+        }
+        table
+    }
+}
+
 /// Composites `draw` over `canvas` and returns the new canvas.
 pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
     let pipeline = gpu.pipeline("transform_draw", &format!("{MODES}
@@ -249,7 +276,7 @@ pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
         },
         draw.antialias as u32,
         (p.l1() as f32).to_bits(),
-        0,
+        p.upright() as u32,
         0,
     ] {
         params.extend_from_slice(&v.to_le_bytes());
@@ -259,10 +286,16 @@ pub fn draw(gpu: &Gpu, canvas: &GpuImage, draw: &Draw) -> GpuImage {
     params.extend(dda_block(&p.dda(&image.rect, image.width, image.height), &image.rect, image.width, image.height));
     let mask = draw.mask.as_ref().unwrap_or(image);
     params.extend(dda_block(&p.dda(&mask.rect, mask.width, mask.height), &mask.rect, mask.width, mask.height));
+    let mut edges = vec![[0u32; 4]];
+    if p.upright() {
+        edges = p.edge_table(&image.rect, canvas.width, canvas.height);
+        edges.extend(p.edge_table(&mask.rect, canvas.width, canvas.height));
+    }
+    let edges = gpu.bytes(bytemuck::cast_slice(&edges));
     let table = opacity_table(gpu, draw.opacity);
     let placeholder = gpu.bytes(&[0u8; 4]);
     let mask = draw.mask.as_ref().map_or(&placeholder, |m| m.buffer);
     let clip = draw.clip.unwrap_or(&placeholder);
-    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, draw.image.buffer, &out.buffer, &table, mask, clip], canvas.width, canvas.height);
+    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, draw.image.buffer, &out.buffer, &table, mask, clip, &edges], canvas.width, canvas.height);
     out
 }
