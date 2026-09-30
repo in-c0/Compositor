@@ -119,7 +119,13 @@ pub fn run_markdown(results: &RunResults, regressions: &[&CaseResult]) -> String
 }
 
 /// PARITY.md: per-feature status across both platforms, the overall percentage, and known gaps.
-pub fn parity_markdown(features: &FeatureList, runs: &[RunResults], overrides: &[crate::compare::Override], commit: &str) -> String {
+pub fn parity_markdown(
+    features: &FeatureList,
+    runs: &[RunResults],
+    overrides: &[crate::compare::Override],
+    commit: &str,
+    ui: Option<&crate::ui::UiResults>,
+) -> String {
     let mut md = String::new();
     let _ = writeln!(md, "# Parity\n");
     let _ = writeln!(
@@ -173,6 +179,9 @@ pub fn parity_markdown(features: &FeatureList, runs: &[RunResults], overrides: &
         let _ = writeln!(md, "{row}");
     }
     let _ = writeln!(md, "\nTotal: {total_cases} cases.\n");
+    if let Some(ui) = ui {
+        md.push_str(&crate::ui::markdown(ui, 2));
+    }
     let _ = writeln!(md, "## Known gaps\n");
     let mut any = false;
     for f in &features.features {

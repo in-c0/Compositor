@@ -34,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cases: ${{ steps.affected.outputs.cases }}
+      ui: ${{ steps.ui.outputs.ui }}
       refs-key: ${{ steps.key.outputs.key }}
     steps:
       - uses: actions/checkout@v7
@@ -77,6 +78,22 @@ jobs:
           cases="$(cargo run --quiet --manifest-path port/Cargo.toml -p parity -- affected --base "$base" | paste -sd' ' -)"
           echo "Affected: ${cases:-none}"
           echo "cases=$cases" >> "$GITHUB_OUTPUT"
+
+      # The UI comparison (parity/README.md, "UI states") runs on main, on schedule and by hand,
+      # and on a branch push that touches the app, the UI states, the harness or the Mac app.
+      - name: Choose whether to compare the UI
+        id: ui
+        run: |
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo 'ui=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="$(git merge-base origin/main HEAD || true)"
+          if [ -z "$base" ] || git diff --name-only "$base...HEAD" | grep -qE '^(port/crates/app/|port/crates/parity/|parity/ui/|parity/harness/|Compositor/|\.github/workflows/parity\.yml)'; then
+            echo 'ui=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ui=false' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Reference cache key
         id: key
@@ -126,7 +143,7 @@ jobs:
   parity:
     name: parity-${{ matrix.platform }}
     needs: [plan, references]
-    if: needs.plan.outputs.cases != ''
+    if: needs.plan.outputs.cases != '' || needs.plan.outputs.ui == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -182,6 +199,7 @@ jobs:
         run: bash port/tools/fetch-models.sh port/target/release
 
       - name: Run parity
+        if: needs.plan.outputs.cases != ''
         run: |
           args=()
           if [ "${{ needs.plan.outputs.cases }}" != "*" ]; then
@@ -193,6 +211,29 @@ jobs:
           status=$?
           set -e
           [ -f out/report.md ] && cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      # The Windows app renders every UI state and its menus, and `parity ui` compares them with the
+      # Mac's in refs/ui. It fails only on structure (a state that doesn't render, a size that
+      # differs, a menu difference); the visual scores go to the summary and PARITY.md.
+      - name: Build the app
+        id: app
+        if: "!cancelled() && matrix.platform == 'windows' && needs.plan.outputs.ui == 'true'"
+        run: cargo build --release --manifest-path port/Cargo.toml -p app
+
+      - name: Compare the UI with the Mac's
+        if: "!cancelled() && steps.app.outcome == 'success'"
+        run: |
+          if [ ! -f refs/ui/ui-info.json ]; then
+            echo "The references have no UI renders (refs/ui/ui-info.json): skipping the UI comparison." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          port/target/release/compositor --render-ui parity/ui/states.toml --corpus parity/corpus --out out/ui/windows
+          set +e
+          port/target/release/parity ui --mac refs/ui --windows out/ui/windows --out out/ui > /dev/null
+          status=$?
+          set -e
+          [ -f out/ui/ui-report.md ] && cat out/ui/ui-report.md >> "$GITHUB_STEP_SUMMARY"
           exit $status
 
       - name: Save baseline
@@ -247,6 +288,8 @@ jobs:
             [ -f "$f" ] && args+=(--results "$f")
           done
           [ ${#args[@]} -gt 0 ] || { echo "no results"; exit 0; }
+          ui=results/parity-windows/ui/ui-results.json
+          [ -f "$ui" ] && args+=(--ui "$ui")
           cargo run --quiet --manifest-path port/Cargo.toml -p parity -- report "${args[@]}" --commit "${GITHUB_SHA::10}"
           cat PARITY.md >> "$GITHUB_STEP_SUMMARY"
 

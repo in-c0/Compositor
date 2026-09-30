@@ -24,11 +24,76 @@ pub fn fill_width(ui: &Ui, trailing: f32, gaps: usize) -> f32 {
     (ui.available_width() - trailing - ui.spacing().item_spacing.x * gaps as f32).max(20.0)
 }
 
-/// A non-interactive label.
+/// The height SwiftUI gives a line of the system font at `size` points: SF Pro's ascent and
+/// descent (0.952 and 0.241 of the size), rounded up, so 16 points for the 13-point body. The
+/// 10-point caption measures 13 on the Mac.
+pub fn line_height(size: f32) -> f32 {
+    if size <= 10.0 { 13.0 } else { (size * 1.193).ceil() }
+}
+
+/// Where a line's baseline sits below its top: SF Pro's ascent.
+pub fn ascent(size: f32) -> f32 {
+    size * 0.952
+}
+
+/// The first row's baseline in `galley`, from the galley's top.
+pub fn galley_baseline(galley: &egui::Galley) -> f32 {
+    galley.rows.first().and_then(|r| r.row.glyphs.first().map(|g| r.pos.y + g.pos.y)).unwrap_or(galley.size().y * 0.78)
+}
+
+/// Paints `galley` as a line of `size`-point text whose line box starts at `top_left`, with the
+/// baseline where SF Pro's would be.
+pub fn paint_line(p: &egui::Painter, galley: std::sync::Arc<egui::Galley>, top_left: egui::Pos2, size: f32, color: Color32) {
+    let y = top_left.y + ascent(size) - galley_baseline(&galley);
+    p.galley_with_override_text_color(pos2(top_left.x, y), galley, color);
+}
+
+/// Paints a laid-out line with its line box centered on `center_y`, the baseline where SF Pro's
+/// would be.
+pub fn center_line(p: &egui::Painter, galley: std::sync::Arc<egui::Galley>, x: f32, center_y: f32, color: Color32) {
+    let size = galley.job.sections.first().map_or(13.0, |s| theme::nominal(s.format.font_id.size));
+    paint_line(p, galley, pos2(x, center_y - line_height(size) / 2.0), size, color);
+}
+
+/// Paints a line of text vertically centered on `center_y` as SwiftUI centers a line's box.
+pub fn paint_centered(p: &egui::Painter, s: &str, font: FontId, color: Color32, x: f32, center_y: f32) -> Rect {
+    let size = theme::nominal(font.size);
+    let galley = p.layout_no_wrap(s.to_string(), font, color);
+    let top = center_y - line_height(size) / 2.0;
+    let rect = Rect::from_min_size(pos2(x, top), vec2(galley.size().x, line_height(size)));
+    paint_line(p, galley, rect.min, size, color);
+    rect
+}
+
+/// A non-interactive label, one line of the Mac's height.
 pub fn text(ui: &mut Ui, s: impl Into<String>, font: FontId, color: Color32) -> Response {
+    let size = theme::nominal(font.size);
     let galley = ui.painter().layout_no_wrap(s.into(), font, color);
-    let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::hover());
-    ui.painter().galley(rect.min, galley, color);
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x, line_height(size)), Sense::hover());
+    paint_line(ui.painter(), galley, rect.min, size, color);
+    response
+}
+
+/// One line of text cut to the available width with an ellipsis, as a Text that can't wrap.
+pub fn truncated(ui: &mut Ui, s: &str, font: FontId, color: Color32) -> Response {
+    let size = theme::nominal(font.size);
+    let mut job = egui::text::LayoutJob::single_section(s.to_string(), egui::TextFormat { font_id: font, color, ..Default::default() });
+    job.wrap = egui::text::TextWrapping::truncate_at_width(ui.available_width());
+    let galley = ui.painter().layout_job(job);
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x, line_height(size)), Sense::hover());
+    paint_line(ui.painter(), galley, rect.min, size, color);
+    response
+}
+
+/// Text wrapped to the available width, each line the Mac's height.
+pub fn wrapped(ui: &mut Ui, s: &str, font: FontId, color: Color32) -> Response {
+    let size = theme::nominal(font.size);
+    let mut job = egui::text::LayoutJob::single_section(s.to_string(), egui::TextFormat { font_id: font, color, line_height: Some(line_height(size)), ..Default::default() });
+    job.wrap.max_width = ui.available_width();
+    let galley = ui.painter().layout_job(job);
+    let lines = galley.rows.len().max(1) as f32;
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x, lines * line_height(size)), Sense::hover());
+    paint_line(ui.painter(), galley, rect.min, size, color);
     response
 }
 
@@ -48,9 +113,11 @@ pub fn secondary(ui: &mut Ui, s: &str, size: f32) -> Response {
 
 /// A label that changes `value` when dragged sideways (`scrubbable`), `sensitivity` per point.
 pub fn scrub_label(ui: &mut Ui, s: &str, font: FontId, color: Color32, value: &mut f64, sensitivity: f64, range: RangeInclusive<f64>, enabled: bool) -> Response {
+    let size = theme::nominal(font.size);
     let galley = ui.painter().layout_no_wrap(s.to_string(), font, color);
-    let (rect, response) = ui.allocate_exact_size(galley.size(), if enabled { Sense::drag() } else { Sense::hover() });
-    ui.painter().galley(rect.min, galley, if enabled { color } else { color.gamma_multiply(0.45) });
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x, line_height(size)), if enabled { Sense::drag() } else { Sense::hover() });
+    // A disabled SwiftUI container leaves plain text as it is.
+    paint_line(ui.painter(), galley, rect.min, size, color);
     if enabled {
         let response = response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
         if response.dragged() {
@@ -62,68 +129,85 @@ pub fn scrub_label(ui: &mut Ui, s: &str, font: FontId, color: Color32, value: &m
     response
 }
 
-/// The Mac's checkbox: 14 pt rounded box, accent when on, then the title.
+/// The Mac's checkbox (macOS 26): a 16-point rounded box, a light well when off and the accent
+/// with a white check when on, then the title 6 points on.
 pub fn checkbox(ui: &mut Ui, value: &mut bool, title: &str) -> Response {
     let font = control_font(ui);
     let galley = ui.painter().layout_no_wrap(title.to_string(), font, color::label());
-    let size = vec2(14.0 + 6.0 + galley.size().x, metric::CONTROL_HEIGHT);
+    // A checkbox row in a VStack takes 16.5 points, the box half a point below its top.
+    let size = vec2(16.0 + 6.0 + galley.size().x, 16.5);
     let (rect, mut response) = ui.allocate_exact_size(size, Sense::click());
     if response.clicked() {
         *value = !*value;
         response.mark_changed();
     }
     let p = ui.painter();
-    let bx = Rect::from_center_size(pos2(rect.min.x + 7.0, rect.center().y), vec2(14.0, 14.0));
+    let bx = Rect::from_min_size(pos2(rect.min.x, (rect.center().y - 7.75).round()), vec2(16.0, 16.0));
     if *value {
-        p.rect_filled(bx, 3.5, color::ACCENT);
-        let s = Stroke::new(1.8, Color32::WHITE);
-        p.line(vec![pos2(bx.min.x + 3.5, bx.center().y + 0.2), pos2(bx.min.x + 6.0, bx.max.y - 3.8), pos2(bx.max.x - 3.2, bx.min.y + 3.6)], s);
+        p.rect_filled(bx, 4.5, color::CONTROL_ACCENT);
+        let s = Stroke::new(1.7, Color32::WHITE);
+        p.line(vec![pos2(bx.min.x + 4.0, bx.center().y + 0.3), pos2(bx.min.x + 6.8, bx.max.y - 4.3), pos2(bx.max.x - 3.8, bx.min.y + 4.0)], s);
     } else {
-        p.rect_filled(bx, 3.5, white_alpha(0.08));
-        p.rect_stroke(bx, 3.5, Stroke::new(1.0, white_alpha(0.22)), StrokeKind::Inside);
+        p.rect_filled(bx, 4.5, color::control_well());
     }
-    p.galley(pos2(bx.max.x + 6.0, rect.center().y - galley.size().y / 2.0), galley, color::label());
+    center_line(p, galley, bx.max.x + 6.0, bx.center().y, color::label());
     response
 }
 
-/// A segmented picker (`.pickerStyle(.segmented)`), capsule track with a lighter selected pill.
+/// A segmented picker (`.pickerStyle(.segmented)`) in macOS 26: a 24-point capsule track with
+/// equal segments, the selected one filled with the accent and titled in white.
 pub fn segmented<T: Copy + PartialEq>(ui: &mut Ui, value: &mut T, all: &[T], title: impl Fn(T) -> &'static str) -> Response {
     let font = control_font(ui);
     let galleys: Vec<_> = all.iter().map(|v| ui.painter().layout_no_wrap(title(*v).to_string(), font.clone(), color::label())).collect();
-    let widths: Vec<f32> = galleys.iter().map(|g| g.size().x + 22.0).collect();
-    let total = widths.iter().sum::<f32>() + 4.0;
+    let segment = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max).ceil() + 23.0;
+    let total = segment * all.len() as f32;
     let (rect, mut response) = ui.allocate_exact_size(vec2(total, metric::CONTROL_HEIGHT), Sense::click());
     let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::same(11), white_alpha(0.10));
-    let mut x = rect.min.x + 2.0;
+    let radius = CornerRadius::same((metric::CONTROL_HEIGHT / 2.0) as u8);
+    p.rect_filled(rect, radius, color::segment_track());
     let selected = all.iter().position(|v| *v == *value);
-    for (i, (g, w)) in galleys.into_iter().zip(&widths).enumerate() {
-        let seg = Rect::from_min_size(pos2(x, rect.min.y + 2.0), vec2(*w, rect.height() - 4.0));
-        if Some(i) == selected {
-            p.rect_filled(seg, CornerRadius::same(9), white_alpha(0.26));
-        } else if i > 0 && Some(i - 1) != selected {
-            p.line_segment([pos2(x, rect.min.y + 6.0), pos2(x, rect.max.y - 6.0)], Stroke::new(1.0, white_alpha(0.12)));
+    for (i, g) in galleys.into_iter().enumerate() {
+        let seg = Rect::from_min_size(pos2(rect.min.x + i as f32 * segment, rect.min.y), vec2(segment, rect.height()));
+        let text = if Some(i) == selected {
+            p.rect_filled(seg, radius, color::CONTROL_ACCENT);
+            Color32::WHITE
+        } else {
+            color::label()
+        };
+        // A 14-point divider between two unselected segments.
+        if i > 0 && Some(i) != selected && Some(i - 1) != selected {
+            let x = seg.min.x.round();
+            p.rect_filled(Rect::from_min_max(pos2(x, rect.center().y - 7.0), pos2(x + 1.0, rect.center().y + 7.0)), 0.0, white_alpha(0.1));
         }
-        p.galley(seg.center() - g.size() / 2.0, g, color::label());
+        let x = seg.center().x - g.size().x / 2.0;
+        center_line(p, g, x, seg.center().y, text);
         if response.clicked() && response.interact_pointer_pos().is_some_and(|pos| seg.contains(pos)) && Some(i) != selected {
             *value = all[i];
             response.mark_changed();
         }
-        x += w;
     }
     response
 }
 
-/// A horizontal slider, `width` wide: 4 pt track filled with the accent up to the knob.
+/// A horizontal slider, `width` wide (macOS 26): a 6-point track filled with the accent up to a
+/// 20 × 16 capsule knob, which travels within the frame.
 pub fn slider(ui: &mut Ui, value: &mut f64, range: RangeInclusive<f64>, width: f32, enabled: bool) -> Response {
-    let (rect, mut response) = ui.allocate_exact_size(vec2(width, metric::CONTROL_HEIGHT), if enabled { Sense::click_and_drag() } else { Sense::hover() });
+    slider_with_ticks(ui, value, range, width, enabled, None)
+}
+
+/// A `slider` with `ticks` + 1 tick marks under it, as a SwiftUI Slider with a `step` draws:
+/// 2-point dots below the track, which then sits near the top of a 16-point frame.
+pub fn slider_with_ticks(ui: &mut Ui, value: &mut f64, range: RangeInclusive<f64>, width: f32, enabled: bool, ticks: Option<usize>) -> Response {
+    let height = if ticks.is_some() { 16.0 } else { metric::CONTROL_HEIGHT };
+    let (rect, mut response) = ui.allocate_exact_size(vec2(width, height), if enabled { Sense::click_and_drag() } else { Sense::hover() });
     let (lo, hi) = (*range.start(), *range.end());
-    let knob_r = 8.0;
-    let track = Rect::from_min_max(pos2(rect.min.x + knob_r, rect.center().y - 2.0), pos2(rect.max.x - knob_r, rect.center().y + 2.0));
+    let (knob_w, knob_h) = (20.0, 16.0);
+    let cy = if ticks.is_some() { rect.min.y + 7.5 } else { rect.center().y.round() };
+    let (start, end) = (rect.min.x + knob_w / 2.0, rect.max.x - knob_w / 2.0);
     if enabled && (response.dragged() || response.clicked()) {
         if let Some(pos) = response.interact_pointer_pos() {
             // A track click jumps the knob there (`SliderSnap`), as does a drag.
-            let t = ((pos.x - track.min.x) / track.width()).clamp(0.0, 1.0) as f64;
+            let t = ((pos.x - start) / (end - start)).clamp(0.0, 1.0) as f64;
             let v = lo + t * (hi - lo);
             if v != *value {
                 *value = v;
@@ -133,13 +217,22 @@ pub fn slider(ui: &mut Ui, value: &mut f64, range: RangeInclusive<f64>, width: f
     }
     let t = if hi > lo { ((*value - lo) / (hi - lo)).clamp(0.0, 1.0) as f32 } else { 0.0 };
     let p = ui.painter();
-    let dim = if enabled { 1.0 } else { 0.45 };
-    p.rect_filled(track, 2.0, white_alpha(0.2 * dim));
-    let knob_x = track.min.x + t * track.width();
-    p.rect_filled(Rect::from_min_max(track.min, pos2(knob_x, track.max.y)), 2.0, color::ACCENT.gamma_multiply(dim));
-    let center = pos2(knob_x, rect.center().y);
-    p.circle_filled(center + vec2(0.0, 0.5), knob_r, black_alpha(0.25));
-    p.circle_filled(center, knob_r - 0.5, theme::gray(0.84).gamma_multiply(dim));
+    let track = Rect::from_min_max(pos2(rect.min.x, cy - 3.0), pos2(rect.max.x, cy + 3.0));
+    p.rect_filled(track, 3.0, color::control_well());
+    if let Some(n) = ticks.filter(|n| *n > 0) {
+        for k in 0..=n {
+            let x = (start + (end - start) * k as f32 / n as f32).round();
+            p.rect_filled(Rect::from_min_size(pos2(x - 1.0, cy + 6.5), vec2(2.0, 2.0)), 0.0, white_alpha(0.187));
+        }
+    }
+    let knob_x = start + t * (end - start);
+    // Disabled, the filled part turns a light gray and the knob stays as it is.
+    if t > 0.0 {
+        p.rect_filled(Rect::from_min_max(track.min, pos2(knob_x, track.max.y)), 3.0, if enabled { color::CONTROL_ACCENT } else { white_alpha(0.12) });
+    }
+    let knob = Rect::from_center_size(pos2(knob_x, cy), vec2(knob_w, knob_h));
+    p.rect_filled(knob.translate(vec2(0.0, 0.5)).expand(0.5), 8.5, black_alpha(0.06));
+    p.rect_filled(knob, 8.0, color::KNOB);
     response
 }
 
@@ -176,13 +269,13 @@ pub fn number_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &m
     let focused = ui.memory(|m| m.has_focus(id));
     let font = control_font(ui);
     let mut buf = if focused { ui.data(|d| d.get_temp::<String>(buf_id)).unwrap_or_else(|| fmt(*value)) } else { fmt(*value) };
-    let response = field_frame(ui, width, enabled, |ui| {
+    let response = field_frame(ui, width, enabled, &font.clone(), |ui| {
         let edit = egui::TextEdit::singleline(&mut buf)
             .id(id)
             .frame(egui::Frame::NONE)
             .font(font)
             .horizontal_align(if right { Align::Max } else { Align::Min })
-            .vertical_align(Align::Center)
+            .vertical_align(Align::Min)
             .margin(egui::Margin::symmetric(0, 0));
         ui.add_enabled_ui(enabled, |ui| ui.add_sized(ui.available_size(), edit)).inner
     });
@@ -206,30 +299,42 @@ pub fn number_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &m
 /// A rounded-border text field for free text, with an optional placeholder.
 pub fn text_field(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &mut String, width: f32, placeholder: &str, font: FontId) -> Response {
     let id = ui.make_persistent_id(id_salt);
-    field_frame(ui, width, true, |ui| {
+    field_frame(ui, width, true, &font.clone(), |ui| {
         let edit = egui::TextEdit::singleline(value)
             .id(id)
             .frame(egui::Frame::NONE)
             .font(font)
             .hint_text(placeholder)
-            .vertical_align(Align::Center)
+            .vertical_align(Align::Min)
             .margin(egui::Margin::symmetric(0, 0));
         ui.add_sized(ui.available_size(), edit)
     })
 }
 
-fn field_frame(ui: &mut Ui, width: f32, enabled: bool, content: impl FnOnce(&mut Ui) -> Response) -> Response {
+/// A rounded-border field (macOS 26): `textBackgroundColor` inside a faint bezel drawn one point
+/// outside the control's frame, text inset 7 points.
+fn field_frame(ui: &mut Ui, width: f32, enabled: bool, font: &FontId, content: impl FnOnce(&mut Ui) -> Response) -> Response {
     let (rect, _) = ui.allocate_exact_size(vec2(width, metric::CONTROL_HEIGHT), Sense::hover());
-    let p = ui.painter();
-    p.rect_filled(rect, 5.0, color::field());
-    p.rect_stroke(rect, 5.0, Stroke::new(1.0, color::field_border()), StrokeKind::Inside);
-    // The text sits in a child so the row's cursor stays where the frame left it.
-    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect.shrink2(vec2(6.0, 2.0))).layout(egui::Layout::left_to_right(Align::Center)));
-    let response = content(&mut child);
+    paint_field(ui.painter(), rect);
+    // The text sits in a child so the row's cursor stays where the frame left it, placed so its
+    // baseline falls where SF Pro's would in a line centered in the field.
+    let size = theme::nominal(font.size);
+    let baseline = rect.center().y - line_height(size) / 2.0 + ascent(size);
+    let sample = ui.painter().layout_no_wrap("0".into(), font.clone(), color::label());
+    let top = baseline - galley_baseline(&sample);
+    let text = Rect::from_min_max(pos2(rect.min.x + 7.0, top), pos2(rect.max.x - 7.0, rect.max.y));
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(text).layout(egui::Layout::left_to_right(Align::Min)));
     if !enabled {
-        ui.painter().rect_filled(rect, 5.0, theme::gray(0.14).gamma_multiply(0.4));
+        child.disable();
     }
-    response
+    content(&mut child)
+}
+
+/// A text field's bezel around a control frame `rect`.
+pub fn paint_field(p: &egui::Painter, rect: Rect) {
+    // The bezel's ring lies over what is behind the field, the fill inside it.
+    p.rect_filled(rect.expand(1.0), 8.0, color::field_border());
+    p.rect_filled(rect, 7.0, color::FIELD);
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -238,7 +343,8 @@ pub enum ButtonStyle {
     Prominent,
 }
 
-/// A bordered push button with the capsule shape `.roundedControls()` gives every button.
+/// A bordered push button with the capsule shape `.roundedControls()` gives every button: 24
+/// points tall, the title 13 points in from each end.
 pub fn button(ui: &mut Ui, title: &str, size: f32, style: ButtonStyle, enabled: bool) -> Response {
     let font = theme::regular(size);
     let text_color = match style {
@@ -246,8 +352,8 @@ pub fn button(ui: &mut Ui, title: &str, size: f32, style: ButtonStyle, enabled: 
         ButtonStyle::Bordered => color::label(),
     };
     let galley = ui.painter().layout_no_wrap(title.to_string(), font, text_color);
-    let height = if size > 12.0 { 24.0 } else { metric::CONTROL_HEIGHT };
-    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x + 22.0, height), if enabled { Sense::click() } else { Sense::hover() });
+    let height = metric::CONTROL_HEIGHT;
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x.ceil() + 26.0, height), if enabled { Sense::click() } else { Sense::hover() });
     let pressed = response.is_pointer_button_down_on();
     let fill = match style {
         ButtonStyle::Prominent => if pressed { color::ACCENT.gamma_multiply(0.8) } else { color::ACCENT },
@@ -256,24 +362,31 @@ pub fn button(ui: &mut Ui, title: &str, size: f32, style: ButtonStyle, enabled: 
     let dim = if enabled { 1.0 } else { 0.4 };
     let p = ui.painter();
     p.rect_filled(rect, CornerRadius::same((height / 2.0) as u8), fill.gamma_multiply(dim));
-    p.galley(rect.center() - galley.size() / 2.0, galley, text_color.gamma_multiply(dim));
+    center_line(p, galley.clone(), rect.center().x - galley.size().x / 2.0, rect.center().y, text_color.gamma_multiply(dim));
     response
 }
 
-/// A pop-up button (`NSPopUpButton` / `.pickerStyle(.menu)`): capsule, title, up-down chevrons.
-/// `width` fixes the button's width; `None` fits the title. Returns true when the value changed.
+/// A pop-up button (`NSPopUpButton` / `.pickerStyle(.menu)`) in macOS 26: a 24-point capsule,
+/// the title 13 points in, up-down chevrons centered 13.5 points from the right end. `width`
+/// fixes the button's width; `None` fits the widest option, as AppKit sizes a pop-up.
+/// Returns true when the value changed.
 pub fn popup<T: Copy + PartialEq>(ui: &mut Ui, id_salt: impl Hash + std::fmt::Debug, value: &mut T, groups: &[&[T]], title: impl Fn(T) -> &'static str, width: Option<f32>, enabled: bool) -> bool {
     let font = control_font(ui);
     let galley = ui.painter().layout_no_wrap(title(*value).to_string(), font.clone(), color::label());
-    let w = width.unwrap_or(galley.size().x + 34.0);
+    let widest = groups
+        .iter()
+        .flat_map(|g| g.iter())
+        .map(|o| ui.painter().layout_no_wrap(title(*o).to_string(), font.clone(), color::label()).size().x)
+        .fold(galley.size().x, f32::max);
+    let w = width.unwrap_or(widest.ceil() + POPUP_CHROME);
     let (rect, response) = ui.allocate_exact_size(vec2(w, metric::CONTROL_HEIGHT), if enabled { Sense::click() } else { Sense::hover() });
     let response = response.on_hover_cursor(egui::CursorIcon::Default);
     let dim = if enabled { 1.0 } else { 0.4 };
     let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::same(11), color::control().gamma_multiply(dim));
-    let text_clip = Rect::from_min_max(rect.min, pos2(rect.max.x - 22.0, rect.max.y));
-    p.with_clip_rect(text_clip).galley(pos2(rect.min.x + 10.0, rect.center().y - galley.size().y / 2.0), galley, color::label().gamma_multiply(dim));
-    icons::paint(p, Icon::Symbol("chevron.up.chevron.down"), pos2(rect.max.x - 12.0, rect.center().y), 10.0, color::label().gamma_multiply(dim));
+    p.rect_filled(rect, CornerRadius::same((metric::CONTROL_HEIGHT / 2.0) as u8), color::control().gamma_multiply(dim));
+    let text_clip = Rect::from_min_max(rect.min, pos2(rect.max.x - 24.0, rect.max.y));
+    center_line(&p.with_clip_rect(text_clip), galley, rect.min.x + 13.0, rect.center().y, color::label().gamma_multiply(dim));
+    icons::paint(p, Icon::Symbol("chevron.up.chevron.down"), pos2(rect.max.x - 13.5, rect.center().y), 10.0, color::label().gamma_multiply(dim));
     let mut changed = false;
     let _ = id_salt;
     egui::Popup::menu(&response).width(w.max(120.0)).show(|ui| {
@@ -293,6 +406,10 @@ pub fn popup<T: Copy + PartialEq>(ui: &mut Ui, id_salt: impl Hash + std::fmt::De
     });
     changed
 }
+
+/// What a fitted pop-up adds to its widest title: 13 points before it, and after it the gap and
+/// the chevrons (measured on the Mac: Canvas Size's units make a 122-point pop-up).
+pub const POPUP_CHROME: f32 = 54.0;
 
 /// A labeled menu picker: "Label" then the pop-up, `width` wide in all.
 pub fn labeled_popup<T: Copy + PartialEq>(ui: &mut Ui, label_text: &str, value: &mut T, groups: &[&[T]], title: impl Fn(T) -> &'static str, width: f32, enabled: bool) -> bool {

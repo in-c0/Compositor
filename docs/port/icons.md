@@ -2,7 +2,7 @@
 
 The Mac app draws its icons with SF Symbols. Apple's license limits SF Symbols to Apple platforms, so the port can't ship them. It uses [Phosphor](https://phosphoricons.com) instead (MIT license), through the `egui-phosphor` crate, which embeds the regular and fill fonts. The mapping lives in `port/crates/app/src/icons.rs` (`phosphor()`); this page lists it so the substitutions can be reviewed in one place.
 
-Phosphor glyphs fill more of their em square than SF Symbols do, so `icons::paint` draws them at 1.12 times the symbol's point size to match the Mac's optical size. They will never match SF Symbols pixel for pixel, so UI parity checks need a tolerance around icons.
+Phosphor glyphs fill more of their em square than SF Symbols do, so `icons::paint` draws them at 1.12 times the symbol's point size to match the Mac's optical size. The eyes are the exception: SF Symbols' `eye` is much wider than Phosphor's (18 against 14 points at 13 points, measured in the Layers panel), so `eye`, `eye.slash` and `eye.fill` are drawn 1.3 times larger again. They will never match SF Symbols pixel for pixel. `parity ui` (parity/README.md, "Comparing the UI") therefore doesn't gate on pixels: it reports each state's SSIM and share of far pixels, and the icon substitutions are part of what keeps those below a perfect score.
 
 ## Drawn by hand
 
@@ -17,6 +17,13 @@ The Mac draws four tool icons itself, with SwiftUI `Canvas` paths. The port copi
 
 The three-dot preset button in the New canvas form and the color picker's hue arrows are also drawn directly, as on the Mac.
 
+Two SF Symbols have no close Phosphor glyph, so the port draws them itself, sized from the Mac's tool rail at 17 points:
+
+| SF Symbol | Where | Port |
+|---|---|---|
+| `rectangle.dashed` | Marquee tool (Rectangle) | `icons::rectangle_dashed`: a wide dashed rounded rectangle, 20 × 15 with its stroke. Phosphor's `selection` is square |
+| `square.on.circle` | Shape tool | `icons::square_on_circle`: a circle behind a rounded square at its lower right. Phosphor's `shapes` is a triangle, circle and square |
+
 ## SF Symbol to Phosphor
 
 "Fill" means the glyph comes from Phosphor's fill font.
@@ -24,7 +31,6 @@ The three-dot preset button in the New canvas form and the color picker's hue ar
 | SF Symbol | Phosphor | Where |
 |---|---|---|
 | `arrow.up.left.and.arrow.down.right` | `arrows-out-simple` | Move tool |
-| `rectangle.dashed` | `selection` | Marquee tool (Rectangle) |
 | `circle.dashed` | `circle-dashed` | Marquee tool (Ellipse) |
 | `lasso` | `lasso` | Lasso tool |
 | `wand.and.stars` | `magic-wand` | Magic tool (Wand) |
@@ -35,7 +41,6 @@ The three-dot preset button in the New canvas form and the color picker's hue ar
 | `seal` | `stamp` | Clone Stamp fallback (the rail draws the custom icon) |
 | `drop` | `drop` | Smear tool |
 | `square.bottomhalf.filled` | `gradient` | Gradient fallback (the rail draws the custom icon) |
-| `square.on.circle` | `shapes` | Shape tool |
 | `textformat` | `text-aa` | Type tool; text layer thumbnails |
 | `eyedropper` | `eyedropper` | Eyedropper tool; sampling buttons |
 | `hand.draw` | `hand` | Hand tool |

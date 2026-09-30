@@ -318,7 +318,7 @@ pub fn modify(app: &mut App, kind: u8, amount: f64) {
 }
 
 pub fn open_color_range(app: &mut App) {
-    app.sheet = Some(crate::ui::dialogs::Sheet::ColorRange(ColorRange { samples: Vec::new(), fuzziness: 40.0, invert: false, preview: None, previewed: None }));
+    app.sheet = Some(crate::ui::dialogs::Sheet::ColorRange(ColorRange { samples: Vec::new(), fuzziness: 40.0, invert: false, mode: 0, preview: None, previewed: None }));
 }
 
 /// Select > Color Range…: the colors picked on the canvas, and the mask they select.
@@ -326,6 +326,8 @@ pub struct ColorRange {
     pub samples: Vec<(Point, &'static str)>,
     pub fuzziness: f64,
     pub invert: bool,
+    /// The eyedropper in use: 0 picks the color, 1 adds one, 2 takes one away.
+    pub mode: u8,
     /// The selection preview (black and white, canvas-sized), and what it was made from.
     pub preview: Option<egui::TextureHandle>,
     pub previewed: Option<(usize, i64, bool)>,

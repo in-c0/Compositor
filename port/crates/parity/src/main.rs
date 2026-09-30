@@ -9,6 +9,7 @@ mod projects;
 mod report;
 mod roundtrip;
 mod selection;
+mod ui;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -64,6 +65,21 @@ enum Command {
         out: PathBuf,
         #[arg(long, default_value = "local")]
         commit: String,
+        /// `ui-results.json` from `parity ui`, for the UI section.
+        #[arg(long)]
+        ui: Option<PathBuf>,
+    },
+    /// Compare the Windows app's UI states and menus with the Mac's (parity/README.md, "UI states").
+    Ui {
+        /// The Mac's renders: the references' `ui/` folder.
+        #[arg(long)]
+        mac: PathBuf,
+        /// `compositor --render-ui`'s output folder.
+        #[arg(long)]
+        windows: PathBuf,
+        /// Where `ui-results.json`, `ui-report.md` and `compare/` go.
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Compare the project the port imports from each Photoshop case with the Mac's `.comp`.
     CompareProjects {
@@ -93,11 +109,28 @@ fn main() -> Result<()> {
         Command::Run { corpus, refs, out, tolerances, platform, cases, baseline } => {
             run(&corpus, &refs, &out, &tolerances, &platform, &cases, baseline.as_deref())
         }
-        Command::Report { results, features, tolerances, out, commit } => {
+        Command::Report { results, features, tolerances, out, commit, ui } => {
             let runs = results.iter().map(|p| RunResults::load(p)).collect::<Result<Vec<_>>>()?;
             let features = report::FeatureList::load(&features)?;
             let tolerances = Tolerances::load(&tolerances)?;
-            std::fs::write(out, report::parity_markdown(&features, &runs, &tolerances.overrides, &commit))?;
+            let ui = match ui {
+                Some(path) if path.exists() => Some(ui::UiResults::load(&path)?),
+                _ => None,
+            };
+            std::fs::write(out, report::parity_markdown(&features, &runs, &tolerances.overrides, &commit, ui.as_ref()))?;
+            Ok(())
+        }
+        Command::Ui { mac, windows, out } => {
+            let results = ui::compare(&mac, &windows, &out)?;
+            println!("{}", ui::markdown(&results, 2));
+            if !results.passes() {
+                bail!(
+                    "UI parity: {} states fail, {} error, {} menu differences",
+                    results.count(Status::Fail),
+                    results.count(Status::Error),
+                    results.menu_differences.len()
+                );
+            }
             Ok(())
         }
         Command::CompareProjects { corpus, refs, cases } => projects::compare_projects(&corpus, &refs, &cases),

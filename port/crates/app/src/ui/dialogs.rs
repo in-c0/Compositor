@@ -3,13 +3,15 @@
 //! Canvas Size, Image Size, Trim, Export JPEG, the Photoshop conversion report, layer effects,
 //! Rename, the selection amount and Color Range. Each ends in the engine's own operation.
 //!
-//! `sheets.rs` draws the same sheets for `--render-ui`; these are the live ones.
+//! They follow the Mac's layout and metrics (the helpers in `sheets.rs`), and `--render-ui` draws
+//! them for the parity states; `sheets.rs` keeps the sheets the port has no live version of.
 
 use crate::app::App;
 use crate::document::Doc;
 use crate::gfx::Gfx;
-use crate::theme::{self, color};
-use crate::widgets::{self as w, ButtonStyle};
+use crate::theme::{self, color, metric};
+use crate::ui::sheets as kit;
+use crate::widgets::{self as w, ButtonStyle, SwatchStyle};
 use comp_format::{Adjustment, AdjustmentKind, Channel, ColorRange, CurvePoint, Project};
 use eframe::egui::{self, Align, Color32, Layout, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::{Value, json};
@@ -40,56 +42,76 @@ enum Close {
     Ok,
 }
 
+/// Cancel · Spacer · OK (the default button), the usual sheet footer.
 fn footer(ui: &mut Ui, ok: &str, ok_enabled: bool) -> Close {
     let mut close = Close::Open;
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 8.0;
+    kit::hstack(ui, 8.0, |ui| {
         if w::button(ui, "Cancel", 13.0, ButtonStyle::Bordered, true).clicked() {
             close = Close::Cancel;
         }
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+        kit::trailing(ui, |ui| {
             if w::button(ui, ok, 13.0, ButtonStyle::Prominent, ok_enabled).clicked() {
                 close = Close::Ok;
             }
         });
     });
-    // Return and Escape answer the sheet, as its default and cancel buttons.
+    keys(ui, ok_enabled, close)
+}
+
+/// Return and Escape answer the sheet, as its default and cancel buttons.
+fn keys(ui: &mut Ui, ok_enabled: bool, close: Close) -> Close {
     let (enter, escape) = ui.input_mut(|i| (i.consume_key(egui::Modifiers::NONE, egui::Key::Enter), i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)));
     if escape {
-        close = Close::Cancel;
+        Close::Cancel
     } else if enter && ok_enabled && !ui.ctx().egui_wants_keyboard_input() {
-        close = Close::Ok;
+        Close::Ok
+    } else {
+        close
     }
-    close
 }
 
 fn title2(ui: &mut Ui, s: &str) {
-    w::text(ui, s, theme::bold(17.0), color::label());
+    kit::title2(ui, s);
 }
 
+/// Callout text wrapped across the sheet.
 fn para(ui: &mut Ui, s: &str, c: Color32) {
-    ui.add(egui::Label::new(egui::RichText::new(s).font(theme::regular(12.0)).color(c)).wrap().selectable(false));
+    kit::para(ui, s, 12.0, c);
 }
 
 fn divider(ui: &mut Ui) {
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
-    ui.painter().rect_filled(rect, 0.0, color::separator());
+    kit::divider(ui);
 }
 
-/// A window for a sheet, `width` wide, centered on the editor.
-fn window(ctx: &egui::Context, title: &str, width: f32, content: impl FnOnce(&mut Ui)) {
+/// `--render-ui` puts a point here to have the open sheet drawn there alone, as the Mac harness
+/// captures a sheet's content without its window, and reads the size it took from
+/// `CAPTURED_SIZE`.
+pub(crate) const CAPTURE: &str = "sheet-capture";
+pub(crate) const CAPTURED_SIZE: &str = "sheet-captured-size";
+
+/// A window for a sheet, `width` wide, centered on the editor. Its content is a VStack with the
+/// Mac sheet's `padding` and `spacing`, on `windowBackgroundColor`.
+fn window(ctx: &egui::Context, title: &str, width: f32, padding: f32, spacing: f32, content: impl FnOnce(&mut Ui)) {
+    let body = |ui: &mut Ui| {
+        ui.set_width(width - 2.0 * padding);
+        // No horizontal spacing: egui widens a vertical layout by it after each full-width row.
+        ui.spacing_mut().item_spacing = vec2(0.0, spacing);
+        content(ui);
+    };
+    let margin = egui::Margin::same(padding as i8);
+    if let Some(origin) = ctx.data(|d| d.get_temp::<egui::Pos2>(egui::Id::new(CAPTURE))) {
+        let frame = egui::Frame::NONE.fill(color::WINDOW_BACKGROUND).inner_margin(margin);
+        let shown = egui::Area::new(egui::Id::new("sheet")).fixed_pos(origin).order(egui::Order::Foreground).show(ctx, |ui| frame.show(ui, body));
+        ctx.data_mut(|d| d.insert_temp(egui::Id::new(CAPTURED_SIZE), shown.response.rect.size()));
+        return;
+    }
     egui::Window::new(title)
         .id(egui::Id::new("sheet"))
         .collapsible(false)
         .resizable(false)
         .default_pos(ctx.content_rect().center() - vec2(width / 2.0, 200.0))
-        .fixed_size(vec2(width, 0.0))
-        .frame(egui::Frame::window(&ctx.global_style()).fill(theme::gray(0.17)).inner_margin(24))
-        .show(ctx, |ui| {
-            ui.set_width(width - 48.0);
-            ui.spacing_mut().item_spacing = vec2(8.0, 14.0);
-            content(ui);
-        });
+        .frame(egui::Frame::window(&ctx.global_style()).fill(color::WINDOW_BACKGROUND).inner_margin(margin))
+        .show(ctx, body);
 }
 
 /// Draws the open sheet, if any, and acts on its buttons.
@@ -118,9 +140,10 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
 pub fn canvas_press(app: &mut App, pixel: [f64; 2], modifiers: egui::Modifiers) {
     match &mut app.sheet {
         Some(Sheet::ColorRange(s)) => {
-            let mode = if modifiers.shift {
+            // Shift and Alt pick Add and Remove for one click; otherwise the eyedropper in use.
+            let mode = if modifiers.shift || (!modifiers.alt && s.mode == 1) {
                 "Add"
-            } else if modifiers.alt {
+            } else if modifiers.alt || s.mode == 2 {
                 "Remove"
             } else {
                 s.samples.clear();
@@ -133,7 +156,7 @@ pub fn canvas_press(app: &mut App, pixel: [f64; 2], modifiers: egui::Modifiers) 
             let gfx = app.gfx.clone();
             let sampled = app.current.and_then(|i| app.docs.get_mut(i)).and_then(|d| d.sample(&gfx, pixel));
             if let (Some(c), Some(Sheet::ColorPicker { color, .. })) = (sampled, &mut app.sheet) {
-                *color = egui::ecolor::Hsva::from_rgb(c);
+                *color = hsb_of(c);
             }
         }
         Some(Sheet::Filter(f)) if f.sampling.is_some() => {
@@ -712,29 +735,28 @@ fn filter_sheet(app: &mut App, ctx: &egui::Context, f: &mut FilterSheet) -> bool
     let mut close = Close::Open;
     let title = filter_title(f);
     let has_selection = app.doc().is_some_and(|d| d.selection.is_some());
-    window(ctx, &title, width, |ui| {
+    window(ctx, &title, width, 24.0, 16.0, |ui| {
         match f.kind {
             "Levels" => levels_controls(ui, f),
             "Hue/Saturation" => hue_saturation_controls(ui, f),
             kind => {
                 let ctls = controls(kind);
+                // `labelWidth`: the widest label shown, at least 60.
                 let widest = ctls
                     .iter()
                     .filter_map(|c| match c {
                         Ctl::Slider { title, .. } => Some(*title),
-                        Ctl::If(_, Ctl::Slider { title, .. }) => Some(*title),
+                        Ctl::If(when, Ctl::Slider { title, .. }) if when(&f.settings) => Some(*title),
                         _ => None,
                     })
-                    .map(|t| ui.painter().layout_no_wrap(t.into(), theme::regular(13.0), color::label()).size().x)
+                    .map(|t| kit::text_width(ui, t))
                     .fold(60.0f32, f32::max);
                 for c in &ctls {
                     control(ui, c, &mut f.settings, widest, &mut f.curve_point);
                 }
+                w::checkbox(ui, &mut f.preview, "Preview");
             }
         }
-        ui.horizontal(|ui| {
-            w::checkbox(ui, &mut f.preview, "Preview");
-        });
         if let Some(e) = &f.error {
             para(ui, e, color::ORANGE);
         }
@@ -792,7 +814,7 @@ fn filter_sheet(app: &mut App, ctx: &egui::Context, f: &mut FilterSheet) -> bool
 }
 
 /// One control row (`FilterSheet.control`): title (scrubs), slider, a right-aligned field and
-/// its unit.
+/// its unit, 10 points apart; pickers, toggles, swatches and headings as the Mac lays them out.
 fn control(ui: &mut Ui, c: &Ctl, v: &mut Value, label_width: f32, curve_point: &mut Option<usize>) {
     match *c {
         Ctl::If(when, inner) => {
@@ -803,10 +825,9 @@ fn control(ui: &mut Ui, c: &Ctl, v: &mut Value, label_width: f32, curve_point: &
         Ctl::Slider { title, path, lo, hi, unit, decimals, log } => {
             let mut value = get(v, path).as_f64().unwrap_or(lo);
             let before = value;
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 10.0;
-                let (rect, response) = ui.allocate_exact_size(vec2(label_width, 22.0), Sense::drag());
-                ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, title, theme::regular(13.0), color::label());
+            kit::hstack(ui, 10.0, |ui| {
+                let (rect, response) = ui.allocate_exact_size(vec2(label_width, w::line_height(13.0)), Sense::drag());
+                w::paint_centered(ui.painter(), title, theme::regular(13.0), color::label(), rect.min.x, rect.center().y);
                 if response.dragged() {
                     value = (value + response.drag_delta().x as f64 * (hi - lo) / 400.0).clamp(lo, hi);
                 }
@@ -843,9 +864,9 @@ fn control(ui: &mut Ui, c: &Ctl, v: &mut Value, label_width: f32, curve_point: &
             }
         }
         Ctl::Segment { title, path, options } => {
-            ui.horizontal(|ui| {
+            kit::hstack(ui, 8.0, |ui| {
                 if !title.is_empty() {
-                    w::text(ui, title, theme::regular(13.0), color::label());
+                    kit::body(ui, title, color::label());
                 }
                 let current = get(v, path).clone();
                 let mut index = options.iter().position(|(_, lit)| lit.value() == current).unwrap_or(0);
@@ -857,30 +878,28 @@ fn control(ui: &mut Ui, c: &Ctl, v: &mut Value, label_width: f32, curve_point: &
             });
         }
         Ctl::Menu { title, path, options } => {
-            ui.horizontal(|ui| {
-                w::text(ui, title, theme::regular(13.0), color::label());
+            kit::hstack(ui, 8.0, |ui| {
+                kit::body(ui, title, color::label());
                 let current = get(v, path).as_str().unwrap_or("").to_string();
                 let mut index = options.iter().position(|o| *o == current).unwrap_or(0);
                 let all: Vec<usize> = (0..options.len()).collect();
-                if w::popup(ui, ("menu", path), &mut index, &[&all], |i| options[i], Some(220.0), true) {
+                if w::popup(ui, ("menu", path), &mut index, &[&all], |i| options[i], None, true) {
                     set(v, path, json!(options[index]));
                 }
             });
         }
         Ctl::Color { title, path } => {
-            ui.horizontal(|ui| {
-                let (rect, _) = ui.allocate_exact_size(vec2(95.0, 22.0), Sense::hover());
-                ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, title, theme::regular(13.0), color::label());
+            kit::hstack(ui, 8.0, |ui| {
+                kit::fixed_label(ui, title, 95.0);
                 let c = get(v, path);
-                let mut rgb = [c["red"].as_f64().unwrap_or(0.0) as f32, c["green"].as_f64().unwrap_or(0.0) as f32, c["blue"].as_f64().unwrap_or(0.0) as f32];
-                if egui::widgets::color_picker::color_edit_button_rgb(ui, &mut rgb).changed() {
-                    set(v, path, json!({ "red": rgb[0] as f64, "green": rgb[1] as f64, "blue": rgb[2] as f64 }));
+                let rgb = [c["red"].as_f64().unwrap_or(0.0) as f32, c["green"].as_f64().unwrap_or(0.0) as f32, c["blue"].as_f64().unwrap_or(0.0) as f32];
+                let style = SwatchStyle { radius: 6.0, inner_white: 1.5, outer_black: 1.0 };
+                if let Some(picked) = swatch_picker(ui, ("filter-color", path), rgb, vec2(24.0, 24.0), style) {
+                    set(v, path, json!({ "red": picked[0] as f64, "green": picked[1] as f64, "blue": picked[2] as f64 }));
                 }
             });
         }
-        Ctl::Heading(s) => {
-            w::text(ui, s, theme::semibold(13.0), color::label());
-        }
+        Ctl::Heading(s) => kit::headline(ui, s),
         Ctl::Caption(s) => para(ui, s, color::secondary()),
         Ctl::GradientBar => {
             let gm = &v["gradientMap"];
@@ -904,111 +923,131 @@ fn control(ui: &mut Ui, c: &Ctl, v: &mut Value, label_width: f32, curve_point: &
     }
 }
 
-/// `CurvesControls`: the channel, the curve (click to add a point, drag to move, max 32).
+/// A color swatch that opens a color picker below it; returns the color picked this frame.
+fn swatch_picker(ui: &mut Ui, id: impl std::hash::Hash + std::fmt::Debug, rgb: [f32; 3], size: egui::Vec2, style: SwatchStyle) -> Option<[f32; 3]> {
+    let response = w::swatch(ui, w::rgb(rgb), size, style);
+    let mut color = w::rgb(rgb);
+    let mut picked = None;
+    egui::Popup::menu(&response).id(egui::Id::new(id)).show(|ui| {
+        if egui::widgets::color_picker::color_picker_color32(ui, &mut color, egui::widgets::color_picker::Alpha::Opaque) {
+            picked = Some([color.r(), color.g(), color.b()].map(|c| c as f32 / 255.0));
+        }
+    });
+    picked
+}
+
+/// `CurvesControls`: the channel, the curve (click to add a point, drag to move, max 32), then
+/// Remove point and Reset curve, 12 points apart.
 fn curves_controls(ui: &mut Ui, v: &mut Value, selected: &mut Option<usize>) {
     let mut curves: comp_format::CurvesSettings = serde_json::from_value(v["curves"].clone()).unwrap_or_default();
     let before = curves.clone();
     let channels = [Channel::Rgb, Channel::Red, Channel::Green, Channel::Blue];
     let mut ci = channels.iter().position(|c| *c == curves.channel).unwrap_or(0);
-    ui.horizontal(|ui| {
-        w::text(ui, "Channel", theme::regular(13.0), color::label());
-        if w::popup(ui, "curves-channel", &mut ci, &[&[0usize, 1, 2, 3]], |i| ["RGB", "Red", "Green", "Blue"][i], Some(200.0), true) {
-            *selected = None;
-        }
-    });
-    curves.channel = channels[ci];
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 260.0), Sense::click_and_drag());
-    let p = ui.painter();
-    p.rect_filled(rect, 0.0, theme::black_alpha(0.35));
-    for i in 1..4 {
-        let f = i as f32 / 4.0;
-        p.line_segment([pos2(rect.min.x + f * rect.width(), rect.min.y), pos2(rect.min.x + f * rect.width(), rect.max.y)], Stroke::new(1.0, theme::white_alpha(0.12)));
-        p.line_segment([pos2(rect.min.x, rect.min.y + f * rect.height()), pos2(rect.max.x, rect.min.y + f * rect.height())], Stroke::new(1.0, theme::white_alpha(0.12)));
-    }
-    let to_view = |pt: &CurvePoint| pos2(rect.min.x + (pt.x / 255.0) as f32 * rect.width(), rect.max.y - (pt.y / 255.0) as f32 * rect.height());
-    let from_view = |pos: egui::Pos2| CurvePoint {
-        x: (((pos.x - rect.min.x) / rect.width()) as f64 * 255.0).round().clamp(0.0, 255.0),
-        y: (((rect.max.y - pos.y) / rect.height()) as f64 * 255.0).round().clamp(0.0, 255.0),
-    };
-    let points = &mut curves.channels[ci];
-    if response.drag_started() || response.clicked() {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let hit = points.iter().position(|pt| (to_view(pt) - pos).length() <= 8.0);
-            *selected = match hit {
-                Some(i) => Some(i),
-                None if points.len() < 32 => {
-                    let new = from_view(pos);
-                    let at = points.iter().position(|q| q.x > new.x).unwrap_or(points.len());
-                    points.insert(at, new);
-                    Some(at)
-                }
-                None => None,
-            };
-        }
-    }
-    if response.dragged() {
-        if let (Some(i), Some(pos)) = (*selected, response.interact_pointer_pos()) {
-            if i < points.len() {
-                let mut pt = from_view(pos);
-                // A point stays between its neighbors.
-                let lo = if i > 0 { points[i - 1].x + 1.0 } else { 0.0 };
-                let hi = if i + 1 < points.len() { points[i + 1].x - 1.0 } else { 255.0 };
-                pt.x = pt.x.clamp(lo, hi.max(lo));
-                points[i] = pt;
-            }
-        }
-    }
-    // The curve through the points, as straight pieces between samples of a monotone spline.
-    let samples: Vec<egui::Pos2> = (0..=64)
-        .map(|k| {
-            let x = k as f64 * 255.0 / 64.0;
-            to_view(&CurvePoint { x, y: interpolate(points, x) })
-        })
-        .collect();
-    p.add(egui::Shape::line(samples, Stroke::new(2.0, Color32::WHITE)));
-    for (i, pt) in points.iter().enumerate() {
-        p.circle_filled(to_view(pt), 4.0, if Some(i) == *selected { color::ACCENT } else { Color32::WHITE });
-    }
-    para(ui, "Click to add a point. Drag to adjust.", color::secondary());
-    ui.horizontal(|ui| {
-        if let Some(i) = selected.filter(|i| *i < points.len()) {
-            let pt = points[i];
-            w::text(ui, format!("Input {} · Output {}", pt.x, pt.y), egui::FontId::monospace(11.0), color::secondary());
-        }
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let removable = selected.is_some_and(|i| i > 0 && i + 1 < points.len());
-            if w::button(ui, "Remove point", 13.0, ButtonStyle::Bordered, removable).clicked() {
-                points.remove(selected.unwrap());
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 12.0;
+        kit::hstack(ui, 8.0, |ui| {
+            kit::body(ui, "Channel", color::label());
+            if w::popup(ui, "curves-channel", &mut ci, &[&[0usize, 1, 2, 3]], |i| ["RGB", "Red", "Green", "Blue"][i], None, true) {
                 *selected = None;
             }
         });
+        curves.channel = channels[ci];
+        let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 260.0), Sense::click_and_drag());
+        // A Canvas clips what it draws: half of each end point and of the outer grid lines.
+        let p = ui.painter().with_clip_rect(rect);
+        p.rect_filled(rect, 0.0, theme::black_alpha(0.35));
+        for i in 0..=4 {
+            let f = i as f32 / 4.0;
+            p.line_segment([pos2(rect.min.x + f * rect.width(), rect.min.y), pos2(rect.min.x + f * rect.width(), rect.max.y)], Stroke::new(1.0, theme::white_alpha(0.12)));
+            p.line_segment([pos2(rect.min.x, rect.min.y + f * rect.height()), pos2(rect.max.x, rect.min.y + f * rect.height())], Stroke::new(1.0, theme::white_alpha(0.12)));
+        }
+        let to_view = |pt: &CurvePoint| pos2(rect.min.x + (pt.x / 255.0) as f32 * rect.width(), rect.max.y - (pt.y / 255.0) as f32 * rect.height());
+        let from_view = |pos: egui::Pos2| CurvePoint {
+            x: (((pos.x - rect.min.x) / rect.width()) as f64 * 255.0).round().clamp(0.0, 255.0),
+            y: (((rect.max.y - pos.y) / rect.height()) as f64 * 255.0).round().clamp(0.0, 255.0),
+        };
+        let points = &mut curves.channels[ci];
+        if response.drag_started() || response.clicked() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                let hit = points.iter().position(|pt| (to_view(pt) - pos).length() <= 8.0);
+                *selected = match hit {
+                    Some(i) => Some(i),
+                    None if points.len() < 32 => {
+                        let new = from_view(pos);
+                        let at = points.iter().position(|q| q.x > new.x).unwrap_or(points.len());
+                        points.insert(at, new);
+                        Some(at)
+                    }
+                    None => None,
+                };
+            }
+        }
+        if response.dragged() {
+            if let (Some(i), Some(pos)) = (*selected, response.interact_pointer_pos()) {
+                if i < points.len() {
+                    let mut pt = from_view(pos);
+                    // A point stays between its neighbors.
+                    let lo = if i > 0 { points[i - 1].x + 1.0 } else { 0.0 };
+                    let hi = if i + 1 < points.len() { points[i + 1].x - 1.0 } else { 255.0 };
+                    pt.x = pt.x.clamp(lo, hi.max(lo));
+                    points[i] = pt;
+                }
+            }
+        }
+        // The curve through the points at every input level, as the Mac draws it.
+        let samples: Vec<egui::Pos2> = (0..=255).map(|x| to_view(&CurvePoint { x: x as f64, y: interpolate(points, x as f64) })).collect();
+        p.add(egui::Shape::line(samples, Stroke::new(2.0, Color32::WHITE)));
+        for (i, pt) in points.iter().enumerate() {
+            p.circle_filled(to_view(pt), 4.0, if Some(i) == *selected { color::ACCENT } else { Color32::WHITE });
+        }
+        kit::caption(ui, "Click to add a point. Drag to adjust.");
+        kit::hstack(ui, 8.0, |ui| {
+            if let Some(i) = selected.filter(|i| *i < points.len()) {
+                let pt = points[i];
+                kit::body(ui, &format!("Input {} · Output {}", pt.x, pt.y), color::label());
+            }
+            kit::trailing(ui, |ui| {
+                let removable = selected.is_some_and(|i| i > 0 && i + 1 < points.len());
+                if w::button(ui, "Remove point", 13.0, ButtonStyle::Bordered, removable).clicked() {
+                    points.remove(selected.unwrap());
+                    *selected = None;
+                }
+            });
+        });
+        if w::button(ui, "Reset curve", 13.0, ButtonStyle::Bordered, true).clicked() {
+            *points = vec![CurvePoint { x: 0.0, y: 0.0 }, CurvePoint { x: 255.0, y: 255.0 }];
+            *selected = None;
+        }
     });
-    if w::button(ui, "Reset curve", 13.0, ButtonStyle::Bordered, true).clicked() {
-        *points = vec![CurvePoint { x: 0.0, y: 0.0 }, CurvePoint { x: 255.0, y: 255.0 }];
-        *selected = None;
-    }
     if curves != before {
         v["curves"] = json!(curves);
     }
 }
 
-/// A smooth curve through `points` for the display (the engine computes the real table).
-fn interpolate(points: &[CurvePoint], x: f64) -> f64 {
-    if points.is_empty() {
-        return x;
+/// `CurvesSettings.value`: the curve at `x`, a cubic Hermite through the points with the
+/// harmonic mean of the neighboring slopes (zero at a turn), clamped to 0…255.
+fn interpolate(p: &[CurvePoint], x: f64) -> f64 {
+    if p.len() < 2 {
+        return p.first().map_or(x, |q| q.y);
     }
-    if x <= points[0].x {
-        return points[0].y;
-    }
-    for pair in points.windows(2) {
-        let (a, b) = (pair[0], pair[1]);
-        if x <= b.x {
-            let t = if b.x > a.x { (x - a.x) / (b.x - a.x) } else { 0.0 };
-            let t = t * t * (3.0 - 2.0 * t);
-            return a.y + (b.y - a.y) * t;
+    let i = p.iter().rposition(|q| q.x <= x).unwrap_or(0).min(p.len() - 2);
+    let d: Vec<f64> = p.windows(2).map(|w| (w[1].y - w[0].y) / (w[1].x - w[0].x)).collect();
+    let slope = |j: usize| {
+        if j == 0 {
+            d[0]
+        } else if j == p.len() - 1 {
+            d[d.len() - 1]
+        } else if d[j - 1] * d[j] <= 0.0 {
+            0.0
+        } else {
+            2.0 / (1.0 / d[j - 1] + 1.0 / d[j])
         }
-    }
-    points.last().unwrap().y
+    };
+    let h = p[i + 1].x - p[i].x;
+    let t = ((x - p[i].x) / h).clamp(0.0, 1.0);
+    let (t2, t3) = (t * t, t * t * t);
+    let y = (2.0 * t3 - 3.0 * t2 + 1.0) * p[i].y + (t3 - 2.0 * t2 + t) * h * slope(i) + (-2.0 * t3 + 3.0 * t2) * p[i + 1].y + (t3 - t2) * h * slope(i + 1);
+    y.clamp(0.0, 255.0)
 }
 
 /// `levels_histogram` over the layer's original pixels (or, for an adjustment layer, what's under it).
@@ -1045,145 +1084,224 @@ fn levels_histogram(app: &App, f: &FilterSheet) -> [[f64; 256]; 4] {
     bins
 }
 
-fn histogram_scale(bins: &[f64; 256]) -> f64 {
-    let peak = bins.iter().copied().filter(|b| b.is_finite() && *b > 0.0).fold(0.0, f64::max);
-    if peak <= 0.0 {
-        return 0.0;
-    }
-    let mut interior: Vec<f64> = bins[1..255].iter().copied().filter(|b| *b > 0.0).collect();
-    if interior.is_empty() {
-        return peak;
-    }
-    interior.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    peak.min(interior[((interior.len() - 1) as f64 * 0.95) as usize] * 4.0)
-}
-
-/// `LevelsSheet`: channel, histogram with the input handles, the fields, output, samplers.
+/// `LevelsSheet`: the channel (centered in its 180-point frame), the histogram with the input
+/// handles, the fields, the output bar and handles, the samplers, Auto, Preview and Reset.
 fn levels_controls(ui: &mut Ui, f: &mut FilterSheet) {
     let channels = [Channel::Rgb, Channel::Red, Channel::Green, Channel::Blue];
-    let levels = &mut f.adjustment.levels;
-    let mut ci = channels.iter().position(|c| *c == levels.channel).unwrap_or(0);
-    ui.horizontal(|ui| {
-        w::text(ui, "Channel", theme::regular(13.0), color::label());
-        w::popup(ui, "levels-channel", &mut ci, &[&[0usize, 1, 2, 3]], |i| ["RGB", "Red", "Green", "Blue"][i], Some(120.0), true);
+    let names = ["RGB", "Red", "Green", "Blue"];
+    let mut ci = channels.iter().position(|c| *c == f.adjustment.levels.channel).unwrap_or(0);
+    let popup = names.iter().map(|n| kit::text_width(ui, n)).fold(0.0f32, f32::max).ceil() + w::POPUP_CHROME;
+    let content = kit::text_width(ui, "Channel") + 8.0 + popup;
+    ui.allocate_ui_with_layout(vec2(180.0, 24.0), Layout::left_to_right(Align::Center), |ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        ui.add_space(((180.0 - content) / 2.0).max(0.0) - 8.0);
+        kit::body(ui, "Channel", color::label());
+        w::popup(ui, "levels-channel", &mut ci, &[&[0usize, 1, 2, 3]], |i| names[i], None, true);
     });
-    levels.channel = channels[ci];
-    let range = &mut levels.ranges[ci];
+    f.adjustment.levels.channel = channels[ci];
     let full = ui.available_width();
-    let (rect, _) = ui.allocate_exact_size(vec2(full, 150.0), Sense::hover());
-    ui.painter().rect_filled(rect, 0.0, theme::black_alpha(0.25));
-    if let Some(bins) = &f.histogram {
-        let channel = &bins[ci];
-        let peak = histogram_scale(channel);
-        if peak > 0.0 {
-            let fill = [Color32::GRAY, Color32::RED, Color32::GREEN, Color32::BLUE][ci];
-            let mut mesh = egui::Mesh::default();
-            for (i, b) in channel.iter().enumerate() {
-                let h = rect.height() * (b / peak).clamp(0.0, 1.0) as f32;
-                let x = rect.min.x + i as f32 * rect.width() / 256.0;
-                mesh.add_colored_rect(Rect::from_min_max(pos2(x, rect.max.y - h), pos2(x + rect.width() / 256.0 + 0.1, rect.max.y)), fill);
+    let range = &mut f.adjustment.levels.ranges[ci];
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        let (rect, _) = ui.allocate_exact_size(vec2(full, 150.0), Sense::hover());
+        ui.painter().rect_filled(rect, 0.0, theme::black_alpha(0.25));
+        if let Some(bins) = &f.histogram {
+            let channel = &bins[ci];
+            let peak = kit::histogram_scale(channel);
+            if peak > 0.0 {
+                let fill = [Color32::GRAY, Color32::RED, Color32::GREEN, Color32::BLUE][ci];
+                let mut mesh = egui::Mesh::default();
+                for (i, b) in channel.iter().enumerate() {
+                    let h = rect.height() * (b / peak).clamp(0.0, 1.0) as f32;
+                    let x = rect.min.x + i as f32 * rect.width() / 256.0;
+                    mesh.add_colored_rect(Rect::from_min_max(pos2(x, rect.max.y - h), pos2(x + rect.width() / 256.0 + 0.1, rect.max.y)), fill);
+                }
+                ui.painter().add(egui::Shape::mesh(mesh));
             }
-            ui.painter().add(egui::Shape::mesh(mesh));
         }
-    }
-    // The input handles: black, gray and white, draggable.
-    let (strip, response) = ui.allocate_exact_size(vec2(full, 20.0), Sense::drag());
-    let x_of = |v: f64| strip.min.x + (v / 255.0) as f32 * full;
-    let v_of = |x: f32| ((x - strip.min.x) / full * 255.0).clamp(0.0, 255.0) as f64;
-    let gray_at = range.black + (range.white - range.black) * 0.5f64.powf(range.gamma);
-    if response.dragged() {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let v = v_of(pos.x);
-            let nearest = [range.black, gray_at, range.white].iter().enumerate().min_by(|a, b| (a.1 - v).abs().total_cmp(&(b.1 - v).abs())).map(|(i, _)| i).unwrap();
-            match nearest {
-                0 => range.black = v.round().min(range.white - 2.0),
-                2 => range.white = v.round().max(range.black + 2.0),
-                _ => {
-                    let t = ((v - range.black) / (range.white - range.black)).clamp(0.01, 0.99);
-                    range.gamma = (t.ln() / 0.5f64.ln()).recip().clamp(0.1, 9.99);
-                    range.gamma = (range.gamma * 100.0).round() / 100.0;
+        // The input handles: black, gray and white, draggable.
+        let (strip, response) = ui.allocate_exact_size(vec2(full, 20.0), Sense::drag());
+        let v_of = |x: f32| ((x - strip.min.x) / full * 255.0).clamp(0.0, 255.0) as f64;
+        let gray_at = range.black + (range.white - range.black) * 0.5f64.powf(range.gamma);
+        if response.dragged() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                let v = v_of(pos.x);
+                let nearest = [range.black, gray_at, range.white].iter().enumerate().min_by(|a, b| (a.1 - v).abs().total_cmp(&(b.1 - v).abs())).map(|(i, _)| i).unwrap();
+                match nearest {
+                    0 => range.black = v.round().min(range.white - 2.0),
+                    2 => range.white = v.round().max(range.black + 2.0),
+                    _ => {
+                        let t = ((v - range.black) / (range.white - range.black)).clamp(0.01, 0.99);
+                        range.gamma = (t.ln() / 0.5f64.ln()).recip().clamp(0.1, 9.99);
+                        range.gamma = (range.gamma * 100.0).round() / 100.0;
+                    }
                 }
             }
         }
-    }
-    for (i, v) in [range.black, gray_at, range.white].iter().enumerate() {
-        let fill = [Color32::BLACK, Color32::GRAY, Color32::WHITE][i];
-        triangle(ui.painter(), pos2(x_of(*v), strip.min.y + 9.0), fill);
-    }
-    ui.horizontal(|ui| {
-        field(ui, "Input black", &mut range.black, 0.0..=253.0, w::fmt_int);
-        field(ui, "Gamma", &mut range.gamma, 0.1..=9.99, |v| format!("{v:.2}"));
-        field(ui, "Input white", &mut range.white, 2.0..=255.0, w::fmt_int);
+        let gray_at = range.black + (range.white - range.black) * 0.5f64.powf(range.gamma);
+        for (i, v) in [range.black, gray_at, range.white].iter().enumerate() {
+            let fill = [Color32::BLACK, Color32::GRAY, Color32::WHITE][i];
+            kit::triangle(ui.painter(), pos2(strip.min.x + (*v / 255.0) as f32 * full, strip.min.y + 9.0), fill);
+        }
     });
-    let (bar, _) = ui.allocate_exact_size(vec2(full, 14.0), Sense::hover());
-    let mut mesh = egui::Mesh::default();
-    mesh.colored_vertex(bar.left_top(), Color32::BLACK);
-    mesh.colored_vertex(bar.right_top(), Color32::WHITE);
-    mesh.colored_vertex(bar.right_bottom(), Color32::WHITE);
-    mesh.colored_vertex(bar.left_bottom(), Color32::BLACK);
-    mesh.add_triangle(0, 1, 2);
-    mesh.add_triangle(0, 2, 3);
-    ui.painter().add(egui::Shape::mesh(mesh));
-    let (strip, response) = ui.allocate_exact_size(vec2(full, 20.0), Sense::drag());
-    if response.dragged() {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let v = v_of(pos.x).round();
-            if (v - range.output_black).abs() <= (v - range.output_white).abs() {
-                range.output_black = v;
-            } else {
-                range.output_white = v;
+    level_fields(ui, &mut [("Input black", &mut range.black, 0.0..=253.0), ("Gamma", &mut range.gamma, 0.1..=9.99), ("Input white", &mut range.white, 2.0..=255.0)]);
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        let (bar, _) = ui.allocate_exact_size(vec2(full, 14.0), Sense::hover());
+        let mut mesh = egui::Mesh::default();
+        mesh.colored_vertex(bar.left_top(), Color32::BLACK);
+        mesh.colored_vertex(bar.right_top(), Color32::WHITE);
+        mesh.colored_vertex(bar.right_bottom(), Color32::WHITE);
+        mesh.colored_vertex(bar.left_bottom(), Color32::BLACK);
+        mesh.add_triangle(0, 1, 2);
+        mesh.add_triangle(0, 2, 3);
+        ui.painter().add(egui::Shape::mesh(mesh));
+        let (strip, response) = ui.allocate_exact_size(vec2(full, 20.0), Sense::drag());
+        if response.dragged() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                let v = (((pos.x - strip.min.x) / full * 255.0).clamp(0.0, 255.0) as f64).round();
+                if (v - range.output_black).abs() <= (v - range.output_white).abs() {
+                    range.output_black = v;
+                } else {
+                    range.output_white = v;
+                }
             }
         }
-    }
-    triangle(ui.painter(), pos2(strip.min.x + (range.output_black / 255.0) as f32 * full, strip.min.y + 9.0), Color32::BLACK);
-    triangle(ui.painter(), pos2(strip.min.x + (range.output_white / 255.0) as f32 * full, strip.min.y + 9.0), Color32::WHITE);
-    ui.horizontal(|ui| {
-        field(ui, "Output black", &mut range.output_black, 0.0..=255.0, w::fmt_int);
-        field(ui, "Output white", &mut range.output_white, 0.0..=255.0, w::fmt_int);
+        kit::triangle(ui.painter(), pos2(strip.min.x + (range.output_black / 255.0) as f32 * full, strip.min.y + 9.0), Color32::BLACK);
+        kit::triangle(ui.painter(), pos2(strip.min.x + (range.output_white / 255.0) as f32 * full, strip.min.y + 9.0), Color32::WHITE);
     });
-    ui.horizontal(|ui| {
-        w::text(ui, "Sample", theme::regular(10.0), color::secondary());
+    level_fields(ui, &mut [("Output black", &mut range.output_black, 0.0..=255.0), ("Output white", &mut range.output_white, 0.0..=255.0)]);
+    // Buttons with a symbol come out half a point taller than plain ones.
+    kit::hstack_height(ui, 24.5, 8.0, |ui| {
+        kit::caption(ui, "Sample");
         for (i, name) in ["Black", "Gray", "White"].iter().enumerate() {
             let armed = f.sampling == Some(i as u8);
-            if w::button(ui, name, 13.0, if armed { ButtonStyle::Prominent } else { ButtonStyle::Bordered }, ci == 0).clicked() {
+            if kit::icon_button(ui, "eyedropper", name, armed).clicked() {
                 f.sampling = if armed { None } else { Some(i as u8) };
             }
         }
     });
     if let Some(i) = f.sampling {
-        para(ui, &format!("Click the original layer to set {}. Click the eyedropper again to stop.", ["the black point", "the gray point", "the white point"][i as usize]), color::secondary());
+        kit::caption(ui, &format!("Click the original layer to set {}. Click the eyedropper again to stop.", ["black", "gray", "white"][i as usize]));
     }
-    ui.horizontal(|ui| {
-        if w::button(ui, "Reset", 13.0, ButtonStyle::Bordered, true).clicked() {
-            f.adjustment.levels = comp_format::LevelsSettings::default();
-        }
-    });
-    para(ui, "Original pixels · alpha-weighted histogram", color::secondary());
-}
-
-fn field(ui: &mut Ui, title: &str, value: &mut f64, range: std::ops::RangeInclusive<f64>, fmt: fn(f64) -> String) {
+    let mut auto = None;
     ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 5.0;
-        w::scrub_label(ui, title, theme::regular(10.0), color::secondary(), value, 1.0, range.clone(), true);
-        w::number_field(ui, ("levels", title), value, range, fmt, 80.0, true, true);
+        ui.spacing_mut().item_spacing.y = 6.0;
+        kit::caption(ui, "Auto");
+        kit::hstack(ui, 8.0, |ui| {
+            for (i, name) in ["Contrast", "Color", "Color + neutral midtones"].iter().enumerate() {
+                if w::button(ui, name, 13.0, ButtonStyle::Bordered, f.histogram.is_some()).clicked() {
+                    auto = Some(i);
+                }
+            }
+        });
     });
+    if let (Some(mode), Some(bins)) = (auto, &f.histogram) {
+        f.sampling = None;
+        let channel = f.adjustment.levels.channel;
+        f.adjustment.levels = auto_levels(mode, bins);
+        f.adjustment.levels.channel = channel;
+    }
+    let mut reset = false;
+    kit::hstack(ui, 8.0, |ui| {
+        w::checkbox(ui, &mut f.preview, "Preview");
+        kit::trailing(ui, |ui| {
+            reset = w::button(ui, "Reset", 13.0, ButtonStyle::Bordered, true).clicked();
+        });
+    });
+    if reset {
+        f.sampling = None;
+        f.adjustment.levels = comp_format::LevelsSettings::default();
+    }
+    let source = if matches!(f.target, Target::Adjustment(_)) { "Underlying pixels" } else { "Original pixels" };
+    kit::caption(ui, &format!("{source} · alpha-weighted histogram"));
 }
 
-fn triangle(p: &egui::Painter, center: egui::Pos2, fill: Color32) {
-    let pts = vec![center + vec2(0.0, -5.5), center + vec2(6.0, 5.0), center + vec2(-6.0, 5.0)];
-    p.add(egui::Shape::convex_polygon(pts.iter().map(|q| *q + vec2(0.0, 0.5)).collect(), theme::gray(0.5), Stroke::NONE));
-    p.add(egui::Shape::convex_polygon(pts, fill, Stroke::NONE));
+/// Levels' field groups: a caption over an 80-point right-aligned field, spread across the row.
+fn level_fields(ui: &mut Ui, fields: &mut [(&str, &mut f64, std::ops::RangeInclusive<f64>)]) {
+    let full = ui.available_width();
+    let (rect, _) = ui.allocate_exact_size(vec2(full, w::line_height(10.0) + 5.0 + 24.0), Sense::hover());
+    let n = fields.len();
+    for (k, (name, value, range)) in fields.iter_mut().enumerate() {
+        let x = if n == 1 { rect.min.x } else { rect.min.x + (full - 80.0) * k as f32 / (n - 1) as f32 };
+        let column = Rect::from_min_size(pos2(x, rect.min.y), vec2(80.0, rect.height()));
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(column).layout(Layout::top_down(Align::Min)));
+        child.spacing_mut().item_spacing.y = 5.0;
+        let fmt: fn(f64) -> String = if *name == "Gamma" { |v| format!("{v:.2}") } else { w::fmt_int };
+        let sensitivity = if *name == "Gamma" { 0.01 } else { 1.0 };
+        w::scrub_label(&mut child, name, theme::regular(10.0), color::secondary(), value, sensitivity, range.clone(), true);
+        w::number_field(&mut child, ("levels", *name), value, range.clone(), fmt, 80.0, true, true);
+    }
 }
 
-/// `HueSaturationSheet`: the range, then Hue, Saturation and Lightness for it; Colorize.
+/// `LevelsAuto.settings`: Contrast stretches one shared interval between the darkest and lightest
+/// 0.1% of the color channels; Color stretches each channel on its own, and neutral midtones also
+/// sets each channel's gamma so its mean lands in the middle.
+fn auto_levels(mode: usize, bins: &[[f64; 256]; 4]) -> comp_format::LevelsSettings {
+    let mut result = comp_format::LevelsSettings::default();
+    let endpoints = |b: &[f64; 256]| -> Option<(f64, f64)> {
+        let total: f64 = b.iter().sum();
+        if total <= 0.0 {
+            return None;
+        }
+        let (mut sum, mut low, mut high) = (0.0, 0usize, 255usize);
+        for (i, v) in b.iter().enumerate() {
+            sum += v;
+            if sum > total * 0.001 {
+                low = i;
+                break;
+            }
+        }
+        sum = 0.0;
+        for i in (0..256).rev() {
+            sum += b[i];
+            if sum > total * 0.001 {
+                high = i;
+                break;
+            }
+        }
+        (low < high).then_some((low as f64, high as f64))
+    };
+    if mode == 0 {
+        let limits: Vec<(f64, f64)> = bins[1..].iter().filter_map(endpoints).collect();
+        let low = limits.iter().map(|l| l.0).fold(f64::INFINITY, f64::min);
+        let high = limits.iter().map(|l| l.1).fold(f64::NEG_INFINITY, f64::max);
+        if low < high {
+            result.ranges[0] = comp_format::LevelRange { black: low, white: high, ..Default::default() };
+        }
+    } else {
+        for c in 1..=3 {
+            let Some((low, high)) = endpoints(&bins[c]) else { continue };
+            let mut range = comp_format::LevelRange { black: low, white: high, ..Default::default() };
+            if mode == 2 {
+                let total: f64 = bins[c].iter().sum();
+                let apply = |v: f64| ((v * 255.0 - low) / (high - low)).clamp(0.0, 1.0);
+                let mean = bins[c].iter().enumerate().map(|(i, n)| apply(i as f64 / 255.0) * n).sum::<f64>() / total;
+                if mean > 0.0 && mean < 1.0 {
+                    range.gamma = (mean.ln() / 0.5f64.ln()).clamp(0.1, 9.99);
+                }
+            }
+            result.ranges[c] = range;
+        }
+    }
+    result
+}
+
+/// `HueSaturationSheet`: the range picker (centered in its 160-point frame) and the targeted
+/// adjustment tool, then Hue, Saturation and Lightness on colored tracks; Colorize, Preview, Reset.
 fn hue_saturation_controls(ui: &mut Ui, f: &mut FilterSheet) {
     const RANGES: [ColorRange; 7] = [ColorRange::Master, ColorRange::Reds, ColorRange::Yellows, ColorRange::Greens, ColorRange::Cyans, ColorRange::Blues, ColorRange::Magentas];
     let mut hsv = resolved_hsv(&f.adjustment);
     let before = hsv.clone();
     let mut ri = RANGES.iter().position(|r| *r == hsv.range).unwrap_or(0);
-    ui.horizontal(|ui| {
-        ui.add_enabled_ui(!hsv.colorize, |ui| {
-            w::popup(ui, "hue-range", &mut ri, &[&[0usize, 1, 2, 3, 4, 5, 6]], |i| RANGES[i].name(), Some(160.0), !hsv.colorize);
+    kit::hstack(ui, 12.0, |ui| {
+        let popup = RANGES.iter().map(|r| kit::text_width(ui, r.name())).fold(0.0f32, f32::max).ceil() + w::POPUP_CHROME;
+        ui.add_space(((160.0 - popup) / 2.0).max(0.0) - 12.0);
+        w::popup(ui, "hue-range", &mut ri, &[&[0usize, 1, 2, 3, 4, 5, 6]], |i| RANGES[i].name(), None, !hsv.colorize);
+        ui.add_space(((160.0 - popup) / 2.0).max(0.0));
+        kit::trailing(ui, |ui| {
+            let (rect, _) = ui.allocate_exact_size(vec2(24.0, 20.0), Sense::hover());
+            crate::icons::paint(ui.painter(), crate::icons::Icon::Symbol("hand.point.up.left"), rect.center(), 13.0, color::label());
         });
     });
     if hsv.colorize {
@@ -1192,16 +1310,18 @@ fn hue_saturation_controls(ui: &mut Ui, f: &mut FilterSheet) {
     hsv.range = RANGES[ri];
     let mut adj = hsv.adjustments.get(hsv.range).copied().unwrap_or(comp_format::RangeAdjustment { hue: 0.0, saturation: 0.0, lightness: 0.0 });
     let colorize = hsv.colorize;
-    let rows: [(&str, &mut f64, std::ops::RangeInclusive<f64>, &str); 3] = [
-        ("Hue", &mut adj.hue, if colorize { 0.0..=360.0 } else { -180.0..=180.0 }, "°"),
-        ("Saturation", &mut adj.saturation, if colorize { 0.0..=100.0 } else { -100.0..=100.0 }, ""),
-        ("Lightness", &mut adj.lightness, -100.0..=100.0, ""),
+    let spectrum: Vec<Color32> = (0..13).map(|i| kit::hsb(-180.0 + 30.0 * i as f32, 0.85, 0.9)).collect();
+    let chroma = [Color32::from_rgb(158, 158, 163), Color32::from_rgb(219, 46, 51)];
+    let lightness = [Color32::BLACK, Color32::WHITE];
+    let rows: [(&str, &mut f64, std::ops::RangeInclusive<f64>, &str, &[Color32]); 3] = [
+        ("Hue", &mut adj.hue, if colorize { 0.0..=360.0 } else { -180.0..=180.0 }, "°", &spectrum),
+        ("Saturation", &mut adj.saturation, if colorize { 0.0..=100.0 } else { -100.0..=100.0 }, "", &chroma),
+        ("Lightness", &mut adj.lightness, -100.0..=100.0, "", &lightness),
     ];
-    for (title, value, range, unit) in rows {
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 10.0;
-            let (rect, response) = ui.allocate_exact_size(vec2(76.0, 22.0), Sense::click_and_drag());
-            ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, title, theme::regular(13.0), color::label());
+    for (title, value, range, unit, stops) in rows {
+        kit::hstack(ui, 10.0, |ui| {
+            let (rect, response) = ui.allocate_exact_size(vec2(76.0, w::line_height(13.0)), Sense::click_and_drag());
+            w::paint_centered(ui.painter(), title, theme::regular(13.0), color::label(), rect.min.x, rect.center().y);
             if response.dragged() {
                 *value = (*value + response.drag_delta().x as f64).clamp(*range.start(), *range.end());
             }
@@ -1210,7 +1330,7 @@ fn hue_saturation_controls(ui: &mut Ui, f: &mut FilterSheet) {
             }
             let unit_width = if unit.is_empty() { 0.0 } else { w::unit_width(ui, unit) };
             let sw = w::fill_width(ui, 48.0 + unit_width, if unit.is_empty() { 1 } else { 2 });
-            w::slider(ui, value, range.clone(), sw, true);
+            kit::colored_slider(ui, value, range.clone(), sw, stops);
             w::number_field(ui, ("hsl", title), value, range, w::fmt_int, 48.0, true, true);
             if !unit.is_empty() {
                 w::unit(ui, unit);
@@ -1220,8 +1340,7 @@ fn hue_saturation_controls(ui: &mut Ui, f: &mut FilterSheet) {
     }
     let mut set_colorize = hsv.colorize;
     let mut reset = false;
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 18.0;
+    kit::hstack(ui, 18.0, |ui| {
         w::checkbox(ui, &mut set_colorize, "Colorize");
         w::checkbox(ui, &mut f.preview, "Preview");
         reset = w::button(ui, "Reset", 13.0, ButtonStyle::Bordered, true).clicked();
@@ -1267,11 +1386,14 @@ fn resolved_hsv(a: &Adjustment) -> comp_format::HueSaturationSettings {
 // Canvas Size, Image Size, Trim.
 
 pub struct CanvasSizeSheet {
+    /// In `units`, and relative to the current size when `relative`.
     width: f64,
     height: f64,
-    /// 0 pixels, 1 percent.
+    /// Pixels, Percent, Inches, Centimeters.
     units: usize,
     relative: bool,
+    /// Keeps the original aspect ratio as either side changes.
+    locked: bool,
     anchor: usize,
     /// Transparent, Foreground, Background, Black, White, Custom.
     extension: usize,
@@ -1290,93 +1412,108 @@ impl CanvasSizeSheet {
 pub fn open_canvas_size(app: &mut App) {
     let Some(d) = app.doc() else { return };
     let (w0, h0) = (d.project.manifest.width as f64, d.project.manifest.height as f64);
-    app.sheet = Some(Sheet::CanvasSize(CanvasSizeSheet { width: w0, height: h0, units: 0, relative: false, anchor: 4, extension: 0, custom: [1.0; 3], error: None }));
+    app.sheet = Some(Sheet::CanvasSize(CanvasSizeSheet { width: w0, height: h0, units: 0, relative: false, locked: false, anchor: 4, extension: 0, custom: [1.0; 3], error: None }));
 }
 
-const ANCHORS: [&str; 9] = ["Top left", "Top center", "Top right", "Middle left", "Center", "Middle right", "Bottom left", "Bottom center", "Bottom right"];
-
-fn bytes(n: i64) -> String {
-    let n = n as f64;
-    if n < 1024.0 {
-        format!("{} bytes", n as i64)
-    } else if n < 1024.0 * 1024.0 {
-        format!("{} KB", (n / 1024.0).round() as i64)
-    } else if n < 1024.0 * 1024.0 * 1024.0 {
-        format!("{:.1} MB", n / 1024.0 / 1024.0)
-    } else {
-        format!("{:.2} GB", n / 1024.0 / 1024.0 / 1024.0)
+/// A length in `units` (Pixels, Percent, Inches, Centimeters) as pixels, and back, for a side
+/// `original` pixels long at `resolution` pixels per inch.
+fn to_pixels(value: f64, units: usize, original: f64, resolution: f64) -> f64 {
+    match units {
+        1 => value / 100.0 * original,
+        2 => value * resolution,
+        3 => value / 2.54 * resolution,
+        _ => value,
     }
 }
+
+fn from_pixels(pixels: f64, units: usize, original: f64, resolution: f64) -> f64 {
+    match units {
+        1 => pixels / original * 100.0,
+        2 => pixels / resolution,
+        3 => pixels / resolution * 2.54,
+        _ => pixels,
+    }
+}
+
 
 fn canvas_size_sheet(app: &mut App, ctx: &egui::Context, s: &mut CanvasSizeSheet) -> bool {
     let Some(d) = app.doc() else { return false };
     let (w0, h0) = (d.project.manifest.width, d.project.manifest.height);
+    let resolution = d.project.manifest.resolution.unwrap_or(72.0);
+    let foreground = app.settings.foreground;
+    let background = app.settings.background;
     let mut close = Close::Open;
-    // The size the sheet asks for, in pixels.
+    // The size the sheet asks for, in pixels (unrounded).
+    let exact = |s: &CanvasSizeSheet| -> (f64, f64) {
+        let rel = |o: i64| if s.relative { o as f64 } else { 0.0 };
+        (to_pixels(s.width, s.units, w0 as f64, resolution) + rel(w0), to_pixels(s.height, s.units, h0 as f64, resolution) + rel(h0))
+    };
     let pixels = |s: &CanvasSizeSheet| -> (i64, i64) {
-        let (mut w, mut h) = if s.units == 1 { (s.width / 100.0 * w0 as f64, s.height / 100.0 * h0 as f64) } else { (s.width, s.height) };
-        if s.relative && s.units == 0 {
-            w += w0 as f64;
-            h += h0 as f64;
-        }
+        let (w, h) = exact(s);
         (w.round() as i64, h.round() as i64)
     };
-    window(ctx, "Canvas Size", 450.0, |ui| {
+    // Shows `px` (absolute pixels) in the sheet's current units.
+    let show = |s: &mut CanvasSizeSheet, (pw, ph): (f64, f64)| {
+        let rel = |o: i64| if s.relative { o as f64 } else { 0.0 };
+        s.width = from_pixels(pw - rel(w0), s.units, w0 as f64, resolution);
+        s.height = from_pixels(ph - rel(h0), s.units, h0 as f64, resolution);
+    };
+    window(ctx, "Canvas Size", 450.0, 24.0, 16.0, |ui| {
         title2(ui, "Canvas Size");
-        w::text(ui, format!("Current: {w0} × {h0} pixels"), theme::regular(13.0), color::label());
-        para(ui, &format!("{} uncompressed RGBA canvas", bytes(w0 * h0 * 4)), color::secondary());
+        kit::body(ui, &format!("Current: {w0} × {h0} pixels"), color::label());
+        para(ui, &format!("{} uncompressed RGBA canvas", kit::bytes(w0 * h0 * 4)), color::secondary());
         divider(ui);
-        ui.horizontal(|ui| {
-            w::text(ui, "Units", theme::regular(13.0), color::label());
-            let before = s.units;
-            w::popup(ui, "cs-units", &mut s.units, &[&[0usize, 1]], |i| ["Pixels", "Percent"][i], Some(200.0), true);
-            if s.units != before {
-                let (w, h) = if s.units == 1 { (100.0, 100.0) } else { (w0 as f64, h0 as f64) };
-                s.width = w;
-                s.height = h;
-                s.relative = false;
+        kit::hstack(ui, 8.0, |ui| {
+            kit::body(ui, "Units", color::label());
+            let current = exact(s);
+            if w::popup(ui, "cs-units", &mut s.units, &[&[0usize, 1, 2, 3]], |i| kit::UNITS[i], None, true) {
+                show(s, current);
             }
         });
+        let (pw, ph) = (s.width, s.height);
         for (label, value) in [("Width", &mut s.width), ("Height", &mut s.height)] {
-            ui.horizontal(|ui| {
-                let (rect, _) = ui.allocate_exact_size(vec2(60.0, 22.0), Sense::hover());
-                ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, label, theme::regular(13.0), color::label());
+            kit::hstack(ui, 8.0, |ui| {
+                kit::fixed_label(ui, label, 60.0);
                 let wd = w::fill_width(ui, 0.0, 0);
                 w::number_field(ui, ("canvas-size", label), value, -30000.0..=30000.0, w::fmt_trim2, wd, false, true);
             });
         }
-        let was = s.relative;
-        w::checkbox(ui, &mut s.relative, "Relative to current dimensions");
-        if s.relative != was && s.units == 0 {
-            if s.relative {
-                s.width -= w0 as f64;
-                s.height -= h0 as f64;
-            } else {
-                s.width += w0 as f64;
-                s.height += h0 as f64;
-            }
+        if s.locked && (s.width != pw || s.height != ph) {
+            let (w, h) = exact(s);
+            let ratio = h0 as f64 / w0 as f64;
+            show(s, if s.width != pw { (w, w * ratio) } else { (h / ratio, h) });
+        }
+        let current = exact(s);
+        if w::checkbox(ui, &mut s.relative, "Relative to current dimensions").changed() {
+            show(s, current);
+        }
+        if w::checkbox(ui, &mut s.locked, "Lock original aspect ratio").changed() && s.locked {
+            let (w, _) = exact(s);
+            show(s, (w, w * h0 as f64 / w0 as f64));
         }
         let (nw, nh) = pixels(s);
         let valid = (1..=30_000).contains(&nw) && (1..=30_000).contains(&nh);
         if valid {
-            para(ui, &format!("New: {nw} × {nh} pixels · {} uncompressed", bytes(nw * nh * 4)), color::secondary());
+            para(ui, &format!("New: {nw} × {nh} pixels · {} uncompressed", kit::bytes(nw * nh * 4)), color::secondary());
         } else {
-            para(ui, "Enter a size from 1 to 30,000 pixels on each side.", color::ORANGE);
+            para(ui, "Final dimensions must be 1–30,000 pixels per side.", color::ORANGE);
         }
         ui.horizontal_top(|ui| {
             ui.spacing_mut().item_spacing = vec2(24.0, 8.0);
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 8.0;
-                w::text(ui, "Anchor", theme::regular(13.0), color::label());
+                kit::body(ui, "Anchor", color::label());
                 egui::Grid::new("anchors").spacing(vec2(3.0, 3.0)).show(ui, |ui| {
                     for row in 0..3 {
                         for column in 0..3 {
                             let index = row * 3 + column;
-                            let (rect, response) = ui.allocate_exact_size(vec2(33.0, 25.0), Sense::click());
-                            ui.painter().rect_filled(rect, egui::CornerRadius::same(12), color::control());
+                            // A bordered button around a 25-point image: 49 × 33, tinted with the
+                            // accent when chosen and the secondary color otherwise.
+                            let (rect, response) = ui.allocate_exact_size(vec2(49.0, 33.0), Sense::click());
                             let on = index == s.anchor;
+                            ui.painter().rect_filled(rect, egui::CornerRadius::same(16), if on { color::ACCENT.gamma_multiply(0.05) } else { theme::white_alpha(0.027) });
                             crate::icons::paint(ui.painter(), crate::icons::Icon::Symbol(if on { "circle.fill" } else { "circle" }), rect.center(), 13.0, if on { color::ACCENT } else { color::secondary() });
-                            if response.on_hover_text(ANCHORS[index]).clicked() {
+                            if response.on_hover_text(kit::ANCHORS[index]).clicked() {
                                 s.anchor = index;
                             }
                         }
@@ -1386,18 +1523,22 @@ fn canvas_size_sheet(app: &mut App, ctx: &egui::Context, s: &mut CanvasSizeSheet
             });
             ui.vertical(|ui| {
                 ui.add_space(28.0);
-                w::text(ui, ANCHORS[s.anchor], theme::bold(12.0), color::label());
-                para(ui, "Keeps this point fixed. Artwork is not scaled; cropped content remains outside the canvas.", color::secondary());
+                ui.spacing_mut().item_spacing.y = 8.0;
+                w::text(ui, kit::ANCHORS[s.anchor], theme::bold(12.0), color::label());
+                // The Mac shows it on one line, truncated.
+                w::truncated(ui, "Keeps this point fixed. Artwork is not scaled; cropped content remains outside the canvas.", theme::regular(12.0), color::secondary());
             });
         });
-        ui.horizontal(|ui| {
-            w::text(ui, "Canvas extension", theme::regular(13.0), color::label());
-            w::popup(ui, "cs-extension", &mut s.extension, &[&[0usize, 1, 2, 3, 4, 5]], |i| ["Transparent", "Foreground", "Background", "Black", "White", "Custom"][i], Some(200.0), true);
+        kit::hstack(ui, 8.0, |ui| {
+            kit::body(ui, "Canvas extension", color::label());
+            w::popup(ui, "cs-extension", &mut s.extension, &[&[0usize, 1, 2, 3, 4, 5]], |i| ["Transparent", "Foreground", "Background", "Black", "White", "Custom"][i], None, true);
         });
         if s.extension == 5 {
-            ui.horizontal(|ui| {
-                w::text(ui, "Extension color", theme::regular(13.0), color::label());
-                egui::widgets::color_picker::color_edit_button_rgb(ui, &mut s.custom);
+            kit::hstack(ui, 8.0, |ui| {
+                kit::body(ui, "Extension color", color::label());
+                if let Some(c) = swatch_picker(ui, "cs-custom", s.custom, vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 }) {
+                    s.custom = c;
+                }
             });
         }
         if let Some(e) = &s.error {
@@ -1411,8 +1552,8 @@ fn canvas_size_sheet(app: &mut App, ctx: &egui::Context, s: &mut CanvasSizeSheet
         Close::Ok => {
             let (nw, nh) = pixels(s);
             let fill = match s.extension {
-                1 => Some(app.settings.foreground),
-                2 => Some(app.settings.background),
+                1 => Some(foreground),
+                2 => Some(background),
                 3 => Some([0.0; 3]),
                 4 => Some([1.0; 3]),
                 5 => Some(s.custom),
@@ -1444,8 +1585,11 @@ fn run_document_op(app: &mut App, title: &str, op: &Value) -> Result<(), String>
 }
 
 pub struct ImageSizeSheet {
+    /// In pixels; the fields show them in `units`.
     width: f64,
     height: f64,
+    /// Pixels, Percent, Inches, Centimeters.
+    units: usize,
     lock: bool,
     resolution: f64,
     resample: bool,
@@ -1459,6 +1603,7 @@ pub fn open_image_size(app: &mut App) {
     app.sheet = Some(Sheet::ImageSize(ImageSizeSheet {
         width: m.width as f64,
         height: m.height as f64,
+        units: 0,
         lock: true,
         resolution: m.resolution.unwrap_or(72.0),
         resample: true,
@@ -1471,38 +1616,50 @@ fn image_size_sheet(app: &mut App, ctx: &egui::Context, s: &mut ImageSizeSheet) 
     let Some(d) = app.doc() else { return false };
     let (w0, h0) = (d.project.manifest.width as f64, d.project.manifest.height as f64);
     let mut close = Close::Open;
-    window(ctx, "Image Size", 430.0, |ui| {
-        ui.spacing_mut().item_spacing.y = 18.0;
+    window(ctx, "Image Size", 430.0, 24.0, 18.0, |ui| {
         title2(ui, "Image Size");
-        w::text(ui, format!("Current: {} × {} pixels", w0 as i64, h0 as i64), theme::regular(13.0), color::secondary());
-        let (pw, ph) = (s.width, s.height);
-        for (label, value) in [("Width", &mut s.width), ("Height", &mut s.height)] {
-            ui.horizontal(|ui| {
-                let (rect, _) = ui.allocate_exact_size(vec2(75.0, 22.0), Sense::hover());
-                ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, label, theme::regular(13.0), color::label());
+        kit::body(ui, &format!("Current: {} × {} pixels", w0 as i64, h0 as i64), color::secondary());
+        kit::hstack(ui, 8.0, |ui| {
+            kit::body(ui, "Units", color::label());
+            w::popup(ui, "is-units", &mut s.units, &[&[0usize, 1, 2, 3]], |i| kit::UNITS[i], None, true);
+        });
+        let res = s.resolution;
+        let mut shown = [from_pixels(s.width, s.units, w0, res), from_pixels(s.height, s.units, h0, res)];
+        let before = shown;
+        for (i, label) in ["Width", "Height"].iter().enumerate() {
+            kit::hstack(ui, 8.0, |ui| {
+                kit::fixed_label(ui, label, 75.0);
                 let wd = w::fill_width(ui, 0.0, 0);
-                w::number_field(ui, ("image-size", label), value, 1.0..=30000.0, w::fmt_trim2, wd, false, s.resample);
+                w::number_field(ui, ("image-size", *label), &mut shown[i], 0.0..=30000.0, w::fmt_trim2, wd, false, s.resample);
             });
         }
-        if s.lock {
-            if s.width != pw {
-                s.height = (s.width * h0 / w0).round().max(1.0);
-            } else if s.height != ph {
-                s.width = (s.height * w0 / h0).round().max(1.0);
+        if shown[0] != before[0] {
+            let pw = to_pixels(shown[0], s.units, w0, res).max(1.0);
+            if s.lock {
+                s.height = (pw * s.height / s.width).max(1.0);
             }
+            s.width = pw;
+        } else if shown[1] != before[1] {
+            let ph = to_pixels(shown[1], s.units, h0, res).max(1.0);
+            if s.lock {
+                s.width = (ph * s.width / s.height).max(1.0);
+            }
+            s.height = ph;
         }
-        w::checkbox(ui, &mut s.lock, "Lock aspect ratio");
-        ui.horizontal(|ui| {
-            w::text(ui, "Resolution", theme::regular(13.0), color::label());
-            let wd = w::fill_width(ui, 80.0, 1);
+        ui.add_enabled_ui(s.resample, |ui| {
+            w::checkbox(ui, &mut s.lock, "Lock aspect ratio");
+        });
+        kit::hstack(ui, 8.0, |ui| {
+            kit::body(ui, "Resolution", color::label());
+            let wd = w::fill_width(ui, kit::text_width(ui, "pixels/inch"), 1);
             w::number_field(ui, "resolution", &mut s.resolution, 1.0..=9600.0, w::fmt_trim2, wd, false, true);
-            w::text(ui, "pixels/inch", theme::regular(13.0), color::secondary());
+            kit::body(ui, "pixels/inch", color::secondary());
         });
         w::checkbox(ui, &mut s.resample, "Resample");
         if s.resample {
-            ui.horizontal(|ui| {
-                w::text(ui, "Sampling", theme::regular(13.0), color::label());
-                w::popup(ui, "is-sampling", &mut s.sampling, &[crate::tools::Sampling::ALL], crate::tools::Sampling::title, Some(200.0), true);
+            kit::hstack(ui, 8.0, |ui| {
+                kit::body(ui, "Sampling", color::label());
+                w::popup(ui, "is-sampling", &mut s.sampling, &[crate::tools::Sampling::ALL], crate::tools::Sampling::title, None, true);
             });
             para(ui, "Resizes layer pixels and applies existing transforms. Undo restores the originals.", color::secondary());
         } else {
@@ -1574,41 +1731,41 @@ fn trim_rect(pixels: &[u8], width: usize, height: usize, based: usize, sides: [b
     (x1 > x0 && y1 > y0).then(|| [x0 as f64, y0 as f64, (x1 - x0) as f64, (y1 - y0) as f64])
 }
 
-fn radio(ui: &mut Ui, on: bool, title: &str) -> bool {
-    let galley = ui.painter().layout_no_wrap(title.to_string(), theme::regular(13.0), color::label());
-    let (rect, response) = ui.allocate_exact_size(vec2(14.0 + 6.0 + galley.size().x, 16.0), Sense::click());
-    let c = rect.left_center() + vec2(7.0, 0.0);
-    if on {
-        ui.painter().circle_filled(c, 7.0, color::ACCENT);
-        ui.painter().circle_filled(c, 2.5, Color32::WHITE);
-    } else {
-        ui.painter().circle_filled(c, 7.0, theme::white_alpha(0.08));
-        ui.painter().circle_stroke(c, 6.5, Stroke::new(1.0, theme::white_alpha(0.22)));
-    }
-    ui.painter().galley(pos2(rect.min.x + 20.0, rect.center().y - galley.size().y / 2.0), galley, color::label());
-    response.clicked()
-}
-
 fn trim_sheet(app: &mut App, ctx: &egui::Context, s: &mut TrimSheet) -> bool {
     let mut close = Close::Open;
-    window(ctx, "Trim", 320.0, |ui| {
+    window(ctx, "Trim", 320.0, 24.0, 18.0, |ui| {
         title2(ui, "Trim");
-        w::text(ui, "Based On", theme::semibold(13.0), color::label());
-        for (i, option) in ["Transparent Pixels", "Top Left Pixel Color", "Bottom Right Pixel Color"].iter().enumerate() {
-            if radio(ui, s.based == i, option) {
-                s.based = i;
-            }
-        }
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 8.0;
+            kit::headline(ui, "Based On");
+            // A radio group: 16-point cells 6.5 apart, starting a point down.
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 6.5;
+                ui.add_space(1.0);
+                for (i, option) in ["Transparent Pixels", "Top Left Pixel Color", "Bottom Right Pixel Color"].iter().enumerate() {
+                    if kit::radio(ui, s.based == i, option) {
+                        s.based = i;
+                    }
+                }
+            });
+        });
         divider(ui);
-        w::text(ui, "Trim Away", theme::semibold(13.0), color::label());
-        egui::Grid::new("trim-away").spacing(vec2(24.0, 8.0)).show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 8.0;
+            kit::headline(ui, "Trim Away");
+            // `Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8)`: the first
+            // column as wide as its widest toggle.
             let [top, bottom, left, right] = &mut s.sides;
-            w::checkbox(ui, top, "Top");
-            w::checkbox(ui, bottom, "Bottom");
-            ui.end_row();
-            w::checkbox(ui, left, "Left");
-            w::checkbox(ui, right, "Right");
-            ui.end_row();
+            let first = ["Top", "Left"].iter().map(|t| kit::text_width(ui, t)).fold(0.0f32, f32::max) + 22.0;
+            for (a, a_title, b, b_title) in [(top, "Top", bottom, "Bottom"), (left, "Left", right, "Right")] {
+                ui.allocate_ui_with_layout(vec2(ui.available_width(), 16.5), Layout::left_to_right(Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    let start = ui.cursor().min.x;
+                    w::checkbox(ui, a, a_title);
+                    ui.add_space(start + first + 24.0 - ui.cursor().min.x);
+                    w::checkbox(ui, b, b_title);
+                });
+            }
         });
         divider(ui);
         close = footer(ui, "OK", s.sides.iter().any(|b| *b));
@@ -1641,8 +1798,9 @@ pub struct JpegSheet {
     quality: f64,
     matte: [f32; 3],
     zoom: Option<f32>,
-    /// The encoded file and its decoded preview, for the settings they were made with.
-    encoded: Option<((u64, u64), Vec<u8>, egui::TextureHandle)>,
+    /// The encoded file and its decoded preview (smooth for the fitted view, sharp from 100% up),
+    /// for the settings they were made with.
+    encoded: Option<((u64, u64), Vec<u8>, egui::TextureHandle, egui::TextureHandle)>,
     error: Option<String>,
 }
 
@@ -1658,7 +1816,7 @@ fn jpeg_sheet(app: &mut App, ctx: &egui::Context, s: &mut JpegSheet) -> bool {
     let Some(doc) = app.doc() else { return false };
     let (w0, h0) = (doc.project.manifest.width as u32, doc.project.manifest.height as u32);
     let key = ((s.quality * 100.0).round() as u64, s.matte.iter().fold(0u64, |k, c| k * 256 + (c * 255.0).round() as u64));
-    if s.encoded.as_ref().is_none_or(|(k, _, _)| *k != key) {
+    if s.encoded.as_ref().is_none_or(|(k, ..)| *k != key) {
         let options = json!({ "quality": (s.quality * 100.0).round() / 100.0, "matte": s.matte.map(|c| c as f64) });
         match app.gfx.engine.export_jpeg(&doc.project, &options) {
             Ok(bytes) => {
@@ -1666,8 +1824,9 @@ fn jpeg_sheet(app: &mut App, ctx: &egui::Context, s: &mut JpegSheet) -> bool {
                 if let Ok(decoded) = image::load_from_memory_with_format(&bytes, image::ImageFormat::Jpeg) {
                     let rgba = decoded.to_rgba8();
                     let image = egui::ColorImage::from_rgba_unmultiplied([rgba.width() as usize, rgba.height() as usize], rgba.as_raw());
-                    let texture = ctx.load_texture("jpeg-preview", image, egui::TextureOptions::NEAREST);
-                    s.encoded = Some((key, bytes, texture));
+                    let smooth = ctx.load_texture("jpeg-preview-fit", image.clone(), egui::TextureOptions::LINEAR);
+                    let sharp = ctx.load_texture("jpeg-preview", image, egui::TextureOptions::NEAREST);
+                    s.encoded = Some((key, bytes, smooth, sharp));
                 }
             }
             Err(e) => {
@@ -1676,64 +1835,77 @@ fn jpeg_sheet(app: &mut App, ctx: &egui::Context, s: &mut JpegSheet) -> bool {
             }
         }
     }
+    // The preview's frame; fitted, the whole image fills it however small it is.
+    let frame = vec2(560.0, 330.0);
+    let fit = (frame.x / w0 as f32).min(frame.y / h0 as f32);
+    const STEPS: [f32; 6] = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+    let shown = s.zoom.unwrap_or(fit);
+    let step_in = STEPS.iter().copied().find(|z| *z > shown * 1.001);
+    let step_out = STEPS.iter().rev().copied().find(|z| *z < shown * 0.999);
     let mut close = Close::Open;
-    window(ctx, "Export JPEG", 608.0, |ui| {
-        ui.horizontal(|ui| {
+    window(ctx, "Export JPEG", 608.0, 24.0, 16.0, |ui| {
+        // Closer to the preview than the rest of the dialog's spacing.
+        kit::hstack(ui, 8.0, |ui| {
             title2(ui, "Export JPEG");
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if w::button(ui, "−", 13.0, ButtonStyle::Bordered, true).clicked() {
-                    s.zoom = Some((s.zoom.unwrap_or(1.0) / 2.0).max(0.25));
+            kit::trailing(ui, |ui| {
+                if zoom_button(ui, "minus.magnifyingglass", step_out.is_some()).clicked() {
+                    s.zoom = step_out;
                 }
-                if w::button(ui, "+", 13.0, ButtonStyle::Bordered, true).clicked() {
-                    s.zoom = Some((s.zoom.unwrap_or(1.0) * 2.0).min(8.0));
+                if zoom_button(ui, "plus.magnifyingglass", step_in.is_some()).clicked() {
+                    s.zoom = step_in;
                 }
-                if w::button(ui, "Fit", 13.0, ButtonStyle::Bordered, true).clicked() {
+                if w::button(ui, "Fit", 13.0, ButtonStyle::Bordered, s.zoom.is_some()).clicked() {
                     s.zoom = None;
                 }
             });
         });
-        let (rect, _) = ui.allocate_exact_size(vec2(560.0, 330.0), Sense::hover());
+        ui.add_space(-8.0);
+        let (rect, response) = ui.allocate_exact_size(frame, Sense::click());
         ui.painter().rect_filled(rect, 0.0, theme::gray(0.12));
-        if let Some((_, _, texture)) = &s.encoded {
-            let fit = (rect.width() / w0 as f32).min(rect.height() / h0 as f32).min(1.0);
-            let scale = s.zoom.unwrap_or(fit);
-            let shown = Rect::from_center_size(rect.center(), vec2(w0 as f32 * scale, h0 as f32 * scale));
-            ui.painter().with_clip_rect(rect).image(texture.id(), shown, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+        if let Some((_, _, smooth, sharp)) = &s.encoded {
+            let texture = if s.zoom.is_some_and(|z| z >= 1.0) { sharp } else { smooth };
+            let image = Rect::from_center_size(rect.center(), vec2(w0 as f32 * shown, h0 as f32 * shown));
+            ui.painter().with_clip_rect(rect).image(texture.id(), image, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
         }
-        ui.horizontal(|ui| {
-            w::text(ui, "Quality", theme::regular(13.0), color::label());
+        // A double-click switches between Fit and 100%.
+        if response.double_clicked() {
+            s.zoom = if s.zoom.is_some() { None } else { Some(1.0) };
+        }
+        // A Slider with a step draws its ticks; the row is its 16 points.
+        kit::hstack_height(ui, 16.0, 8.0, |ui| {
+            kit::body(ui, "Quality", color::label());
             let sw = w::fill_width(ui, 45.0, 1);
-            w::slider(ui, &mut s.quality, 0.0..=1.0, sw, true);
+            w::slider_with_ticks(ui, &mut s.quality, 0.0..=1.0, sw, true, Some(100));
             s.quality = (s.quality * 100.0).round() / 100.0;
-            w::text(ui, format!("{}%", (s.quality * 100.0).round()), egui::FontId::monospace(12.0), color::label());
+            let (label, _) = ui.allocate_exact_size(vec2(45.0, w::line_height(13.0)), Sense::hover());
+            let text = format!("{}%", (s.quality * 100.0).round());
+            let g = ui.painter().layout_no_wrap(text, theme::regular(13.0), color::label());
+            w::center_line(ui.painter(), g.clone(), label.max.x - g.size().x, label.center().y, color::label());
         });
-        ui.horizontal(|ui| {
-            w::text(ui, "Background for transparency", theme::regular(13.0), color::label());
-            egui::widgets::color_picker::color_edit_button_rgb(ui, &mut s.matte);
+        // As tall as the 18-point swatch.
+        kit::hstack_height(ui, 18.0, 8.0, |ui| {
+            kit::body(ui, "Background for transparency", color::label());
+            if let Some(c) = swatch_picker(ui, "jpeg-matte", s.matte, vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 }) {
+                s.matte = c;
+            }
         });
-        ui.horizontal(|ui| {
-            w::text(ui, format!("{w0} × {h0} px · sRGB"), theme::regular(13.0), color::secondary());
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if w::button(ui, "Export…", 13.0, ButtonStyle::Prominent, s.encoded.is_some()).clicked() {
+        kit::hstack(ui, 12.0, |ui| {
+            kit::body(ui, &format!("{w0} × {h0} px · sRGB"), color::secondary());
+            kit::trailing(ui, |ui| {
+                if w::button(ui, "Export…", 13.0, ButtonStyle::Prominent, s.encoded.is_some() && s.error.is_none()).clicked() {
                     close = Close::Ok;
                 }
                 if w::button(ui, "Cancel", 13.0, ButtonStyle::Bordered, true).clicked() {
                     close = Close::Cancel;
                 }
                 match (&s.error, &s.encoded) {
-                    (Some(e), _) => {
-                        w::text(ui, e, theme::regular(12.0), color::RED);
-                    }
-                    (None, Some((_, bytes, _))) => {
-                        w::text(ui, bytes_file(bytes.len()), theme::regular(12.0), color::secondary());
-                    }
-                    _ => {}
+                    (Some(e), _) => kit::body(ui, e, color::RED),
+                    (None, Some((_, bytes, ..))) => kit::body(ui, &bytes_file(bytes.len()), color::label()),
+                    _ => kit::body(ui, "Updating…", color::secondary()),
                 }
             });
         });
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-            close = Close::Cancel;
-        }
+        close = keys(ui, s.encoded.is_some() && s.error.is_none(), std::mem::replace(&mut close, Close::Open));
     });
     match close {
         Close::Open => true,
@@ -1741,7 +1913,7 @@ fn jpeg_sheet(app: &mut App, ctx: &egui::Context, s: &mut JpegSheet) -> bool {
         Close::Ok => {
             app.jpeg_quality = s.quality;
             let name = app.doc().map(|d| d.name.clone()).unwrap_or_default();
-            let Some((_, bytes, _)) = &s.encoded else { return true };
+            let Some((_, bytes, ..)) = &s.encoded else { return true };
             if app.headless {
                 return false;
             }
@@ -1753,6 +1925,15 @@ fn jpeg_sheet(app: &mut App, ctx: &egui::Context, s: &mut JpegSheet) -> bool {
             false
         }
     }
+}
+
+/// A bordered button showing a symbol, as the JPEG preview's zoom buttons.
+fn zoom_button(ui: &mut Ui, symbol: &'static str, enabled: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(40.0, metric::CONTROL_HEIGHT), if enabled { Sense::click() } else { Sense::hover() });
+    let dim = if enabled { 1.0 } else { 0.4 };
+    ui.painter().rect_filled(rect, egui::CornerRadius::same(12), color::control().gamma_multiply(dim));
+    crate::icons::paint(ui.painter(), crate::icons::Icon::Symbol(symbol), rect.center(), 13.0, color::label().gamma_multiply(dim));
+    response
 }
 
 /// `ByteCountFormatter` with `.file`: powers of 1000.
@@ -1771,14 +1952,14 @@ fn bytes_file(n: usize) -> String {
 
 fn psd_sheet(app: &mut App, ctx: &egui::Context, name: &str, conversions: &[(String, String)], project: &mut Box<Project>, into_document: bool) -> bool {
     let mut close = Close::Open;
-    window(ctx, "Photoshop", 520.0, |ui| {
+    window(ctx, "Photoshop", 520.0, 24.0, 16.0, |ui| {
         title2(ui, &format!("Open “{name}”?"));
         para(ui, "Compositor will convert these Photoshop features. Nothing is applied until you continue.", color::secondary());
         egui::ScrollArea::vertical().max_height(260.0).min_scrolled_height(180.0).show(ui, |ui| {
             for (layer, message) in conversions {
                 ui.vertical(|ui| {
                     ui.spacing_mut().item_spacing.y = 2.0;
-                    w::text(ui, layer, theme::semibold(13.0), color::label());
+                    kit::headline(ui, layer);
                     para(ui, message, color::label());
                 });
             }
@@ -1800,7 +1981,7 @@ fn psd_sheet(app: &mut App, ctx: &egui::Context, name: &str, conversions: &[(Str
 
 fn rename_sheet(app: &mut App, ctx: &egui::Context, id: &str, name: &mut String) -> bool {
     let mut close = Close::Open;
-    window(ctx, "Rename Layer", 340.0, |ui| {
+    window(ctx, "Rename Layer", 340.0, 24.0, 16.0, |ui| {
         title2(ui, "Rename Layer");
         let response = w::text_field(ui, "rename", name, ui.available_width(), "Name", theme::regular(13.0));
         if !response.has_focus() && !response.lost_focus() {
@@ -1826,36 +2007,58 @@ fn rename_sheet(app: &mut App, ctx: &egui::Context, id: &str, name: &mut String)
     }
 }
 
+/// `KeyboardShortcutsSheet`, showing the default shortcuts. Editing them isn't there yet, so
+/// the recorders show their chords and Restore Defaults has nothing to undo.
 fn shortcuts_sheet(ctx: &egui::Context, search: &mut String) -> bool {
     let mut open = true;
-    window(ctx, "Keyboard Shortcuts", 660.0, |ui| {
-        ui.spacing_mut().item_spacing.y = 10.0;
-        para(ui, "These are the default shortcuts. Ctrl stands for the Mac's Command key, and Alt for Option.", color::secondary());
+    window(ctx, "Keyboard Shortcuts", 660.0, 24.0, 10.0, |ui| {
+        kit::para(ui, "These are the default shortcuts. Ctrl stands for the Mac's Command key, and Alt for Option.", 13.0, color::secondary());
         let wd = ui.available_width();
         w::text_field(ui, "shortcut-search", search, wd, "Search shortcuts", theme::regular(13.0));
-        egui::ScrollArea::vertical().max_height(465.0).show(ui, |ui| {
+        let (list, _) = ui.allocate_exact_size(vec2(wd, 465.0), Sense::hover());
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(list).layout(Layout::top_down(Align::Min)));
+        child.set_clip_rect(list);
+        egui::ScrollArea::vertical().id_salt("shortcuts").auto_shrink([false, false]).show(&mut child, |ui| {
             ui.spacing_mut().item_spacing.y = 6.0;
+            ui.set_width(wd - 8.0);
             for (group, rows) in crate::menus::shortcut_list() {
                 ui.add_space(8.0);
-                w::text(ui, group, theme::semibold(13.0), color::label());
+                kit::headline(ui, group);
                 for (title, chord) in rows {
                     if !search.is_empty() && !title.to_lowercase().contains(&search.to_lowercase()) {
                         continue;
                     }
-                    ui.horizontal(|ui| {
-                        w::text(ui, &title, theme::regular(13.0), color::label());
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            w::text(ui, &chord, theme::regular(13.0), color::secondary());
+                    kit::hstack(ui, 8.0, |ui| {
+                        kit::body(ui, &title, color::label());
+                        kit::trailing(ui, |ui| {
+                            // An AppKit rounded-bezel NSButton in a 150 × 26 frame: a 24-point
+                            // rounded rectangle, not a capsule.
+                            let (rect, _) = ui.allocate_exact_size(vec2(150.0, 26.0), Sense::hover());
+                            ui.painter().rect_filled(rect.shrink2(vec2(0.0, 1.0)), egui::CornerRadius::same(6), color::control());
+                            let g = ui.painter().layout_no_wrap(chord, theme::regular(13.0), color::label());
+                            w::center_line(ui.painter(), g.clone(), rect.center().x - g.size().x / 2.0, rect.center().y, color::label());
                         });
                     });
                 }
             }
+            ui.add_space(8.0);
+            divider(ui);
+            ui.add_space(8.0);
+            kit::headline(ui, "Contextual keys & mouse gestures");
+            para(ui, "Text fields keep standard editing keys. Dialogs share the Apply/Cancel assignments above. Numeric fields use Up/Down, with Shift for larger steps. Standard commands include Alt+F4 to quit and F11 for full screen.", color::label());
+            para(ui, "Alt temporarily selects the eyedropper in painting tools. Shift constrains shapes/movement or adds to a selection; Alt subtracts from selections or draws from center. Ctrl-drag moves selected pixels; Ctrl-Alt-drag copies them. Alt-drag duplicates layers/folders/effects; Alt-click at a layer boundary toggles clipping. Ctrl-click a thumbnail loads its selection. Right-drag adjusts brush size. Modifier-and-mouse gestures are fixed.", color::label());
         });
         divider(ui);
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if w::button(ui, "Done", 13.0, ButtonStyle::Prominent, true).clicked() {
-                open = false;
-            }
+        kit::hstack(ui, 8.0, |ui| {
+            w::button(ui, "Restore Defaults", 13.0, ButtonStyle::Bordered, true);
+            kit::trailing(ui, |ui| {
+                if w::button(ui, "Save", 13.0, ButtonStyle::Prominent, true).clicked() {
+                    open = false;
+                }
+                if w::button(ui, "Cancel", 13.0, ButtonStyle::Bordered, true).clicked() {
+                    open = false;
+                }
+            });
         });
         if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
             open = false;
@@ -1868,9 +2071,8 @@ fn modify_sheet(app: &mut App, ctx: &egui::Context, kind: u8, amount: &mut f64) 
     let max = if kind == 2 { 250.0 } else { 500.0 };
     let title = ["Expand Selection", "Contract Selection", "Feather Selection"][kind as usize];
     let mut close = Close::Open;
-    window(ctx, title, 380.0, |ui| {
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 10.0;
+    window(ctx, title, 380.0, 24.0, 16.0, |ui| {
+        kit::hstack(ui, 10.0, |ui| {
             w::scrub_label(ui, "Amount", theme::regular(13.0), color::label(), amount, 1.0, 1.0..=max, true);
             let sw = w::fill_width(ui, 56.0 + w::unit_width(ui, "px"), 2);
             w::slider(ui, amount, 1.0..=max, sw, true);
@@ -1917,9 +2119,28 @@ fn color_range_sheet(app: &mut App, ctx: &egui::Context, s: &mut crate::ui::sele
     }
     let canvas = app.doc().map_or(vec2(1.0, 1.0), |d| d.size());
     let mut close = Close::Open;
-    window(ctx, "Color Range", 340.0, |ui| {
+    window(ctx, "Color Range", 340.0, 24.0, 16.0, |ui| {
+        // The eyedroppers: replace, add, remove; the one in use is tinted.
+        kit::hstack_height(ui, 20.0, 6.0, |ui| {
+            for (i, badge) in [None, Some("plus.circle.fill"), Some("minus.circle.fill")].into_iter().enumerate() {
+                let (rect, response) = ui.allocate_exact_size(vec2(24.0, 20.0), Sense::click());
+                if s.mode == i as u8 {
+                    ui.painter().rect_filled(rect, 4.0, color::ACCENT.gamma_multiply(0.25));
+                }
+                crate::icons::paint(ui.painter(), crate::icons::Icon::Symbol("eyedropper"), rect.center(), 13.0, color::label());
+                if let Some(badge) = badge {
+                    crate::icons::paint(ui.painter(), crate::icons::Icon::Symbol(badge), rect.center() + vec2(6.0, 4.0), 8.0, color::label());
+                }
+                let help = ["Click the image to select that color", "Click the image to add that color to the selection", "Click the image to take that color out of the selection"][i];
+                if response.on_hover_text(help).clicked() {
+                    s.mode = i as u8;
+                }
+            }
+        });
+        // `.frame(maxWidth: .infinity)`: centered across the sheet.
         let scale = (292.0 / canvas.x).min(200.0 / canvas.y);
-        let (rect, _) = ui.allocate_exact_size(canvas * scale, Sense::hover());
+        let (row, _) = ui.allocate_exact_size(vec2(ui.available_width(), (canvas.y * scale).round()), Sense::hover());
+        let rect = Rect::from_center_size(row.center(), canvas * scale);
         ui.painter().rect_filled(rect, 0.0, Color32::BLACK);
         if let Some(t) = &s.preview {
             ui.painter().image(t.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
@@ -1927,8 +2148,7 @@ fn color_range_sheet(app: &mut App, ctx: &egui::Context, s: &mut crate::ui::sele
         ui.painter().rect_stroke(rect, 0.0, Stroke::new(1.0, theme::white_alpha(0.2)), egui::StrokeKind::Inside);
         let hint = if s.samples.is_empty() { "Click the image to pick the color to select." } else { "Shift-click adds a color, Alt-click takes one away." };
         para(ui, hint, color::secondary());
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 10.0;
+        kit::hstack(ui, 10.0, |ui| {
             w::scrub_label(ui, "Fuzziness", theme::regular(13.0), color::label(), &mut s.fuzziness, 1.0, 0.0..=200.0, true);
             let sw = w::fill_width(ui, 48.0, 1);
             w::slider(ui, &mut s.fuzziness, 0.0..=200.0, sw, true);
@@ -1995,11 +2215,12 @@ pub fn open_effect(app: &mut App, kind: &'static str) {
     app.sheet = Some(Sheet::Effect(EffectSheet { kind, layer: layer.id, effects, original }));
 }
 
+/// One of `EffectsSheet`'s slider rows: a 64-point title (scrubs), a 130-point slider, a
+/// 48-point field and its unit, 10 points apart.
 fn effect_row(ui: &mut Ui, title: &str, value: &mut f64, slider_range: std::ops::RangeInclusive<f64>, typed: std::ops::RangeInclusive<f64>, unit: &str) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 10.0;
-        let (rect, response) = ui.allocate_exact_size(vec2(64.0, 22.0), Sense::drag());
-        ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, title, theme::regular(13.0), color::label());
+    kit::hstack(ui, 10.0, |ui| {
+        let (rect, response) = ui.allocate_exact_size(vec2(64.0, w::line_height(13.0)), Sense::drag());
+        w::paint_centered(ui.painter(), title, theme::regular(13.0), color::label(), rect.min.x, rect.center().y);
         if response.dragged() {
             *value = (*value + response.drag_delta().x as f64).clamp(*typed.start(), *typed.end());
         }
@@ -2012,42 +2233,46 @@ fn effect_row(ui: &mut Ui, title: &str, value: &mut f64, slider_range: std::ops:
     });
 }
 
-fn color_row(ui: &mut Ui, title: &str, r: &mut f64, g: &mut f64, b: &mut f64) {
-    ui.horizontal(|ui| {
-        let (rect, _) = ui.allocate_exact_size(vec2(64.0, 22.0), Sense::hover());
-        ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, title, theme::regular(13.0), color::label());
-        let mut rgb = [*r as f32, *g as f32, *b as f32];
-        if egui::widgets::color_picker::color_edit_button_rgb(ui, &mut rgb).changed() {
-            (*r, *g, *b) = (rgb[0] as f64, rgb[1] as f64, rgb[2] as f64);
-        }
-    });
+/// An effect's color swatch (36 × 18, white inner ring, black border), which opens a picker.
+fn color_row(ui: &mut Ui, id: &str, r: &mut f64, g: &mut f64, b: &mut f64) {
+    let style = SwatchStyle { radius: 3.0, inner_white: 1.0, outer_black: 1.0 };
+    if let Some(c) = swatch_picker(ui, ("effect-color", id), [*r as f32, *g as f32, *b as f32], vec2(36.0, 18.0), style) {
+        (*r, *g, *b) = (c[0] as f64, c[1] as f64, c[2] as f64);
+    }
 }
 
 fn effect_sheet(app: &mut App, ctx: &egui::Context, s: &mut EffectSheet) -> bool {
     let before = s.effects.clone();
     let mut close = Close::Open;
-    window(ctx, s.kind, 340.0, |ui| {
-        w::text(ui, s.kind, theme::semibold(13.0), color::label());
+    window(ctx, s.kind, 340.0, 20.0, 16.0, |ui| {
         let e = &mut s.effects;
-        match s.kind {
+        let kind = s.kind;
+        match kind {
             "Stroke" => {
                 let x = e.stroke.as_mut().unwrap();
-                ui.horizontal(|ui| {
-                    let mut inside = x.inside as usize;
-                    if w::segmented(ui, &mut inside, &[0, 1], |i| ["Outside", "Inside"][i]).changed() {
-                        x.inside = inside == 1;
-                    }
+                kit::hstack(ui, 8.0, |ui| {
+                    kit::headline(ui, kind);
+                    kit::trailing(ui, |ui| {
+                        w::segmented(ui, &mut x.inside, &[false, true], |i| if i { "Inside" } else { "Outside" });
+                    });
                 });
-                color_row(ui, "Color", &mut x.red, &mut x.green, &mut x.blue);
+                // As tall as the 18-point swatch.
+                kit::hstack_height(ui, 18.0, 8.0, |ui| {
+                    kit::fixed_label(ui, "Color", 64.0);
+                    color_row(ui, kind, &mut x.red, &mut x.green, &mut x.blue);
+                });
                 effect_row(ui, "Size", &mut x.size, 0.0..=20.0, 0.0..=500.0, "px");
                 let mut o = (x.opacity * 100.0).round();
                 effect_row(ui, "Opacity", &mut o, 0.0..=100.0, 0.0..=100.0, "%");
                 x.opacity = o / 100.0;
             }
             "Drop Shadow" | "Inner Shadow" => {
-                let inner = s.kind == "Inner Shadow";
+                let inner = kind == "Inner Shadow";
                 let x = if inner { e.inner_shadow.as_mut().unwrap() } else { e.shadow.as_mut().unwrap() };
-                color_row(ui, "Color", &mut x.red, &mut x.green, &mut x.blue);
+                kit::hstack(ui, 8.0, |ui| {
+                    kit::headline(ui, kind);
+                    kit::trailing(ui, |ui| color_row(ui, kind, &mut x.red, &mut x.green, &mut x.blue));
+                });
                 let mut o = (x.opacity * 100.0).round();
                 effect_row(ui, "Opacity", &mut o, 0.0..=100.0, 0.0..=100.0, "%");
                 x.opacity = o / 100.0;
@@ -2057,24 +2282,30 @@ fn effect_sheet(app: &mut App, ctx: &egui::Context, s: &mut EffectSheet) -> bool
             }
             "Color Overlay" => {
                 let x = e.color_overlay.as_mut().unwrap();
-                color_row(ui, "Color", &mut x.red, &mut x.green, &mut x.blue);
+                kit::hstack(ui, 8.0, |ui| {
+                    kit::headline(ui, kind);
+                    kit::trailing(ui, |ui| color_row(ui, kind, &mut x.red, &mut x.green, &mut x.blue));
+                });
                 let mut o = (x.opacity * 100.0).round();
                 effect_row(ui, "Opacity", &mut o, 0.0..=100.0, 0.0..=100.0, "%");
                 x.opacity = o / 100.0;
             }
             _ => {
-                let x = if s.kind == "Outer Glow" { e.outer_glow.as_mut().unwrap() } else { e.inner_glow.as_mut().unwrap() };
-                color_row(ui, "Color", &mut x.red, &mut x.green, &mut x.blue);
+                let x = if kind == "Outer Glow" { e.outer_glow.as_mut().unwrap() } else { e.inner_glow.as_mut().unwrap() };
+                kit::hstack(ui, 8.0, |ui| {
+                    kit::headline(ui, kind);
+                    kit::trailing(ui, |ui| color_row(ui, kind, &mut x.red, &mut x.green, &mut x.blue));
+                });
                 effect_row(ui, "Size", &mut x.size, 0.0..=100.0, 0.0..=500.0, "px");
                 let mut o = (x.opacity * 100.0).round();
                 effect_row(ui, "Opacity", &mut o, 0.0..=100.0, 0.0..=100.0, "%");
                 x.opacity = o / 100.0;
             }
         }
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 10.0;
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if w::button(ui, "OK", 13.0, ButtonStyle::Bordered, true).clicked() {
+        // Spacer · Cancel · OK, 10 points apart; OK is the default button.
+        kit::hstack(ui, 10.0, |ui| {
+            kit::trailing(ui, |ui| {
+                if w::button(ui, "OK", 13.0, ButtonStyle::Prominent, true).clicked() {
                     close = Close::Ok;
                 }
                 if w::button(ui, "Cancel", 13.0, ButtonStyle::Bordered, true).clicked() {
@@ -2082,9 +2313,7 @@ fn effect_sheet(app: &mut App, ctx: &egui::Context, s: &mut EffectSheet) -> bool
                 }
             });
         });
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-            close = Close::Cancel;
-        }
+        close = keys(ui, true, std::mem::replace(&mut close, Close::Open));
     });
     // Preview on the canvas as it changes.
     let layer = s.layer.clone();
@@ -2118,50 +2347,155 @@ fn effect_sheet(app: &mut App, ctx: &egui::Context, s: &mut EffectSheet) -> bool
 
 // The color picker.
 
-/// The Color Picker panel for the foreground or background color.
+/// The Color Picker panel for the foreground or background color. Its hue, saturation and
+/// brightness are `PickerHSB`'s, on the encoded sRGB values.
 pub fn open_color_picker(app: &mut App, background: bool) {
     let original = if background { app.settings.background } else { app.settings.foreground };
-    app.sheet = Some(Sheet::ColorPicker { background, color: egui::ecolor::Hsva::from_rgb(original), original });
+    app.sheet = Some(Sheet::ColorPicker { background, color: hsb_of(original), original });
 }
 
+/// HSB (hue in turns) of an sRGB color, on its encoded values, as `PickerHSB.setRGB`.
+pub fn hsb_of(c: [f32; 3]) -> egui::ecolor::Hsva {
+    let [r, g, b] = c;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let d = max - min;
+    let h = if d <= 0.0 {
+        0.0
+    } else if max == r {
+        ((g - b) / d).rem_euclid(6.0)
+    } else if max == g {
+        (b - r) / d + 2.0
+    } else {
+        (r - g) / d + 4.0
+    };
+    egui::ecolor::Hsva { h: h / 6.0, s: if max > 0.0 { d / max } else { 0.0 }, v: max, a: 1.0 }
+}
+
+/// The sRGB color of an HSB made by `hsb_of`.
+pub fn rgb_of(c: &egui::ecolor::Hsva) -> [f32; 3] {
+    let k = kit::hsb(c.h * 360.0, c.s, c.v);
+    [k.r(), k.g(), k.b()].map(|v| v as f32 / 255.0)
+}
+
+/// `ColorPickerSheet`: saturation/brightness field, hue strip, then the preview, OK and Cancel,
+/// and the RGB and hex fields in a 180-point column.
 fn color_picker_sheet(app: &mut App, ctx: &egui::Context, background: bool, color: &mut egui::ecolor::Hsva, original: [f32; 3]) -> bool {
     let title = if background { "Color Picker (Background Color)" } else { "Color Picker (Foreground Color)" };
     let mut close = Close::Open;
-    window(ctx, title, 520.0, |ui| {
-        ui.horizontal_top(|ui| {
-            ui.spacing_mut().item_spacing.x = 14.0;
-            egui::widgets::color_picker::color_picker_hsva_2d(ui, color, egui::widgets::color_picker::Alpha::Opaque);
-            ui.vertical(|ui| {
-                ui.spacing_mut().item_spacing.y = 8.0;
-                let rgb = color.to_rgb();
-                let (preview, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
-                ui.painter().rect_filled(preview, 5.0, w::rgb(rgb));
-                let mut values = rgb.map(|c| (c * 255.0).round() as f64);
-                let before = values;
-                for (i, label) in ["R", "G", "B"].iter().enumerate() {
-                    ui.horizontal(|ui| {
-                        w::text(ui, *label, theme::regular(13.0), color::label());
-                        w::number_field(ui, ("picker", *label), &mut values[i], 0.0..=255.0, w::fmt_int, 52.0, false, true);
-                    });
-                }
-                if values != before {
-                    *color = egui::ecolor::Hsva::from_rgb(values.map(|v| (v / 255.0) as f32));
-                }
-                let mut hex = format!("{:02X}{:02X}{:02X}", values[0] as u8, values[1] as u8, values[2] as u8);
-                ui.horizontal(|ui| {
-                    w::text(ui, "#", theme::regular(13.0), color::label());
-                    if w::text_field(ui, "picker-hex", &mut hex, 84.0, "", egui::FontId::monospace(12.0)).changed() {
-                        if let (6, Ok(v)) = (hex.len(), u32::from_str_radix(hex.trim(), 16)) {
-                            let c = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map(|x| x as f32 / 255.0);
-                            *color = egui::ecolor::Hsva::from_rgb(c);
-                        }
-                    }
-                });
-                para(ui, "Click the canvas to sample", color::secondary());
+    let width = 20.0 + 256.0 + 14.0 + 34.0 + 14.0 + 180.0 + 20.0;
+    window(ctx, title, width, 20.0, 0.0, |ui| {
+        let origin = ui.cursor().min;
+        let (whole, _) = ui.allocate_exact_size(vec2(256.0 + 14.0 + 34.0 + 14.0 + 180.0, 256.0), Sense::hover());
+        let p = ui.painter().clone();
+        // Saturation across, brightness down: white to the hue (a SwiftUI gradient, mixed
+        // perceptually), under clear to black (composited, so linear in the encoded values).
+        let field = Rect::from_min_size(origin, vec2(256.0, 256.0));
+        let hue = kit::hsb(color.h * 360.0, 1.0, 1.0);
+        let (columns, rows) = (64, 16);
+        let mut mesh = egui::Mesh::default();
+        for j in 0..=rows {
+            let t = j as f32 / rows as f32;
+            for i in 0..=columns {
+                let top = kit::oklab_mix(Color32::WHITE, hue, i as f32 / columns as f32);
+                let c = Color32::from_rgb(kit::scale(top.r(), 1.0 - t), kit::scale(top.g(), 1.0 - t), kit::scale(top.b(), 1.0 - t));
+                mesh.colored_vertex(pos2(field.min.x + 256.0 * i as f32 / columns as f32, field.min.y + 256.0 * t), c);
+            }
+        }
+        for j in 0..rows {
+            for i in 0..columns {
+                let a = (j * (columns + 1) + i) as u32;
+                let c = a + (columns + 1) as u32;
+                mesh.add_triangle(a, a + 1, c + 1);
+                mesh.add_triangle(a, c + 1, c);
+            }
+        }
+        p.add(egui::Shape::mesh(mesh));
+        let response = ui.interact(field, ui.id().with("picker-field"), Sense::click_and_drag());
+        if let Some(pos) = response.interact_pointer_pos().filter(|_| response.dragged() || response.clicked()) {
+            color.s = ((pos.x - field.min.x) / 256.0).clamp(0.0, 1.0);
+            color.v = 1.0 - ((pos.y - field.min.y) / 256.0).clamp(0.0, 1.0);
+        }
+        // The marker, clipped by the field as `clipShape` does.
+        let marker = pos2(field.min.x + color.s * 256.0, field.min.y + (1.0 - color.v) * 256.0);
+        let clipped = p.with_clip_rect(field);
+        clipped.circle_stroke(marker, 5.25, Stroke::new(1.5, Color32::WHITE));
+        clipped.circle_stroke(marker, 6.375, Stroke::new(0.75, Color32::BLACK));
+        p.rect_stroke(field, 0.0, Stroke::new(1.0, theme::black_alpha(0.6)), egui::StrokeKind::Inside);
+        // Hue strip, 360 at the top to 0 at the bottom in 60° stops, with arrows at the hue.
+        let slot = Rect::from_min_size(pos2(field.max.x + 14.0, origin.y), vec2(34.0, 256.0));
+        let strip = Rect::from_min_size(slot.min + vec2(7.0, 0.0), vec2(20.0, 256.0));
+        let mut mesh = egui::Mesh::default();
+        let steps = 6 * 16;
+        for k in 0..=steps {
+            let f = k as f32 / 16.0;
+            let stop = (f.floor() as usize).min(5);
+            let c = kit::oklab_mix(kit::hsb(360.0 - 60.0 * stop as f32, 1.0, 1.0), kit::hsb(360.0 - 60.0 * (stop + 1) as f32, 1.0, 1.0), f - stop as f32);
+            let y = strip.min.y + 256.0 * k as f32 / steps as f32;
+            mesh.colored_vertex(pos2(strip.min.x, y), c);
+            mesh.colored_vertex(pos2(strip.max.x, y), c);
+            if k > 0 {
+                let b = (k * 2) as u32;
+                mesh.add_triangle(b - 2, b - 1, b);
+                mesh.add_triangle(b - 1, b, b + 1);
+            }
+        }
+        p.add(egui::Shape::mesh(mesh));
+        p.rect_stroke(strip, 0.0, Stroke::new(1.0, theme::black_alpha(0.6)), egui::StrokeKind::Inside);
+        let response = ui.interact(slot, ui.id().with("picker-hue"), Sense::click_and_drag());
+        if let Some(pos) = response.interact_pointer_pos().filter(|_| response.dragged() || response.clicked()) {
+            color.h = (1.0 - ((pos.y - slot.min.y) / 256.0).clamp(0.0, 1.0)).rem_euclid(1.0);
+        }
+        let y = strip.min.y + (1.0 - color.h) * 256.0;
+        p.add(egui::Shape::convex_polygon(vec![pos2(slot.min.x, y - 5.0), pos2(slot.min.x + 7.0, y), pos2(slot.min.x, y + 5.0)], color::label(), Stroke::NONE));
+        p.add(egui::Shape::convex_polygon(vec![pos2(slot.max.x, y - 5.0), pos2(slot.max.x - 7.0, y), pos2(slot.max.x, y + 5.0)], color::label(), Stroke::NONE));
+        // The 180 × 256 column: preview, OK and Cancel (large controls, 90 wide) at the top; the
+        // fields and the hint pushed to the bottom by the Spacer.
+        let column = Rect::from_min_size(pos2(slot.max.x + 14.0, origin.y), vec2(180.0, 256.0));
+        let preview = Rect::from_min_size(column.min, vec2(64.0, 64.0));
+        let rgb = rgb_of(color);
+        p.rect_filled(preview, 5.0, w::rgb(rgb));
+        p.rect_stroke(preview, 5.0, Stroke::new(1.0, theme::black_alpha(0.6)), egui::StrokeKind::Inside);
+        for (i, (label, prominent)) in [("OK", true), ("Cancel", false)].into_iter().enumerate() {
+            let rect = Rect::from_min_size(pos2(preview.max.x + 16.0, column.min.y + i as f32 * 36.0), vec2(90.0, 28.0));
+            let response = ui.interact(rect, ui.id().with(("picker-button", i)), Sense::click());
+            p.rect_filled(rect, egui::CornerRadius::same(14), if prominent { color::ACCENT } else { color::control() });
+            let text = if prominent { Color32::WHITE } else { color::label() };
+            let g = p.layout_no_wrap(label.into(), theme::regular(13.0), text);
+            w::center_line(&p, g.clone(), rect.center().x - g.size().x / 2.0, rect.center().y, text);
+            if response.clicked() {
+                close = if prominent { Close::Ok } else { Close::Cancel };
+            }
+        }
+        let hint = w::line_height(10.0);
+        let grid = 4.0 * 24.0 + 3.0 * 6.0;
+        let top = column.max.y - hint - 8.0 - grid;
+        let mut fields = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_max(pos2(column.min.x, top), column.max)).layout(Layout::top_down(Align::Min)));
+        fields.spacing_mut().item_spacing = vec2(8.0, 6.0);
+        let mut values = rgb.map(|c| (c * 255.0).round() as f64);
+        let before = values;
+        for (i, label) in ["R", "G", "B"].iter().enumerate() {
+            fields.allocate_ui_with_layout(vec2(180.0, 24.0), Layout::left_to_right(Align::Center), |ui| {
+                kit::fixed_label(ui, label, 14.0);
+                w::number_field(ui, ("picker", *label), &mut values[i], 0.0..=255.0, w::fmt_int, 52.0, false, true);
             });
+        }
+        if values != before {
+            *color = hsb_of(values.map(|v| (v / 255.0) as f32));
+        }
+        let mut hex = format!("{:02X}{:02X}{:02X}", values[0] as u8, values[1] as u8, values[2] as u8);
+        fields.allocate_ui_with_layout(vec2(180.0, 24.0), Layout::left_to_right(Align::Center), |ui| {
+            kit::fixed_label(ui, "#", 14.0);
+            if w::text_field(ui, "picker-hex", &mut hex, 84.0, "", egui::FontId::monospace(13.0)).changed() {
+                if let (6, Ok(v)) = (hex.len(), u32::from_str_radix(hex.trim(), 16)) {
+                    *color = hsb_of([(v >> 16) & 255, (v >> 8) & 255, v & 255].map(|x| x as f32 / 255.0));
+                }
+            }
         });
-        divider(ui);
-        close = footer(ui, "OK", true);
+        let g = p.layout_no_wrap("Click the canvas to sample".into(), theme::regular(10.0), color::secondary());
+        w::paint_line(&p, g, pos2(column.min.x, column.max.y - hint), 10.0, color::secondary());
+        let _ = whole;
+        close = keys(ui, true, std::mem::replace(&mut close, Close::Open));
     });
     match close {
         Close::Open => true,
@@ -2170,7 +2504,7 @@ fn color_picker_sheet(app: &mut App, ctx: &egui::Context, background: bool, colo
             false
         }
         Close::Ok => {
-            let rgb = color.to_rgb();
+            let rgb = rgb_of(color);
             if background {
                 app.settings.background = rgb;
             } else {

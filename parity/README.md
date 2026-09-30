@@ -150,55 +150,75 @@ Two optional fields narrow an override:
 
 CI builds PARITY.md from each run's results: per-feature status on both platforms, the overall percentage, known gaps and every tolerance override. Every run shows it in the job summary. After a run on `main`, CI also commits it to the `parity-report` branch, so that branch always holds the report for the newest `main`. `main` only accepts pull requests whose parity checks pass, so CI can't push the report there.
 
-## UI states
+## UI states on Windows
 
-`ui/states.toml` lists views of the app to render on both platforms: the whole editor, the tool rail, the status bar, the Layers panel, each tool header, and the sheets and floating panels. Its header comment describes the fields. On Windows the app renders them itself:
+The Windows app renders the same states itself, with the same conventions as the Mac harness above, so the two sets of files can be compared directly:
 
 ```
 compositor --render-ui parity/ui/states.toml --corpus parity/corpus --out <out-dir>
 ```
 
-(`cargo run -p app --release -- --render-ui …` from `port/`; see [docs/port/app.md](../docs/port/app.md).) The Mac's `ParityHarness ui` is meant to write the same files, following docs/port/ui-inventory.md §4.
+(`cargo run -p app --release -- --render-ui …` from `port/`; see [docs/port/app.md](../docs/port/app.md).) It writes `<out-dir>/<id>.png` for each state, where the id's slashes make folders (`header/move.png`), plus `ui-info.json` and `menus.json`.
 
 ### Images
 
-Each state becomes `<out-dir>/<id>.png`, where the id's slashes make folders (`header/move.png`). Images are 1x, RGBA, with the app's defaults: a fresh set of tool settings, the Layers panel at 252 points, the pixel grid on, rulers off. A state's `document` is `<corpus>/<document>/input.comp`; its `layer`, counted from the bottom, becomes the active layer.
-
-Each view has a fixed size:
+Every PNG is 1x, with the app's defaults: a fresh set of tool settings, the Layers panel at 252 points, the pixel grid on, rulers off. A state's `document` is `<corpus>/<document>/input.comp`; its `layer`, counted from the bottom, becomes the active layer.
 
 | `view` | Size | What's drawn |
 |---|---|---|
-| `window` | 1180 × 742 | The editor (`ContentView`): the default 1180 × 780 window less the Mac's 38-point compact toolbar, which lives in the title bar |
-| `tool-rail` | 56 × 668 | Cropped from the `window` render: below the tool header and its divider, above the status bar's divider |
+| `window` | 1180 × 780 | The editor (`ContentView`) at the window scene's default size, as the Mac hosts it. The Mac's toolbar lives in the title bar and isn't part of it |
+| `tool-header` | 1180 × 42 | Cropped from the `window` render: the top 42 points |
+| `tool-rail` | 56 × 706 | Cropped from the `window` render: below the tool header and its divider, above the status bar's divider |
 | `status-bar` | 1180 × 30 | Cropped from the `window` render, so the zoom it shows is the fitted zoom |
-| `tool-header` | 1180 × 42 | The header alone |
 | `layers-panel` | 252 × 600 | `LayersPanel` alone |
-| `sheet` | natural | The sheet's content at its fixed width and the height its content needs, without window chrome or title bar |
+| `sheet` | natural | The sheet's content at its width and the height its content needs, without window chrome: the app's own live sheet, opened as its menu command, swatch or panel opens it and drawn alone (`dialogs::CAPTURE`). Grid Settings, which the port has no live version of yet, and the New canvas form alone come from `ui/sheets.rs` |
 
-Where a view doesn't paint its own background, the Windows render shows the editor's gray (white 0.14) behind it.
+As on the Mac, each capture is flattened over what its window shows behind it: the editor's gray (white 0.14) for the window and the views cropped from it, and `windowBackgroundColor` (#1E1E1E) for the Layers panel and sheets. A sheet's natural size is expected to equal the size the Mac measured and recorded in its `ui-info.json`; the New canvas form, for example, takes its 411-point fitting width when shown alone.
 
 ### `ui-info.json`
 
-Lists every state with `status` `ok` (and its `size`), `pending` (the port has no such sheet yet, with a `reason`) or `error`. A pending state writes no image. Today Export JPEG and Camera Raw are pending.
+The Mac harness's fields: each state's `id`, `status` (`ok`, `pending` or `error`), `output`, `width`, `height`, `backingScale` and `notes`. A pending state (the port has no such sheet yet) has a `reason` and writes no image; an error has an `error`. Today only Camera Raw is pending. The file also records the `platform` and the GPU `adapter`.
 
 ### `menus.json`
 
-The menu bar as data, because menus can't be compared as pixels:
+The same form as the Mac's (`MenuDump.normalize` in `harness/Sources/MenuDump.swift`):
 
-```json
-{
-  "schema": "compositor-menus/1",
-  "platform": "windows",
-  "states": [
-    { "id": "welcome", "document": null, "menus": [ … ] },
-    { "id": "document", "document": "blend/stack", "tool": "move", "menus": [ … ], "layerContextMenu": [ … ] }
-  ]
-}
+- `mainMenu`: the menu bar at launch, with no document open. Each menu is `{ "title", "enabled", "items" }`.
+- `layerContextMenus`: the Layers list's menu for every row of the documents the Mac right-clicks (`blend/stack`, `masks/folder-mask`, `clipping/stack`, `adjust/mod-mask`, `effects/all`), each `{ "document", "row", "layer", "items" }`, row 0 at the top.
+
+Each item is `{"separator": true}` or `{ "title", "enabled", "key", "modifiers", "shortcut", "checked", "system", "items" }`, with keys that are false or empty left out. Shortcuts are written the Mac's way, which is how both sides are compared:
+
+- Ctrl is written as `command` (⌘), Alt as `option` (⌥) and Shift as `shift` (⇧). Only system items use the Mac's Control key (⌃).
+- `key` is the key equivalent as AppKit stores it: lowercase, Backspace as U+0008.
+- `shortcut` is how the Mac's menu draws it, modifiers in the order ⌃⌥⇧⌘ then the key (`"⇧⌘S"`, `"⌥⌫"`).
+- `windowsShortcut` adds what the Windows menu shows (`"Ctrl+Shift+S"`). The Mac has no such field, and the comparison ignores it.
+
+`"system": true` marks items only Windows has: Page Setup, Print, Exit and their separators, and the Window and Help menus' contents.
+
+## Comparing the UI
+
+`parity ui` compares the two sets of files:
+
+```
+parity ui --mac <refs>/ui --windows <out-dir> --out <compare-dir>
 ```
 
-`welcome` is the app at launch with no project; `document` has `blend/stack` open with the Move tool, and `layerContextMenu` is the Layers list's context menu for its top row. Each menu is `{ "title", "children" }`. Each item is one of:
+It writes `ui-results.json`, `ui-report.md` and `compare/<id>.png`, which shows the Mac's render, the Windows render and a difference map side by side (stacked for wide states). In the difference map, pixels more than 8/255 apart are blue and pixels more than 32/255 apart are yellow to red; where the sizes differ, the area only one side covers is magenta.
 
-- `{ "title", "shortcut", "enabled", "checked"?, "children"?, "system"? }`. `shortcut` is written the Mac's way, modifiers in the order ⌃⌥⇧⌘ then the key (`"⇧⌘S"`, `"⌥⌫"`), or `null`. `checked` appears only on items with a check mark state. `children` makes the item a submenu.
-- `{ "separator": true, "system"? }`.
+Pixel equality isn't expected: the fonts differ (SF Pro on the Mac, Segoe UI on Windows) and so do the icons (SF Symbols against Phosphor, see [docs/port/icons.md](../docs/port/icons.md)). So each state gets two scores, which are reported and not gated:
 
-`"system": true` marks items the operating system supplies rather than the app (Page Setup, Print, Windows' Exit, the Window and Help menus). A comparison should skip them on both sides, along with the Mac's own system items, such as Services and the Edit menu's Writing Tools. Everything else should match in title, order, separators, shortcut and submenu structure. `enabled` is expected to differ while the port lacks a feature: it disables those items instead of hiding them.
+- **SSIM**: the mean structural similarity of the two images' luminance (11-point Gaussian window), where 1 is identical.
+- **Far**: the share of pixels with a channel more than 32/255 apart.
+
+A state **passes** when both sides rendered it at the same size. It **fails** when the sizes differ or Windows couldn't render it, it is **pending** when the port doesn't have that view yet, and it is an **error** when the Mac didn't render it.
+
+Menus are compared item by item after these mappings:
+
+- The Mac's application menu (Compositor) is left out. Its items are the system's (Services, Hide, Quit) or Mac-only (About and Check for Updates); Windows puts Exit at the foot of File.
+- The Window and Help menus are compared by their place in the menu bar only. The operating system supplies their contents on both platforms.
+- Items marked `system`, `hidden` or `alternate` are left out on both sides, as are the items macOS adds to an app's menus on its own: AutoFill, Start Dictation…, Emoji & Symbols, Writing Tools, Enter Full Screen, Exit Full Screen, Show Tab Bar and Show All Tabs. The Mac's Quit and Keep Windows is an alternate item, so it doesn't matter that it comes and goes between runs.
+- The separators this leaves at either end of a menu, or doubled, are dropped too.
+
+Everything else has to match: the menus' order, each item's title, order, separators, submenus, check marks and shortcut. Enabled states are listed but not gated, because the port disables the items whose feature it doesn't have yet instead of hiding them.
+
+`parity ui` exits with an error when a state fails or errors, or when a menu differs. In CI, the Windows job renders the UI states after the case run and compares them with the references' `ui/` folder; the result goes to the job summary, and `parity report --ui <ui-results.json>` adds a UI section to PARITY.md.

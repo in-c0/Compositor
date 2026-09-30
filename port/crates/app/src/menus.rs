@@ -68,6 +68,11 @@ impl Shortcut {
         if cfg!(target_os = "macos") {
             return self.mac();
         }
+        self.display_windows()
+    }
+
+    /// Windows' notation: ⌘ and ⌃ are Ctrl, ⌥ is Alt.
+    pub fn display_windows(&self) -> String {
         let mut parts = Vec::new();
         if self.command || self.control {
             parts.push("Ctrl");
@@ -286,9 +291,8 @@ fn later(title: &str) -> Item {
 pub fn build(s: &MenuState) -> Vec<Menu> {
     let doc = s.has_document;
     let mut recent: Vec<Item> = s.recent.iter().enumerate().map(|(i, name)| Item::new(name).run(Command::OpenRecent(i), true)).collect();
-    if !recent.is_empty() {
-        recent.push(Item::separator());
-    }
+    // AppKit's Open Recent always has the separator, even with nothing above it.
+    recent.push(Item::separator());
     recent.push(Item::new("Clear Menu").run(Command::ClearRecent, !s.recent.is_empty()));
 
     let file = vec![
@@ -296,6 +300,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("Open Project…").key(cmd(Key::O)).run(Command::Open, true),
         Item::new("Open Recent").sub(recent),
         Item::new("Import Images…").run(Command::ImportImages, true),
+        Item::separator(),
         Item::new("Save").key(cmd(Key::S)).run(Command::Save, doc),
         Item::new("Save As…").key(shift_cmd(Key::S)).run(Command::SaveAs, doc),
         Item::separator(),
@@ -303,7 +308,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("Export JPEG…").key(opt_shift_cmd(Key::S)).run(Command::ExportJpeg, doc),
         Item::separator(),
         Item::new("Close Project").key(cmd(Key::W)).run(Command::Close, doc),
-        Item::separator(),
+        Item::separator().system(),
         later("Page Setup…").key(shift_cmd(Key::P)).system(),
         later("Print…").key(cmd(Key::P)).system(),
         Item::separator().system(),
@@ -322,6 +327,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
     let edit = vec![
         Item::new(&undo).key(cmd(Key::Z)).run(Command::Undo, s.undo.is_some()),
         Item::new(&redo).key(shift_cmd(Key::Z)).run(Command::Redo, s.redo.is_some()),
+        Item::separator(),
         later("Cut").key(cmd(Key::X)),
         later("Copy").key(cmd(Key::C)),
         later("Copy Merged").key(shift_cmd(Key::C)),
@@ -428,7 +434,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("Zoom Out").key(cmd(Key::Minus)).run(Command::ZoomOut, doc),
         Item::new("Pixel Grid (800% and above)").run(Command::TogglePixelGrid, true).check(s.pixel_grid),
         Item::new("Snap").run(Command::ToggleSnap, true).check(s.snap),
-        Item::new("Show Transform Controls").key(cmd(Key::H)).run(Command::ToggleTransformControls, s.move_tool).check(s.show_controls),
+        Item::new("Show Transform Controls").key(cmd(Key::H)).run(Command::ToggleTransformControls, s.move_tool && doc).check(s.show_controls),
         Item::separator(),
         Item::new("Show").sub(vec![later("Grid").key(cmd(Key::Quote)).check(false), Item::new("Guides").key(cmd(Key::Semicolon)).run(Command::ToggleGuides, doc).check(s.guides)]),
         later("Grid Settings…"),
@@ -465,11 +471,11 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
     vec![
         Menu { title: "File", items: file },
         Menu { title: "Edit", items: edit },
+        Menu { title: "View", items: view },
         Menu { title: "Select", items: select },
         Menu { title: "Image", items: image },
         Menu { title: "Filter", items: filter },
         Menu { title: "Layer", items: layer },
-        Menu { title: "View", items: view },
         Menu { title: "Window", items: window },
         Menu { title: "Help", items: help },
     ]
@@ -577,6 +583,8 @@ pub struct RowState {
     pub can_clip: bool,
     pub in_folder: bool,
     pub can_merge: bool,
+    /// A mask that can be linked: not an adjustment layer's or a folder's.
+    pub linkable: bool,
 }
 
 /// `NativeLayerList.Coordinator.contextMenu(for:)`; no key equivalents are shown.
@@ -602,7 +610,7 @@ pub fn layer_context(r: &RowState) -> Vec<Item> {
         ]),
         Item::new(if r.mask == Some(false) { "Enable Mask" } else { "Disable Mask" }).run(Command::ToggleLayerMask, r.mask.is_some()),
         Item::new("Delete Mask").run(Command::DeleteMask, r.mask.is_some()),
-        Item::new(if r.mask.is_some() && !r.mask_linked { "Link Mask" } else { "Unlink Mask" }).run(Command::ToggleMaskLink, r.mask.is_some() && !r.is_folder),
+        Item::new(if r.mask.is_some() && !r.mask_linked { "Link Mask" } else { "Unlink Mask" }).run(Command::ToggleMaskLink, r.mask.is_some() && r.linkable),
         Item::separator(),
         Item::new(if r.visible { "Hide Layer" } else { "Show Layer" }).run(Command::ToggleLayerVisibility, true),
     ]);
@@ -702,11 +710,17 @@ fn items(ui: &mut egui::Ui, list: &[Item], chosen: &mut Option<Command>) {
     }
 }
 
-/// The menu tree as JSON (schema in parity/README.md, "UI states").
+/// The menu tree as JSON, in the form the Mac harness writes (`MenuDump.normalize` in
+/// parity/harness/Sources/MenuDump.swift): each menu `{ "title", "enabled", "items" }`.
 pub fn to_json(menus: &[Menu]) -> Value {
-    Value::Array(menus.iter().map(|m| json!({ "title": m.title, "children": items_json(&m.items) })).collect())
+    Value::Array(menus.iter().map(|m| json!({ "title": m.title, "enabled": true, "items": items_json(&m.items) })).collect())
 }
 
+/// Items as the Mac harness writes them: `{"separator": true}` or `{ "title", "enabled", "key",
+/// "modifiers", "shortcut", "checked", "system", "items" }`, leaving out keys that are false or
+/// empty. Shortcuts are the Mac's: Ctrl is written as `command` (⌘), Alt as `option` (⌥), and `key`
+/// is the key equivalent as AppKit stores it. `windowsShortcut` adds what the Windows menu shows.
+/// `system` marks items only Windows has (Page Setup, Print, Exit, the Window and Help menus).
 pub fn items_json(items: &[Item]) -> Value {
     fn item(i: &Item) -> Value {
         if i.separator {
@@ -716,21 +730,38 @@ pub fn items_json(items: &[Item]) -> Value {
             }
             return v;
         }
-        let mut v = json!({
-            "title": i.title,
-            "shortcut": i.shortcut.map(|s| s.mac()),
-            "enabled": i.enabled,
-        });
-        if let Some(c) = i.checked {
-            v["checked"] = json!(c);
+        let mut v = json!({ "title": i.title, "enabled": i.enabled });
+        if let Some(s) = i.shortcut {
+            let modifiers: Vec<&str> =
+                [(s.control, "control"), (s.option, "option"), (s.shift, "shift"), (s.command, "command")].iter().filter(|m| m.0).map(|m| m.1).collect();
+            v["key"] = json!(appkit_key(s.key));
+            v["modifiers"] = json!(modifiers);
+            v["shortcut"] = json!(s.mac());
+            v["windowsShortcut"] = json!(s.display_windows());
         }
-        if !i.children.is_empty() {
-            v["children"] = Value::Array(i.children.iter().map(item).collect());
+        if i.checked == Some(true) {
+            v["checked"] = json!(true);
         }
         if i.system {
             v["system"] = json!(true);
+        }
+        if !i.children.is_empty() {
+            v["items"] = Value::Array(i.children.iter().map(item).collect());
         }
         v
     }
     Value::Array(items.iter().map(item).collect())
 }
+
+/// A key as an `NSMenuItem.keyEquivalent`: the character, lowercase, Backspace as U+0008.
+fn appkit_key(key: Key) -> String {
+    match key {
+        Key::Backspace => "\u{8}".into(),
+        Key::Space => " ".into(),
+        other => key_name(other, true).to_lowercase(),
+    }
+}
+
+/// The documents whose rows' context menus menus.json lists, as the Mac harness's
+/// `MenuDump.contextMenuDocuments`.
+pub const CONTEXT_MENU_DOCUMENTS: [&str; 5] = ["blend/stack", "masks/folder-mask", "clipping/stack", "adjust/mod-mask", "effects/all"];
