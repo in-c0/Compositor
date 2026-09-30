@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rectangle whose corners make a pill",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 100.0,
+      "from": [
+        6.0,
+        20.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        58.0,
+        43.0
+      ]
+    }
+  ]
+}

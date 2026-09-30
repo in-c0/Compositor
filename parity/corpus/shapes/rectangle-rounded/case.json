@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rectangle with 8 px corners",
+  "ops": [
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 8.0,
+      "from": [
+        8.0,
+        10.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        55.0,
+        47.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rectangle",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 0.0,
+      "from": [
+        8.0,
+        8.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        56.0,
+        40.0
+      ]
+    }
+  ]
+}

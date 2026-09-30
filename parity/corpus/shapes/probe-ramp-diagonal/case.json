@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: black to white along a diagonal",
+  "ops": [
+    {
+      "background": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foreground": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        3.0,
+        5.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        61.0,
+        50.0
+      ]
+    }
+  ]
+}

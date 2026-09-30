@@ -8,7 +8,7 @@
 //! ([`geom::Region`]) and rasterizes it on the GPU ([`coverage`]).
 
 pub mod geom;
-mod raster;
+pub(crate) mod raster;
 pub mod wand;
 
 use crate::RenderError;

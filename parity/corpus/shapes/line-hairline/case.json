@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A line 1 px wide",
+  "ops": [
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        4.0,
+        60.0
+      ],
+      "kind": "Line",
+      "lineWidth": 1.0,
+      "op": "shape",
+      "to": [
+        60.0,
+        41.0
+      ]
+    }
+  ]
+}

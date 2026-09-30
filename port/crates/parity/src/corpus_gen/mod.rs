@@ -8,6 +8,7 @@ mod import_files;
 mod import_suite;
 mod painting_suite;
 mod psd_suite;
+mod shapes_suite;
 mod suites;
 mod type_suite;
 
@@ -28,6 +29,7 @@ pub fn generate(out: &Path) -> Result<()> {
     import_suite::import(&mut w)?;
     painting_suite::painting(&mut w)?;
     type_suite::type_cases(&mut w)?;
+    shapes_suite::shapes(&mut w)?;
     eprintln!("wrote {} cases to {}", w.count, out.display());
     Ok(())
 }

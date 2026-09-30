@@ -1,0 +1,17 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A saved line with its ends, resized",
+  "ops": [
+    {
+      "layer": "5E7A4FE4-842A-4BFB-B6AE-69004207DCA1",
+      "op": "resizeLayer",
+      "rect": [
+        6.0,
+        10.0,
+        48.0,
+        33.0
+      ]
+    }
+  ]
+}

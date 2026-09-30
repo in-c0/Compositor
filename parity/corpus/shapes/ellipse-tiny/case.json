@@ -1,0 +1,24 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A circle 3 px across",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        30.0,
+        30.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        33.0,
+        33.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rounded rectangle squashed flat keeps its 9 px corners",
+  "ops": [
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 9.0,
+      "from": [
+        8.0,
+        8.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        56.0,
+        56.0
+      ]
+    },
+    {
+      "op": "resizeLayer",
+      "rect": [
+        4.0,
+        24.0,
+        57.0,
+        15.0
+      ]
+    }
+  ]
+}

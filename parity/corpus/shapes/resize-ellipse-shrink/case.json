@@ -1,0 +1,33 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "An ellipse scaled down redraws at its new size",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        4.0,
+        4.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        60.0,
+        44.0
+      ]
+    },
+    {
+      "op": "resizeLayer",
+      "rect": [
+        20.0,
+        20.0,
+        17.0,
+        13.0
+      ]
+    }
+  ]
+}

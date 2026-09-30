@@ -1,0 +1,241 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: rectangles with many corner radii",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 0.0,
+      "from": [
+        2.0,
+        2.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        11.0,
+        9.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 1.0,
+      "from": [
+        13.0,
+        2.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        22.0,
+        9.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 2.0,
+      "from": [
+        24.0,
+        2.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        33.0,
+        9.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 2.5,
+      "from": [
+        35.0,
+        2.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        45.0,
+        10.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 3.3,
+      "from": [
+        47.0,
+        2.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        62.0,
+        13.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 5.0,
+      "from": [
+        2.0,
+        14.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        22.0,
+        27.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 8.5,
+      "from": [
+        24.0,
+        14.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        41.0,
+        31.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 50.0,
+      "from": [
+        43.0,
+        14.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        62.0,
+        23.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 7.0,
+      "from": [
+        2.0,
+        30.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        33.0,
+        51.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 0.5,
+      "from": [
+        35.0,
+        30.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        62.0,
+        57.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 4.0,
+      "from": [
+        2.0,
+        53.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        14.0,
+        62.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 4.5,
+      "from": [
+        16.0,
+        53.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        46.0,
+        62.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 1.5,
+      "from": [
+        48.0,
+        53.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        62.0,
+        62.0
+      ]
+    }
+  ]
+}

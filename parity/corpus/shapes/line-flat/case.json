@@ -1,0 +1,24 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A level line at the default width",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        6,
+        32
+      ],
+      "kind": "Line",
+      "op": "shape",
+      "to": [
+        58,
+        32
+      ]
+    }
+  ]
+}

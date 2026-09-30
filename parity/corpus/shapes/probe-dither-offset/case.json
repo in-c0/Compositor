@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: one color on a layer that starts off the canvas",
+  "ops": [
+    {
+      "background": [
+        0.3928921568627451,
+        0.39362745098039215,
+        0.3943627450980392
+      ],
+      "foreground": [
+        0.3928921568627451,
+        0.39362745098039215,
+        0.3943627450980392
+      ],
+      "from": [
+        0,
+        0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        128,
+        0
+      ]
+    }
+  ]
+}

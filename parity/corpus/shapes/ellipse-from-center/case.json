@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "An ellipse dragged with Option, from its center",
+  "ops": [
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        32,
+        32
+      ],
+      "fromCenter": true,
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        45,
+        40
+      ]
+    }
+  ]
+}

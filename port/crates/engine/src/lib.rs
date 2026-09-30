@@ -18,6 +18,7 @@ pub mod order;
 pub mod paint;
 pub mod select;
 pub mod session;
+pub mod shape;
 pub mod transform;
 #[path = "type/mod.rs"]
 pub mod text;
@@ -118,6 +119,13 @@ impl Renderer {
         }
         let num = |key: &str| op.get(key).and_then(|v| v.as_f64());
         let pair = |key: &str| op.get(key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>());
+        if shape::OPS.contains(&name) {
+            // The Mac clips a gradient to the selection; the port doesn't yet.
+            if name == "gradient" && selection.is_some() {
+                return Err(RenderError::Unsupported("a gradient inside a selection".into()));
+            }
+            return shape::apply_op(&self.gpu, project, op);
+        }
         *project = match name {
             "crop" => {
                 let r = pair("rect").filter(|r| r.len() == 4).ok_or_else(|| RenderError::Failed(anyhow::anyhow!("crop needs rect")))?;

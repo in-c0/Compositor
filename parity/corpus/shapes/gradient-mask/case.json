@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Black to transparent on a layer mask",
+  "ops": [
+    {
+      "foreground": [
+        0,
+        0,
+        0
+      ],
+      "from": [
+        8,
+        8
+      ],
+      "layer": "44E00528-F05C-4D2F-824C-015B03D655E1",
+      "mask": true,
+      "op": "gradient",
+      "to": [
+        56,
+        40
+      ]
+    }
+  ]
+}

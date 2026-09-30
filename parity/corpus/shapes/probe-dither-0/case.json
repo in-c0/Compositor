@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: one color, channels 1/16 to 3/16 past a byte",
+  "ops": [
+    {
+      "background": [
+        0.3924019607843137,
+        0.3926470588235294,
+        0.3928921568627451
+      ],
+      "foreground": [
+        0.3924019607843137,
+        0.3926470588235294,
+        0.3928921568627451
+      ],
+      "from": [
+        0,
+        0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        128,
+        0
+      ]
+    }
+  ]
+}

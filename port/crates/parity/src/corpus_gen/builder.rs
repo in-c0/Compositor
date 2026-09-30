@@ -99,6 +99,15 @@ impl Doc {
         id
     }
 
+    /// Adds a pixel layer with no pixels yet, as Layer > New Layer makes one: no image file, a box of
+    /// `width` by `height` at the top-left corner.
+    pub fn blank(&mut self, name: &str, width: f64, height: f64, spec: LayerSpec) -> String {
+        let record = self.record(name, &spec, false, Transform::at(0.0, 0.0, width, height));
+        let id = record.id.clone();
+        self.layers.push(record);
+        id
+    }
+
     pub fn layer(&mut self, id: &str) -> &mut LayerRecord {
         self.layers.iter_mut().find(|l| l.id == id).expect("layer exists")
     }

@@ -119,6 +119,12 @@ gaps = [
 key = "shapes"
 name = "Gradient and shape"
 paths = ["port/crates/engine/src/shape/**"]
+gaps = [
+    "A shape layer's alpha is exactly the coverage the Mac gives the same path as a selection (`probe-select-ellipse-*`: identical on all twelve ellipses), so shapes are filled with the selections' rasterizer (`select::raster`). That rasterizer is itself one level off the Mac on some edge pixels: 32 of 1,483 edge pixels in the rectangle and ellipse probes, 230 of about 3,000 on slanted line strokes (8 of them by 2 or 3). Rectangles, rounded rectangles and level, upright and 45° lines pass; ellipses and lines at other slants are pending, since one level off on a faint pixel moves its saved color by more than 1/255.",
+    "Lines 1 px wide are pending: Core Graphics strokes them another way (a level line's ends reach half a pixel past its points; slanted ones fit neither butt, square nor round ends).",
+    "Gradients: the table of 16 × (floor(ceil(length) / 16) + 1) − 2 colors, the 16 × 16 dither and its column order, and the precision of t (a linear gradient's unit direction and a radial one's position kept to 14 significant bits) are fitted to the references. Where t × slots lies within 7.4e-5 of a whole number the Mac can still pick the neighboring slot (2 pixels each in gradient-translucent and probe-ramp-diagonal, 3/255 and 4/255), so a linear gradient with any canvas pixel within 1e-4 of a slot boundary is pending (also gradient-opacity and gradient-reversed, which happen to match).",
+    "Gradients inside a selection, on a mask that would grow past its layer (its background comes from its thumbnail) or that sits apart from its layer, and on layers that are scaled, turned or placed off whole pixels, are pending.",
+]
 
 [[feature]]
 key = "type"

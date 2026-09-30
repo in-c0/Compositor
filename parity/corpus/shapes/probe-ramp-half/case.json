@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: black to middle gray over 256 px",
+  "ops": [
+    {
+      "background": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "foreground": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        0.0,
+        0.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        256.0,
+        0.0
+      ]
+    }
+  ]
+}

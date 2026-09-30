@@ -61,6 +61,8 @@ enum ParityOp {
     case editText(layer: UUID, style: [String: Any], path: String)
     /// A probe of Core Graphics' own drawing (see `ProbeDraw`), not an app command.
     case probeDraw(ProbeDraw)
+    /// The Shape and Gradient tools, and resizing a layer (ShapeOps.swift).
+    case shape(name: String, ShapeOp)
 
     var name: String {
         switch self {
@@ -73,6 +75,7 @@ enum ParityOp {
         case .text: "text"
         case .editText: "editText"
         case .probeDraw: "probeDraw"
+        case let .shape(name, _): name
         }
     }
 
@@ -96,6 +99,8 @@ enum ParityOp {
             try session.parityEditText(layer: layer, style: style, path: path)
         case let .probeDraw(probe):
             try await session.parityProbeDraw(probe)
+        case let .shape(_, op):
+            try await op.apply(to: session)
         }
     }
 
@@ -165,8 +170,10 @@ enum ParityOp {
             result = .editText(layer: layer, style: style, path: "\(path).style")
         case "probeDraw":
             result = .probeDraw(try ProbeDraw.parse(fields, path: path))
+        case _ where ShapeOp.names.contains(op):
+            result = .shape(name: op, try ShapeOp.parse(op, fields, path: path))
         default:
-            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, text, editText, probeDraw, \(SelectionOp.names.joined(separator: ", "))")
+            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, text, editText, probeDraw, \(SelectionOp.names.joined(separator: ", ")), \(ShapeOp.names.joined(separator: ", "))")
         }
         try fields.rejectUnknown()
         return result

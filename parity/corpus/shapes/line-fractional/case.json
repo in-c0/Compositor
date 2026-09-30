@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A line 2.5 px wide between fractional points",
+  "ops": [
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        7.25,
+        40.5
+      ],
+      "kind": "Line",
+      "lineWidth": 2.5,
+      "op": "shape",
+      "to": [
+        55.75,
+        20.1
+      ]
+    }
+  ]
+}

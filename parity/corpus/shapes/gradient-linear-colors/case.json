@@ -1,0 +1,29 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Linear, foreground to background, corner to corner",
+  "ops": [
+    {
+      "background": [
+        1.0,
+        0.85,
+        0.3
+      ],
+      "foreground": [
+        0.9,
+        0.2,
+        0.1
+      ],
+      "from": [
+        4.0,
+        60.0
+      ],
+      "op": "gradient",
+      "style": "Foreground to Background",
+      "to": [
+        60.0,
+        4.0
+      ]
+    }
+  ]
+}

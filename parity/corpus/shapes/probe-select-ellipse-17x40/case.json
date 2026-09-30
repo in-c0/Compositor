@@ -1,0 +1,19 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: a 17 by 40 ellipse selected with the Marquee",
+  "ops": [
+    {
+      "from": [
+        0,
+        0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        17,
+        40
+      ]
+    }
+  ]
+}
