@@ -168,6 +168,23 @@ pub fn painting(w: &mut CaseWriter) -> Result<()> {
     let op = on_mask(stroke("brush", &id, &[[2.0, 20.0], [30.0, 26.0], [62.0, 40.0]], json!({ "size": 10, "hardness": 0.5, "opacity": 1, "white": false })));
     w.write(F, "mask-grow", "Black on a mask, past its layer's edge", d, vec![op])?;
 
+    // Gray arithmetic: white and black at several opacities over every mask value.
+    let probes: [(&str, &str, bool, f64, f64); 4] = [
+        ("mask-white-half", "Soft white at 50% over a ramp mask", true, 0.5, 0.0),
+        ("mask-black-37", "Soft black at 37% over a ramp mask", false, 0.37, 0.0),
+        ("mask-white-full", "Soft white at 100% over a ramp mask", true, 1.0, 0.0),
+        ("mask-white-hard-60", "Hard white at 60% over a ramp mask", true, 0.6, 1.0),
+    ];
+    for (case, label, white, opacity, hardness) in probes {
+        let mut d = w.doc(F, case, N, N);
+        d.image("Ground", images::checker(N, N, 8), spec());
+        let id = d.image("Photo", images::photo(N, N), spec());
+        d.mask(&id, images::gray_ramp(N, N, true));
+        let settings = json!({ "size": 36, "hardness": hardness, "opacity": opacity, "white": white });
+        let op = on_mask(stroke("brush", &id, &[[2.0, 12.0], [62.0, 16.0], [60.0, 44.0], [4.0, 50.0]], settings));
+        w.write(F, case, label, d, vec![op])?;
+    }
+
     // Clone Stamp.
     let clone = |w: &mut CaseWriter, case: &str, label: &str, ops: &dyn Fn(&str) -> Vec<Value>| -> Result<()> {
         let mut d = w.doc(F, case, N, N);
