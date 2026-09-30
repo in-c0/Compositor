@@ -835,18 +835,20 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
     let rect = || marquee("Rectangle", [10.0, 12.0], [50.0, 40.0]);
     let ellipse = || marquee("Ellipse", [8.0, 10.0], [56.0, 50.0]);
     let triangle = || polygon(&[[10.5, 5.25], [58.75, 30.5], [12.2, 59.9]]);
+    // Trigonometry differs in the last bits between platforms; 1/64 px steps keep the corpus the same everywhere.
+    let q = |v: f64| (v * 64.0).round() / 64.0;
     // A wobbly loop, as a freehand drag records it: fractional points about a pixel apart.
     let wobble: Vec<[f64; 2]> = (0..90)
         .map(|i| {
             let t = i as f64 / 90.0 * std::f64::consts::TAU;
             let r = 20.0 + 3.5 * (5.0 * t).sin();
-            [32.3 + r * t.cos(), 31.7 + r * t.sin() * 0.9]
+            [q(32.3 + r * t.cos()), q(31.7 + r * t.sin() * 0.9)]
         })
         .collect();
     let star: Vec<[f64; 2]> = (0..5)
         .map(|i| {
             let t = (i as f64 * 144.0 - 90.0).to_radians();
-            [32.0 + 27.5 * t.cos(), 33.0 + 27.5 * t.sin()]
+            [q(32.0 + 27.5 * t.cos()), q(33.0 + 27.5 * t.sin())]
         })
         .collect();
 
