@@ -897,8 +897,7 @@ fn content_fill(w: &mut CaseWriter) -> Result<()> {
     let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { flip_x: true, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
     w.write(F, "content-fill-flipped", "Content-Aware Fill on a layer flipped horizontally", d, vec![marquee("Rectangle", [16.0, 22.0], [30.0, 40.0]), fill(&id)])?;
 
-    // Layers scaled or rotated: the selection is resampled onto the layer's grid by Core Graphics'
-    // clip, which the port hasn't measured yet.
+    // Layers scaled or rotated: Core Graphics resamples the selection onto the layer's grid.
     let mut d = w.doc(F, "content-fill-scaled", N, N);
     let id = d.image("Photo", images::photo(32, 32), at(0.0, 0.0, N, N));
     w.write(F, "content-fill-scaled", "Content-Aware Fill on a layer drawn at twice its size", d, vec![marquee("Rectangle", [21.0, 19.0], [37.0, 33.0]), fill(&id)])?;
@@ -906,6 +905,35 @@ fn content_fill(w: &mut CaseWriter) -> Result<()> {
     let mut d = w.doc(F, "content-fill-rotated", N, N);
     let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: 30.0, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
     w.write(F, "content-fill-rotated", "Content-Aware Fill on a layer rotated 30 degrees", d, vec![marquee("Rectangle", [22.0, 20.0], [40.0, 36.0]), fill(&id)])?;
+
+    // Probes of that resampling. On a half-pixel offset every layer pixel's center falls halfway
+    // between two canvas pixels; at a third of the size it falls on one; at twice the size between
+    // four.
+    let mut d = w.doc(F, "content-fill-probe-half-offset", N, N);
+    let id = d.image("Photo", textured(), at(0.5, -0.5, N, N));
+    w.write(F, "content-fill-probe-half-offset", "Content-Aware Fill on a layer placed half a pixel off the grid", d, vec![marquee("Ellipse", [14.0, 12.0], [44.0, 38.0]), fill(&id)])?;
+    let mut d = w.doc(F, "content-fill-probe-third", N, N);
+    let id = d.image("Photo", images::photo(21, 21), at(0.0, 0.0, 63, 63));
+    w.write(F, "content-fill-probe-third", "Content-Aware Fill on a layer drawn at three times its size", d, vec![marquee("Rectangle", [20.0, 22.0], [40.0, 41.0]), fill(&id)])?;
+    let mut d = w.doc(F, "content-fill-probe-half-size", N, N);
+    let mut big = images::photo(128, 128);
+    for (x, y, p) in big.enumerate_pixels_mut() {
+        if (x / 12 + y / 12) % 2 == 0 {
+            p[0] = p[0] / 2 + 100;
+        }
+    }
+    let id = d.image("Photo", big, at(0.0, 0.0, N, N));
+    w.write(F, "content-fill-probe-half-size", "Content-Aware Fill on a layer drawn at half its size, feathered", d, vec![
+        marquee("Rectangle", [21.0, 17.0], [41.0, 39.0]),
+        json!({ "op": "modifySelection", "feather": 2 }),
+        fill(&id),
+    ])?;
+    let mut d = w.doc(F, "content-fill-probe-rotated-ellipse", N, N);
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: -15.0, flip_y: true, ..Transform::at(2.0, 1.0, 60.0, 60.0) }), ..spec() });
+    w.write(F, "content-fill-probe-rotated-ellipse", "Content-Aware Fill on a layer rotated -15 degrees, flipped and shrunk, through an ellipse", d, vec![
+        marquee("Ellipse", [18.0, 20.0], [44.0, 42.0]),
+        fill(&id),
+    ])?;
 
     // Everything selected leaves nothing to copy from: the Mac reports it and changes nothing.
     let mut d = w.doc(F, "content-fill-no-source", N, N);

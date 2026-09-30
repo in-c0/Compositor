@@ -195,8 +195,9 @@ fn apply_measuring(gpu: &Gpu, project: &mut Project, selection: Option<&Selectio
         // `PixelAdjust.blend`: only the selected part changes.
         let coverage = clip::layer_coverage(clip, &clip::pixel_to_document(&transform, w, h), (w, h))?;
         let filtered = gpu.download(&result).map_err(RenderError::Failed)?;
-        let original = gpu.download(&source).map_err(RenderError::Failed)?;
-        result = gpu.upload(w, h, &clip::blend(&filtered, &original, &coverage));
+        let original = if grown { gpu.download(&source).map_err(RenderError::Failed)? } else { pixels.as_raw().clone() };
+        let original = if grown { clip::Original::Premultiplied(&original) } else { clip::Original::Straight(&original) };
+        result = gpu.upload(w, h, &clip::blend(&filtered, original, &coverage));
     }
     let straight = crate::blend::unpremultiply(gpu, &result);
     let bytes = gpu.download(&straight).map_err(RenderError::Failed)?;
@@ -234,7 +235,7 @@ fn content_aware_fill(gpu: &Gpu, project: &mut Project, index: usize, selection:
     let (w, h) = pixels.dimensions();
     let (cw, ch) = (project.manifest.width as f64, project.manifest.height as f64);
     let mut grid = clip::premultiplied(pixels);
-    let (mut gw, mut gh, mut transform) = (w, h, layer.transform);
+    let (mut gw, mut gh, mut transform, mut grew) = (w, h, layer.transform, false);
     // `beginFilter`'s `area`: the outline's bounds on the canvas, in layer pixels, made whole.
     if let Some(b) = clip::bounding_box(&selection.region) {
         let area = [b[0].max(0.0), b[1].max(0.0), b[2].min(cw), b[3].min(ch)];
@@ -262,6 +263,7 @@ fn content_aware_fill(gpu: &Gpu, project: &mut Project, index: usize, selection:
                 }
                 grid = grown;
                 transform = placed(&layer.transform, (w, h), (x0, y0, tw, th));
+                grew = true;
             }
         }
     }
@@ -271,7 +273,8 @@ fn content_aware_fill(gpu: &Gpu, project: &mut Project, index: usize, selection:
     if content_fill::content_fill(&mut filled, gw as usize * 4, &mask, gw as usize, gw as i32, gh as i32) == 0 {
         return Err(clip::no_source());
     }
-    let blended = clip::blend(&filled, &grid, &mask);
+    let original = if grew { clip::Original::Premultiplied(&grid) } else { clip::Original::Straight(pixels.as_raw()) };
+    let blended = clip::blend(&filled, original, &mask);
     let straight = crate::blend::unpremultiply(gpu, &gpu.upload(gw, gh, &blended));
     let bytes = gpu.download(&straight).map_err(RenderError::Failed)?;
     let image = image::RgbaImage::from_raw(gw, gh, bytes).expect("filter output size");

@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill on a layer placed half a pixel off the grid",
+  "ops": [
+    {
+      "from": [
+        14.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        44.0,
+        38.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "4E9A4B5A-2980-4554-B6F4-142E973C6BB4",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

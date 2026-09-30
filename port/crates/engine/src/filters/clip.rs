@@ -3,7 +3,7 @@
 //! through the layer's placement onto the layer's own pixel grid, and `PixelAdjust.blend` mixes
 //! the filtered pixels back over the original through it with `CIBlendWithMask`.
 
-use super::{Result, failed, unsupported};
+use super::{Result, failed};
 use crate::gpu::Gpu;
 use crate::select::{self, Selection, geom};
 use comp_format::Transform;
@@ -124,9 +124,8 @@ pub fn rect_applying(r: [f64; 4], m: Affine) -> [f64; 4] {
 }
 
 /// The mapping takes each layer pixel onto exactly one canvas pixel: no rotation or scale (a flip
-/// is fine), whole-pixel offsets. Only then is the coverage the Mac draws through the clip a copy
-/// of the clip's own bytes; how Core Graphics resamples a clip mask across a scale or rotation
-/// hasn't been measured.
+/// is fine), whole-pixel offsets. Then the coverage the Mac draws through the clip is a copy of
+/// the clip's own bytes.
 fn aligned(m: &Affine) -> bool {
     m[1] == 0.0 && m[2] == 0.0 && m[0].abs() == 1.0 && m[3].abs() == 1.0 && m[4].fract() == 0.0 && m[5].fract() == 0.0
 }
@@ -139,7 +138,7 @@ pub fn layer_coverage(clip: &SelectionClip, mapping: &Affine, (width, height): (
     let mut out = vec![0u8; width as usize * height as usize];
     let Some(coverage) = &clip.coverage else { return Ok(out) };
     if !aligned(mapping) {
-        return unsupported("a selection drawn onto a layer that's rotated, scaled or placed between pixels");
+        return Ok(resampled(clip, coverage, mapping, (width, height)));
     }
     let [rx, ry, rw, rh] = clip.rect;
     for y in 0..height {
@@ -156,17 +155,36 @@ pub fn layer_coverage(clip: &SelectionClip, mapping: &Affine, (width, height): (
     Ok(out)
 }
 
+/// The image `PixelAdjust.blend` mixes the filtered pixels over, as Core Image reads it.
+pub enum Original<'a> {
+    /// The layer's own image as the project loaded it: straight RGBA, which Core Image
+    /// premultiplies in `f32` without rounding to bytes first.
+    Straight(&'a [u8]),
+    /// A grid the panel drew itself (`FilterEdit.grow`): premultiplied bytes.
+    Premultiplied(&'a [u8]),
+}
+
+impl Original<'_> {
+    /// Channel `c` of pixel `i`, premultiplied, in 0...1.
+    fn at(&self, i: usize, c: usize) -> f32 {
+        match self {
+            Original::Premultiplied(p) => p[i * 4 + c] as f32 / 255.0,
+            Original::Straight(p) => {
+                let v = p[i * 4 + c] as f32 / 255.0;
+                if c == 3 { v } else { v * (p[i * 4 + 3] as f32 / 255.0) }
+            }
+        }
+    }
+}
+
 /// `PixelAdjust.blend`'s `CIBlendWithMask` on premultiplied RGBA: the original plus the
 /// difference times the mask, in `f32` on bytes / 255 as Core Image reads them, rounded to bytes.
-pub fn blend(adjusted: &[u8], original: &[u8], coverage: &[u8]) -> Vec<u8> {
-    let mut out = original.to_vec();
+pub fn blend(adjusted: &[u8], original: Original, coverage: &[u8]) -> Vec<u8> {
+    let mut out = vec![0u8; adjusted.len()];
     for (i, &m) in coverage.iter().enumerate() {
-        if m == 0 {
-            continue;
-        }
         let m = m as f32 / 255.0;
         for c in 0..4 {
-            let (a, o) = (adjusted[i * 4 + c] as f32 / 255.0, original[i * 4 + c] as f32 / 255.0);
+            let (a, o) = (adjusted[i * 4 + c] as f32 / 255.0, original.at(i, c));
             let v = o + (a - o) * m;
             out[i * 4 + c] = (v * 255.0 + 0.5).floor().clamp(0.0, 255.0) as u8;
         }
@@ -192,4 +210,37 @@ pub const NO_SOURCE: &str =
 
 pub fn no_source() -> crate::RenderError {
     failed(format!("Content-Aware Fill: {NO_SOURCE}"))
+}
+
+/// The clip drawn onto a layer grid that isn't aligned with the canvas: Core Graphics resamples
+/// the clip's coverage through the inverse placement as the transform module samples a mask
+/// (`transform::clip::sample`, low quality), times the coverage of the clip's rectangle.
+///
+/// Where a pixel's center lands exactly halfway between two coverage pixels (a layer scaled by 2
+/// or placed on a half pixel), the Mac takes the one nearer the middle of the clip as the heavy
+/// one on both sides, as if positions were measured from the middle and rounded toward it. The
+/// port gets the same ties by shrinking every offset from the middle by a factor of 2^-30, far
+/// below anything else the sampler can resolve.
+fn resampled(clip: &SelectionClip, coverage: &[u8], mapping: &Affine, (width, height): (u32, u32)) -> Vec<u8> {
+    use crate::transform::{Placement, clip as tclip};
+    let inv = inverted(*mapping);
+    let [rx, ry, rw, rh] = clip.rect.map(|v| v as f64);
+    let (cx, cy) = (rx + rw / 2.0, ry + rh / 2.0);
+    let middle = [inv[0] * cx + inv[2] * cy + inv[4], inv[1] * cx + inv[3] * cy + inv[5]];
+    let (sx, sy) = (inv[0].hypot(inv[1]), inv[2].hypot(inv[3]));
+    let flipped = inv[0] * inv[3] - inv[1] * inv[2] < 0.0;
+    let toward_middle = 1.0 + (-30f64).exp2();
+    let size = [rw * sx * toward_middle, rh * sy * toward_middle];
+    let placed = Transform {
+        origin: [middle[0] - size[0] / 2.0, middle[1] - size[1] / 2.0],
+        size,
+        rotation: inv[1].atan2(inv[0]).to_degrees(),
+        flip_x: flipped,
+        flip_y: false,
+        sampling: comp_format::Sampling::High,
+    };
+    let placement = Placement::of(&placed);
+    let rect = placement.rect(1.0, 1.0);
+    let mask = image::GrayImage::from_raw(rw as u32, rh as u32, coverage.to_vec()).expect("clip size");
+    tclip::sample(&mask, &placement, &rect, tclip::Filter::Low, true, (width, height)).into_iter().map(|(m, c)| (m * c / 255) as u8).collect()
 }

@@ -59,6 +59,7 @@ name = "Filters"
 paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**", "port/crates/engine/src/transform/high.rs"]
 gaps = [
     "Dither's ASCII style draws the system's bold monospaced font with Core Text, which the port doesn't have; its scanline glow is a Core Image blur of a Core Image scale. Both are pending.",
+    "A filter inside a selection mixes back through the selection's coverage, which the port rasterizes within 1/255 of the Mac on anti-aliased and feathered edges (see Selections). Where a coverage byte is one level off, the pixel under it can be too: 1 pixel each on `content-fill-ellipse-feather` and `content-fill-translucent`, 1/255. Everything else in Content-Aware Fill (the fill itself, growing the layer, the blend, the selection drawn onto a scaled, rotated or flipped layer) matches exactly.",
 ]
 
 [[feature]]
