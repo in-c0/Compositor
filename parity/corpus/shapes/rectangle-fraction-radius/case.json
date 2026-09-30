@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rectangle with 3.5 px corners",
+  "ops": [
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 3.5,
+      "from": [
+        9.0,
+        9.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        30.0,
+        50.0
+      ]
+    }
+  ]
+}

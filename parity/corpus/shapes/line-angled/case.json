@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A line 3 px wide at an angle",
+  "ops": [
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "from": [
+        5.0,
+        50.0
+      ],
+      "kind": "Line",
+      "lineWidth": 3.0,
+      "op": "shape",
+      "to": [
+        57.0,
+        11.0
+      ]
+    }
+  ]
+}

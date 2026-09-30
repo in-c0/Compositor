@@ -1,0 +1,25 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A click-length line: a round dot",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        30.0,
+        30.0
+      ],
+      "kind": "Line",
+      "lineWidth": 9.0,
+      "op": "shape",
+      "to": [
+        30.0,
+        30.0
+      ]
+    }
+  ]
+}

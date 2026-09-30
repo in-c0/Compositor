@@ -1,0 +1,26 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A line dragged with Shift, snapped to 45 degrees",
+  "ops": [
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "from": [
+        10,
+        50
+      ],
+      "kind": "Line",
+      "lineWidth": 5,
+      "op": "shape",
+      "square": true,
+      "to": [
+        52,
+        20
+      ]
+    }
+  ]
+}

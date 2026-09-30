@@ -1,0 +1,52 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "The lower of two shapes, found by name, scaled",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        4.0,
+        4.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        24.0,
+        24.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 4.0,
+      "from": [
+        30.0,
+        30.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        60.0,
+        60.0
+      ]
+    },
+    {
+      "layer": "Ellipse 1",
+      "op": "resizeLayer",
+      "rect": [
+        2.0,
+        2.0,
+        41.0,
+        29.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: larger circles and ellipses",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        0.0,
+        0.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        17.0,
+        0.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        38.0,
+        21.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "from": [
+        39.0,
+        0.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        64.0,
+        10.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "from": [
+        0.0,
+        22.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        32.0,
+        54.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "from": [
+        33.0,
+        12.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        50.0,
+        52.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "from": [
+        0.0,
+        33.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        63.0,
+        64.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "from": [
+        51.0,
+        11.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        63.0,
+        62.0
+      ]
+    }
+  ]
+}

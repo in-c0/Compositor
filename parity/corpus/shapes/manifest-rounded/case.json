@@ -1,0 +1,17 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A saved rounded rectangle, resized",
+  "ops": [
+    {
+      "layer": "11E91B13-0110-411D-88B0-A43D2CD04914",
+      "op": "resizeLayer",
+      "rect": [
+        8.0,
+        8.0,
+        44.0,
+        30.0
+      ]
+    }
+  ]
+}

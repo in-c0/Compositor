@@ -1,0 +1,42 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Two shapes over a layer in a folder",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 6.0,
+      "from": [
+        4.0,
+        6.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        40.0,
+        30.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "from": [
+        20.0,
+        18.0
+      ],
+      "kind": "Ellipse",
+      "op": "shape",
+      "to": [
+        60.0,
+        58.0
+      ]
+    }
+  ]
+}

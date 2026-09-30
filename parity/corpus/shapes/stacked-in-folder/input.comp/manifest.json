@@ -1,0 +1,72 @@
+{
+  "activeLayerID" : "CA0EEF0E-3709-4072-AAAA-959534875EEE",
+  "colorSpace" : "sRGB",
+  "documentID" : "B5B41FA0-CD27-428D-9000-9B3108C19829",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "1A3B2C3F-1B89-4157-A6F7-FFA45E0CB6D4",
+      "imageFile" : "1A3B2C3F-1B89-4157-A6F7-FFA45E0CB6D4.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "539E4B02-20BF-419D-806B-81B573B58A23",
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Folder",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "CA0EEF0E-3709-4072-AAAA-959534875EEE",
+      "imageFile" : "CA0EEF0E-3709-4072-AAAA-959534875EEE.png",
+      "isVisible" : true,
+      "name" : "Inside",
+      "parentID" : "539E4B02-20BF-419D-806B-81B573B58A23",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

@@ -1,0 +1,30 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Linear at 45% opacity",
+  "ops": [
+    {
+      "background": [
+        1.0,
+        0.85,
+        0.3
+      ],
+      "foreground": [
+        0.9,
+        0.2,
+        0.1
+      ],
+      "from": [
+        0.0,
+        0.0
+      ],
+      "op": "gradient",
+      "opacity": 0.45,
+      "style": "Foreground to Background",
+      "to": [
+        64.0,
+        20.0
+      ]
+    }
+  ]
+}

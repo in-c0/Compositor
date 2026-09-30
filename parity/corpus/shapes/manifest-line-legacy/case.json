@@ -1,0 +1,17 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A saved line from before lines kept their ends, resized",
+  "ops": [
+    {
+      "layer": "61413764-D01E-44FB-854E-5C64C5B532BF",
+      "op": "resizeLayer",
+      "rect": [
+        6.0,
+        10.0,
+        48.0,
+        33.0
+      ]
+    }
+  ]
+}

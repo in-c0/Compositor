@@ -1,0 +1,30 @@
+{
+  "activeLayerID" : "F06037A7-0CA9-4316-AB88-BAF165634EDA",
+  "colorSpace" : "sRGB",
+  "documentID" : "49CB9F0B-8EE2-41EB-B7DE-3CC68242886F",
+  "format" : "com.compositor.project",
+  "height" : 4,
+  "layers" : [
+    {
+      "id" : "F06037A7-0CA9-4316-AB88-BAF165634EDA",
+      "isVisible" : true,
+      "name" : "Layer 1",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          256,
+          4
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 256
+}

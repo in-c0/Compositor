@@ -1,0 +1,26 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "A rectangle dragged with Shift: a square",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 5,
+      "from": [
+        10,
+        10
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "square": true,
+      "to": [
+        50,
+        30
+      ]
+    }
+  ]
+}
