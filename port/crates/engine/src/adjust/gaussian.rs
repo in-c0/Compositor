@@ -111,6 +111,42 @@ pub fn gaussian(gpu: &Gpu, image: &GpuImage, sigma: f64) -> Result<GpuImage, Str
     Ok(Mps { gpu }.run(image, passes, pad))
 }
 
+/// `gaussian`, rendered only for `region` (x, y, width, height in the image's pixels, rows from
+/// the top), as Core Image renders the part of a blur it's asked for: its downsampling pyramid
+/// is laid from that part's padded corner, so a part's pixels can differ from the same pixels
+/// of the whole. Pixels past the image are transparent.
+pub fn gaussian_region(gpu: &Gpu, image: &GpuImage, sigma: f64, region: [i64; 4]) -> Result<Vec<u32>, String> {
+    if let Some(why) = unsupported(sigma) {
+        return Err(why);
+    }
+    let [rx, ry, rw, rh] = region;
+    let pixels: Vec<u32> = gpu.download(image).map(|b| bytemuck::cast_slice(&b).to_vec()).map_err(|e| format!("{e:#}"))?;
+    let iw = image.width as i64;
+    let crop = |pixels: &[u32], ox: i64, oy: i64, w: i64, h: i64, stride: i64| -> Vec<u32> {
+        (0..h)
+            .flat_map(|y| (0..w).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                let (u, v) = (x + ox, y + oy);
+                if u >= 0 && v >= 0 && u < stride && v < pixels.len() as i64 / stride { pixels[(v * stride + u) as usize] } else { 0 }
+            })
+            .collect()
+    };
+    if sigma <= 1.12 {
+        // No pyramid: every part is cut from the same convolution.
+        let whole = gaussian(gpu, image, sigma)?;
+        let whole: Vec<u32> = gpu.download(&whole).map(|b| bytemuck::cast_slice(&b).to_vec()).map_err(|e| format!("{e:#}"))?;
+        return Ok(crop(&whole, rx, ry, rw, rh, iw));
+    }
+    let pad = (3.0 * sigma).ceil() as i64;
+    let (pw, ph) = (rw + 2 * pad, rh + 2 * pad);
+    let part = gpu.upload(pw as u32, ph as u32, bytemuck::cast_slice(&crop(&pixels, rx - pad, ry - pad, pw, ph, iw)));
+    let mps = Mps { gpu };
+    let plane = mps.load(&part, 0);
+    let (plane, offset) = mps.run_from(plane, rw as u32, rh as u32, mps_passes(sigma).expect("checked above"), pad as u32);
+    let out = mps.store(&plane, rw as u32, rh as u32, offset);
+    gpu.download(&out).map(|b| bytemuck::cast_slice(&b).to_vec()).map_err(|e| format!("{e:#}"))
+}
+
 /// The blur before it's stored as bytes: `buffer` holds a premultiplied float pixel per texel, 0...1,
 /// with the image's pixel (x, y) at `(y + offset) * stride + x + offset`.
 pub struct Plane32 {
@@ -290,9 +326,12 @@ impl Mps<'_> {
 
     /// The blurred plane, and the offset of the image's first pixel along each axis.
     fn run_plane(&self, image: &GpuImage, passes: &[MpsPass], pad: u32) -> (Plane, u32) {
-        let (w, h) = (image.width, image.height);
         // Index 0 is the padding's corner.
-        let mut cur = self.load(image, pad);
+        self.run_from(self.load(image, pad), image.width, image.height, passes, pad)
+    }
+
+    /// The pyramid over `cur`, a `w` x `h` image with `pad` pixels round it.
+    fn run_from(&self, mut cur: Plane, w: u32, h: u32, passes: &[MpsPass], pad: u32) -> (Plane, u32) {
         let mut scale = 1u32;
         let mut finished = false;
         for pass in passes {
