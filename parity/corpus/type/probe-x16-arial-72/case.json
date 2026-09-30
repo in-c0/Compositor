@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT l's at 72 px stepping by a sixteenth of a pixel across",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        301.0,
+        117.0
+      ],
+      "style": {
+        "content": "llllllllllllllll",
+        "fontName": "ArialMT",
+        "fontSize": 72.0,
+        "tracking": 1.06640625
+      }
+    }
+  ]
+}

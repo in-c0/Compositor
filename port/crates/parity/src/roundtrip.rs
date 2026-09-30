@@ -2,7 +2,7 @@
 //! back identical, and the port's manifest bytes should match the Mac's.
 
 use crate::compare::{CaseResult, Limit, Status};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 
 /// Checks the Mac-saved project `refs/<id>.comp`, if the harness wrote one for this case.
@@ -60,10 +60,10 @@ fn round_trip(mac: &Path, out: &Path) -> Result<Option<String>> {
 /// Compares the project the port made for a case (after its ops or PSD import) with the one the
 /// Mac saved, `refs/<id>.comp`: the manifests as the Mac writes them, with layer and document IDs
 /// replaced by their positions (new layers get random IDs on both sides), and every layer and mask
-/// pixel. `layer_limit`, when given, holds layer and mask pixels to that limit instead of byte for
-/// byte: an imported layer is a decoder's output, held to the same limit as the rendered image, and
-/// a mask a stand-in model made has its own measured limit (`structure_max_channel_diff`).
-pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path, layer_limit: Option<&Limit>) -> Option<CaseResult> {
+/// pixel. Layer and mask pixels are held to the case's own tolerance (`limit`), the same as its
+/// render, or to its override's `structure_max_channel_diff` (a mask a stand-in model made, for
+/// example); text layers' gap is also measured and reported, since their rasterizer isn't Core Text's.
+pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path, limit: Limit) -> Option<CaseResult> {
     let mac = refs.join(format!("{id}.comp"));
     if !mac.is_dir() {
         return None;
@@ -73,7 +73,7 @@ pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, ref
         feature: feature.into(),
         label: format!("The project after {id} matches the one the Mac saved"),
         status: Status::Fail,
-        tolerance: layer_limit.map_or(0, |l| l.max_channel_diff),
+        tolerance: limit.max_channel_diff,
         max_channel_diff: None,
         differing_pixels: None,
         total_pixels: None,
@@ -81,7 +81,8 @@ pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, ref
         heatmap: None,
     };
     let port = engine::session::normalize(port);
-    match compare_projects(&port, &mac, layer_limit) {
+    let mut text = None;
+    match compare_projects(&port, &mac, limit, &mut text) {
         Ok(()) => result.status = Status::Pass,
         Err(e) => {
             result.message = Some(format!("{e:#}"));
@@ -91,6 +92,12 @@ pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, ref
                 let _ = comp_format::save(&port, &path);
             }
         }
+    }
+    if let Some(text) = text {
+        result.tolerance = limit.max_channel_diff;
+        result.max_channel_diff = Some(text.max_channel_diff);
+        result.differing_pixels = Some(text.differing_pixels);
+        result.total_pixels = Some(text.total_pixels);
     }
     Some(result)
 }
@@ -137,7 +144,14 @@ fn canonical(project: &comp_format::Project) -> Result<serde_json::Value> {
     Ok(value)
 }
 
-fn compare_projects(port: &comp_format::Project, mac_path: &Path, layer_limit: Option<&Limit>) -> Result<()> {
+/// How far the text layers' pixels are from the Mac's, over all of them.
+pub struct TextGap {
+    pub max_channel_diff: u8,
+    pub differing_pixels: u64,
+    pub total_pixels: u64,
+}
+
+fn compare_projects(port: &comp_format::Project, mac_path: &Path, limit: Limit, text: &mut Option<TextGap>) -> Result<()> {
     let mac = comp_format::load(mac_path)?;
     let (a, b) = (canonical(port)?, canonical(&mac)?);
     if a != b {
@@ -150,17 +164,23 @@ fn compare_projects(port: &comp_format::Project, mac_path: &Path, layer_limit: O
     }
     for (i, (pl, ml)) in port.manifest.layers.iter().zip(&mac.manifest.layers).enumerate() {
         let same_image = match (port.images.get(&pl.id), mac.images.get(&ml.id)) {
-            (Some(p), Some(m)) => match layer_limit {
-                None => p.pixels == m.pixels,
-                Some(limit) => crate::compare::diff(&m.pixels, &p.pixels, limit.max_channel_diff)
-                    .is_ok_and(|d| d.differing_pixels <= limit.max_pixels_over),
-            },
+            (Some(p), Some(m)) if ml.text.is_some() => {
+                let d = crate::compare::diff(&m.pixels, &p.pixels, limit.max_channel_diff)
+                    .with_context(|| format!("text layer {i} ({})", pl.name))?;
+                let gap = text.get_or_insert(TextGap { max_channel_diff: 0, differing_pixels: 0, total_pixels: 0 });
+                gap.max_channel_diff = gap.max_channel_diff.max(d.max_channel_diff);
+                gap.differing_pixels += d.differing_pixels;
+                gap.total_pixels += d.total_pixels;
+                d.differing_pixels <= limit.max_pixels_over
+            }
+            (Some(p), Some(m)) => crate::compare::diff(&m.pixels, &p.pixels, limit.max_channel_diff)
+                .is_ok_and(|d| d.differing_pixels <= limit.max_pixels_over),
             (None, None) => true,
             _ => false,
         };
         anyhow::ensure!(same_image, "layer {i} ({}) pixels differ", pl.name);
         let same_mask = match (port.masks.get(&pl.id), mac.masks.get(&ml.id)) {
-            (Some(p), Some(m)) => match layer_limit {
+            (Some(p), Some(m)) => match Some(&limit) {
                 None => p.pixels == m.pixels,
                 Some(limit) => {
                     p.pixels.dimensions() == m.pixels.dimensions()

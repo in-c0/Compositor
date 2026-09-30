@@ -13,4 +13,4 @@ mod validate;
 pub use json::to_swift_json;
 pub use model::*;
 pub use package::{Asset, GrayImage, Project, RgbaImage, encode_png, load, save};
-pub use validate::validate;
+pub use validate::{text_is_valid, validate};

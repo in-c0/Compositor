@@ -184,12 +184,9 @@ fn run(
             .par_iter()
             .filter(|case| refs.join(format!("{}.comp", case.id)).is_dir())
             .filter_map(|case| match build_project(&renderer, case) {
-                Ok(project) => {
-                    // Manifests must match exactly; layer and mask pixels are held to the case's
-                    // pixel limit, the same as its render, or to its override's structure limit.
-                    let limit = Some(tolerances.for_structure(&case.id));
-                    roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, limit.as_ref())
-                }
+                // Layer and mask pixels are held to the case's limit, or to its override's
+                // structure limit.
+                Ok(project) => roundtrip::check_structure(&case.id, &case.spec.feature, &project, refs, tolerances.for_structure(&case.id)),
                 Err(_) => None,
             })
             .collect::<Vec<_>>(),

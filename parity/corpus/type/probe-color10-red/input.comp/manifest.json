@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "00CDBFA5-AF7A-447F-A510-C487A0A6C85B",
+  "colorSpace" : "sRGB",
+  "documentID" : "F89C739F-BA6D-4274-B5D5-3671BBF5B937",
+  "format" : "com.compositor.project",
+  "height" : 44,
+  "layers" : [
+    {
+      "id" : "00CDBFA5-AF7A-447F-A510-C487A0A6C85B",
+      "imageFile" : "00CDBFA5-AF7A-447F-A510-C487A0A6C85B.png",
+      "isVisible" : true,
+      "name" : "Background",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          50,
+          44
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 50
+}

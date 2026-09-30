@@ -1,0 +1,17 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Point text in the Type tool's defaults: Helvetica at 72 px",
+  "ops": [
+    {
+      "op": "text",
+      "point": [
+        10,
+        90
+      ],
+      "style": {
+        "content": "Text"
+      }
+    }
+  ]
+}

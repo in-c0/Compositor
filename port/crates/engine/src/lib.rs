@@ -19,6 +19,8 @@ pub mod paint;
 pub mod select;
 pub mod session;
 pub mod transform;
+#[path = "type/mod.rs"]
+pub mod text;
 
 #[derive(Debug)]
 pub enum RenderError {
@@ -85,7 +87,7 @@ impl Renderer {
         Ok(selection)
     }
 
-    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`) to `project`.
+    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`, `text`, `editText`) to `project`.
     /// The selection ops leave the project as it is (the selection isn't part of it) and are
     /// checked here; to keep the selection they make, use [`Renderer::apply_op_with_selection`].
     pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
@@ -127,6 +129,8 @@ impl Renderer {
                 };
                 document::canvas_size(project, &options)?
             }
+            "text" => text::apply_text(project, op)?,
+            "editText" => text::apply_edit_text(project, op)?,
             other => return Err(RenderError::Unsupported(format!("operation `{other}`"))),
         };
         Ok(())

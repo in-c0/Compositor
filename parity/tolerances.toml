@@ -186,3 +186,356 @@ cases = "filters/motion-30"
 max_channel_diff = 1
 max_pixels_over = 1
 reason = "Motion blur at 30 degrees: the Mac GPU's rounding of rotated texture coordinates isn't reproducible. 1 of 7,040 layer pixels, past the canvas edge, is 1 level off premultiplied (3 in straight blue at alpha 79)."
+
+# Type: text layers drawn by the port's rasterizer, not Core Text (see the `type` gaps in
+# features.toml). Each limit is the larger of the measured Windows and Mac results for that case.
+#
+# Faces installed on both machines (Arial, Georgia, Verdana and the rest), 20 px and up: glyph
+# positions and layer geometry are exact and stems match to 1/255; what is left sits on some curve
+# joins, contour starts and overlapping contours. Colored text also differs by up to 128 in the
+# exported straight color of nearly transparent edge pixels (alpha 1 against 2).
+[[override]]
+cases = "type/color-arial"
+max_channel_diff = 128
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 128/255, 212 of 14036 pixels (1.5%) over 1/255."
+[[override]]
+cases = "type/color-runs"
+max_channel_diff = 128
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 128/255, 166 of 15196 pixels (1.1%) over 1/255."
+[[override]]
+cases = "type/edit"
+max_channel_diff = 128
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 128/255, 142 of 18000 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/edit-rotated"
+max_channel_diff = 128
+max_pixels_over = 4
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines, then rotated and scaled with the layer: 371 of 18,000 pixels over 1/255, at most 17/255 premultiplied. Unpremultiplying makes that max 128/255, except for 4 edge pixels at alpha 1/255, where one premultiplied step reads as 0 against 255."
+[[override]]
+cases = "type/face-courier-new"
+max_channel_diff = 29
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 29/255, 108 of 13100 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/face-georgia"
+max_channel_diff = 40
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 40/255, 110 of 13100 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/face-impact"
+max_channel_diff = 31
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 31/255, 119 of 13100 pixels (0.9%) over 1/255."
+[[override]]
+cases = "type/face-tahoma"
+max_channel_diff = 17
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 17/255, 75 of 13100 pixels (0.6%) over 1/255."
+[[override]]
+cases = "type/face-times-new-roman"
+max_channel_diff = 23
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 23/255, 101 of 13100 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/face-trebuchet"
+max_channel_diff = 29
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 29/255, 100 of 13100 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/face-verdana"
+max_channel_diff = 28
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 28/255, 77 of 13100 pixels (0.6%) over 1/255."
+[[override]]
+cases = "type/font-runs"
+max_channel_diff = 23
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 23/255, 116 of 17516 pixels (0.7%) over 1/255."
+[[override]]
+cases = "type/kern-arial-0"
+max_channel_diff = 34
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 34/255, 83 of 17516 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/kern-arial-0.5"
+max_channel_diff = 22
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 22/255, 78 of 17516 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/leading-10"
+max_channel_diff = 54
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 54/255, 55 of 22204 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/leading-48"
+max_channel_diff = 16
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 16/255, 40 of 22204 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/over-photo"
+max_channel_diff = 128
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 128/255, 89 of 10240 pixels (0.9%) over 1/255."
+[[override]]
+cases = "type/point-arial"
+max_channel_diff = 10
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 10/255, 39 of 6858 pixels (0.6%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-100"
+max_channel_diff = 30
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 30/255, 46 of 60544 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-140"
+max_channel_diff = 45
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 45/255, 64 of 109440 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-20"
+max_channel_diff = 16
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 16/255, 10 of 5760 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-200"
+max_channel_diff = 54
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 54/255, 131 of 209664 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-28"
+max_channel_diff = 25
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 25/255, 14 of 8784 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-40"
+max_channel_diff = 34
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 34/255, 21 of 14080 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-56"
+max_channel_diff = 23
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 23/255, 33 of 23532 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-72"
+max_channel_diff = 14
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 14/255, 16 of 34979 pixels (0.0%) over 1/255."
+[[override]]
+cases = "type/probe-gray-0.2"
+max_channel_diff = 8
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 8/255, 12 of 5920 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/probe-gray-0.3"
+max_channel_diff = 3
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 3/255, 12 of 5920 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/size-arial-200"
+max_channel_diff = 37
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 37/255, 37 of 85164 pixels (0.0%) over 1/255."
+[[override]]
+cases = "type/size-arial-24"
+max_channel_diff = 22
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 22/255, 63 of 14036 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/size-arial-48"
+max_channel_diff = 28
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 28/255, 131 of 40664 pixels (0.3%) over 1/255."
+[[override]]
+cases = "type/tracking-25"
+max_channel_diff = 22
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 22/255, 38 of 17516 pixels (0.2%) over 1/255."
+[[override]]
+cases = "type/tracking-minus-3"
+max_channel_diff = 22
+reason = "Glyph edges from the port's rasterizer, not Core Text, on the same outlines: measured max 22/255, 32 of 17516 pixels (0.2%) over 1/255."
+
+# 18 px and below, same faces: Core Graphics also puts some glyphs' top edges on whole pixels
+# (dark text only; not the font's hinting), which the port doesn't reproduce.
+[[override]]
+cases = "type/probe-bars-arial-10"
+max_channel_diff = 88
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 88/255, 44 of 2944 pixels (1.5%) over 1/255."
+[[override]]
+cases = "type/probe-bars-arial-14"
+max_channel_diff = 99
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 99/255, 48 of 4004 pixels (1.2%) over 1/255."
+[[override]]
+cases = "type/probe-color10-blue"
+max_channel_diff = 255
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 255/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-color10-half-green"
+max_channel_diff = 128
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 128/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-color10-half-red"
+max_channel_diff = 128
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 128/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-color10-magenta"
+max_channel_diff = 255
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 255/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-color10-navy"
+max_channel_diff = 179
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 179/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-color10-orange"
+max_channel_diff = 203
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 203/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-color10-red"
+max_channel_diff = 255
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 255/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-00"
+max_channel_diff = 40
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 40/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-01"
+max_channel_diff = 40
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 40/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-02"
+max_channel_diff = 40
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 40/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-03"
+max_channel_diff = 40
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 40/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-04"
+max_channel_diff = 51
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 51/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-05"
+max_channel_diff = 64
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 64/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-06"
+max_channel_diff = 77
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 77/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-07"
+max_channel_diff = 88
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 88/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-08"
+max_channel_diff = 99
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 99/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-09"
+max_channel_diff = 114
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 114/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-10"
+max_channel_diff = 128
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 128/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-11"
+max_channel_diff = 135
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 135/255, 8 of 2200 pixels (0.4%) over 1/255."
+[[override]]
+cases = "type/probe-gray10-12"
+max_channel_diff = 151
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 151/255, 12 of 2200 pixels (0.5%) over 1/255."
+[[override]]
+cases = "type/probe-x16-arial-10"
+max_channel_diff = 63
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 63/255, 32 of 4180 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/probe-x16-arial-12"
+max_channel_diff = 67
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 67/255, 32 of 4465 pixels (0.7%) over 1/255."
+[[override]]
+cases = "type/probe-x16-arial-14"
+max_channel_diff = 2
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 2/255, 5 of 5439 pixels (0.1%) over 1/255."
+[[override]]
+cases = "type/probe-x16-arial-16"
+max_channel_diff = 91
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 91/255, 48 of 5772 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/probe-x16-arial-18"
+max_channel_diff = 24
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 24/255, 48 of 5994 pixels (0.8%) over 1/255."
+[[override]]
+cases = "type/probe-y16-arial-10"
+max_channel_diff = 40
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 40/255, 32 of 9618 pixels (0.3%) over 1/255."
+[[override]]
+cases = "type/size-arial-12"
+max_channel_diff = 158
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 158/255, 344 of 5964 pixels (5.8%) over 1/255."
+[[override]]
+cases = "type/size-arial-8"
+max_channel_diff = 74
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 74/255, 177 of 4256 pixels (4.2%) over 1/255."
+[[override]]
+cases = "type/wrap-center"
+max_channel_diff = 95
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 95/255, 1380 of 20064 pixels (6.9%) over 1/255."
+[[override]]
+cases = "type/wrap-left"
+max_channel_diff = 97
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 97/255, 1393 of 20064 pixels (6.9%) over 1/255."
+[[override]]
+cases = "type/wrap-long-word"
+max_channel_diff = 106
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 106/255, 503 of 10304 pixels (4.9%) over 1/255."
+[[override]]
+cases = "type/wrap-overflow"
+max_channel_diff = 59
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 59/255, 141 of 4284 pixels (3.3%) over 1/255."
+[[override]]
+cases = "type/wrap-right"
+max_channel_diff = 96
+reason = "Small text: Core Graphics snaps some glyph tops to whole pixels, the port doesn't: measured max 96/255, 1388 of 20064 pixels (6.9%) over 1/255."
+
+# Helvetica and the system font (SF Pro) aren't on Windows, where Arial stands in with their
+# metrics. On the Mac the port draws the installed faces and stays within the first limit; on
+# Windows up to `max_pixels_over` pixels, all on letter shapes, are further off.
+[[override]]
+cases = "type/face-helvetica-bold"
+max_channel_diff = 17
+max_pixels_over = 718
+reason = "Mac: installed face, measured max 17/255. Windows: Arial stands in for an Apple face, measured max 208/255 with 718 of 15196 pixels (4.7%) over 17/255."
+[[override]]
+cases = "type/face-missing"
+max_channel_diff = 13
+max_pixels_over = 1226
+reason = "Mac: installed face, measured max 13/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 1226 of 13100 pixels (9.4%) over 13/255."
+[[override]]
+cases = "type/font-runs-helvetica"
+max_channel_diff = 37
+max_pixels_over = 213
+reason = "Mac: installed face, measured max 37/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 213 of 15196 pixels (1.4%) over 37/255."
+[[override]]
+cases = "type/kern-helvetica-0"
+max_channel_diff = 37
+max_pixels_over = 424
+reason = "Mac: installed face, measured max 37/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 424 of 17516 pixels (2.4%) over 37/255."
+[[override]]
+cases = "type/kern-helvetica-0.5"
+max_channel_diff = 37
+max_pixels_over = 486
+reason = "Mac: installed face, measured max 37/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 486 of 17516 pixels (2.8%) over 37/255."
+[[override]]
+cases = "type/point-default"
+max_channel_diff = 28
+max_pixels_over = 445
+reason = "Mac: installed face, measured max 28/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 445 of 19092 pixels (2.3%) over 28/255."
+[[override]]
+cases = "type/probe-subpixel-helvetica"
+max_channel_diff = 1
+max_pixels_over = 1984
+reason = "Mac: installed face, measured max 1/255. Windows: Arial stands in for an Apple face, measured max 15/255 with 1984 of 19796 pixels (10.0%) over 1/255."
+[[override]]
+cases = "type/size-helvetica-12"
+max_channel_diff = 121
+max_pixels_over = 8
+reason = "Mac: installed face, measured max 121/255. Windows: Arial stands in for an Apple face, measured max 157/255 with 8 of 5964 pixels (0.1%) over 121/255."
+[[override]]
+cases = "type/size-helvetica-200"
+max_channel_diff = 36
+max_pixels_over = 2666
+reason = "Mac: installed face, measured max 36/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 2666 of 85164 pixels (3.1%) over 36/255."
+[[override]]
+cases = "type/size-helvetica-24"
+max_channel_diff = 40
+max_pixels_over = 155
+reason = "Mac: installed face, measured max 40/255. Windows: Arial stands in for an Apple face, measured max 168/255 with 155 of 14036 pixels (1.1%) over 40/255."
+[[override]]
+cases = "type/size-helvetica-48"
+max_channel_diff = 36
+max_pixels_over = 881
+reason = "Mac: installed face, measured max 36/255. Windows: Arial stands in for an Apple face, measured max 255/255 with 881 of 40664 pixels (2.2%) over 36/255."
+[[override]]
+cases = "type/size-helvetica-8"
+max_channel_diff = 79
+max_pixels_over = 2
+reason = "Mac: installed face, measured max 79/255. Windows: Arial stands in for an Apple face, measured max 81/255 with 2 of 4256 pixels (0.0%) over 79/255."
+[[override]]
+cases = "type/wrap-helvetica"
+max_channel_diff = 85
+max_pixels_over = 39
+reason = "Mac: installed face, measured max 85/255. Windows: Arial stands in for an Apple face, measured max 144/255 with 39 of 20064 pixels (0.2%) over 85/255."

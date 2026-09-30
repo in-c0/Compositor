@@ -1,0 +1,28 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Helvetica with a Helvetica-Bold run",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        260.0,
+        56.0
+      ],
+      "style": {
+        "content": "Regular Bold",
+        "fontName": "Helvetica",
+        "fontRuns": [
+          {
+            "fontName": "Helvetica-Bold",
+            "length": 4,
+            "location": 8
+          }
+        ],
+        "fontSize": 24
+      }
+    }
+  ]
+}

@@ -55,6 +55,10 @@ enum ParityOp {
     case stroke(StrokeOp)
     /// Making or changing the selection (SelectionOps.swift).
     case selection(name: String, SelectionOp)
+    /// The Type tool: a click at `point` or a box dragged out as `rect`, then `style` typed and committed.
+    case text(point: CGPoint?, rect: CGRect?, style: [String: Any], path: String)
+    /// Layer > Edit Text on `layer`, `style`'s fields changed, then committed.
+    case editText(layer: UUID, style: [String: Any], path: String)
 
     var name: String {
         switch self {
@@ -64,6 +68,8 @@ enum ParityOp {
         case .imageSize: "imageSize"
         case .stroke: "stroke"
         case let .selection(name, _): name
+        case .text: "text"
+        case .editText: "editText"
         }
     }
 
@@ -81,6 +87,10 @@ enum ParityOp {
             try await session.parityStroke(stroke)
         case let .selection(_, op):
             try await op.apply(to: session)
+        case let .text(point, rect, style, path):
+            try session.parityText(point: point, rect: rect, style: style, path: path)
+        case let .editText(layer, style, path):
+            try session.parityEditText(layer: layer, style: style, path: path)
         }
     }
 
@@ -135,8 +145,22 @@ enum ParityOp {
             result = .stroke(try StrokeOp.parse(fields, path: path))
         case _ where SelectionOp.names.contains(op):
             result = .selection(name: op, try SelectionOp.parse(op, fields, path: path))
+        case "text":
+            let point = try fields.optional("point") { try JSONValue.numbers($0, count: 2, $1) }
+            let rect = try fields.optional("rect") { try JSONValue.numbers($0, count: 4, $1) }
+            guard (point == nil) != (rect == nil) else { throw HarnessError("\(path) needs one of point or rect") }
+            let style = try fields.optional("style") { try TextStyleJSON.check($0, excluding: ["boxSize"], $1) } ?? [:]
+            result = .text(point: point.map { CGPoint(x: $0[0], y: $0[1]) },
+                           rect: rect.map { CGRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) },
+                           style: style, path: "\(path).style")
+        case "editText":
+            let layerText = try JSONValue.string(fields.required("layer"), "\(path).layer")
+            guard let layer = UUID(uuidString: layerText) else { throw HarnessError("\(path).layer “\(layerText)” isn't a UUID") }
+            let style = try TextStyleJSON.check(fields.required("style"), "\(path).style")
+            result = .editText(layer: layer, style: style, path: "\(path).style")
+
         default:
-            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, \(SelectionOp.names.joined(separator: ", "))")
+            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, text, editText, \(SelectionOp.names.joined(separator: ", "))")
         }
         try fields.rejectUnknown()
         return result

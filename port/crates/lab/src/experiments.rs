@@ -17,6 +17,12 @@ pub fn run(name: &str, corpus: &Path, refs: &Path, rest: &[String]) -> Result<()
             Ok(())
         }
         "modes" => modes(corpus, refs, rest.first().map(String::as_str).unwrap_or("blend/*-*")),
+        // The text layers the `type` cases make, against the Mac's (see type_fit.rs).
+        "type" => crate::type_fit::report(corpus, refs, rest.first().map(String::as_str).unwrap_or("type/*"), rest.len() > 1),
+        "type-dump" => {
+            let n: Vec<u32> = rest[1..5].iter().map(|v| v.parse().unwrap()).collect();
+            crate::type_fit::dump(corpus, refs, &rest[0], [n[0], n[1], n[2], n[3]])
+        }
         other => bail!("unknown experiment {other}"),
     }
 }

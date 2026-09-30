@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "A wrapping paragraph, aligned Right",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        150.0,
+        130.0
+      ],
+      "style": {
+        "alignment": "Right",
+        "content": "The quick brown fox jumps over the lazy dog, twice over.",
+        "fontName": "ArialMT",
+        "fontSize": 16
+      }
+    }
+  ]
+}

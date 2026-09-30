@@ -77,6 +77,8 @@ struct CaseRenderer {
             notes += try await importImage(input, raw: spec.raw, into: session)
             imported = true
         }
+        parityTextNotes = []
+        defer { notes += parityTextNotes }
         for (index, op) in spec.ops.enumerated() {
             do {
                 try await op.apply(to: session)

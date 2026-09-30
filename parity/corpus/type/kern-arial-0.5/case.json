@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT kerning pairs and ligatures, tracking 0.5",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        300.0,
+        56.0
+      ],
+      "style": {
+        "content": "AVATAR To. Wa fi fl",
+        "fontName": "ArialMT",
+        "fontSize": 24,
+        "tracking": 0.5
+      }
+    }
+  ]
+}

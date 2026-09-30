@@ -1,0 +1,23 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT l's stepping by an eighth of a pixel across and down",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        80.0,
+        200.0
+      ],
+      "style": {
+        "content": "llllllll\nllllllll\nllllllll\nllllllll\nllllllll\nllllllll\nllllllll\nllllllll",
+        "fontName": "ArialMT",
+        "fontSize": 20,
+        "leading": 21.125,
+        "tracking": 1.681640625
+      }
+    }
+  ]
+}

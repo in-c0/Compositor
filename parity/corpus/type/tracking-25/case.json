@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Tracking 25",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        300.0,
+        56.0
+      ],
+      "style": {
+        "content": "Tracked",
+        "fontName": "ArialMT",
+        "fontSize": 24,
+        "tracking": 25.0
+      }
+    }
+  ]
+}

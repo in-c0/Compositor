@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT lines stepping by a sixteenth of a pixel down",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        40.0,
+        364.0
+      ],
+      "style": {
+        "content": "l\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl\nl",
+        "fontName": "ArialMT",
+        "fontSize": 20,
+        "leading": 20.408203125
+      }
+    }
+  ]
+}

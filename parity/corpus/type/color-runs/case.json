@@ -1,0 +1,44 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "Letters colored by runs",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        260.0,
+        56.0
+      ],
+      "style": {
+        "colorRuns": [
+          {
+            "blue": 0.1,
+            "green": 0.1,
+            "length": 3,
+            "location": 0,
+            "red": 0.9
+          },
+          {
+            "blue": 0.2,
+            "green": 0.7,
+            "length": 5,
+            "location": 5,
+            "red": 0.1
+          },
+          {
+            "blue": 0.9,
+            "green": 0.2,
+            "length": 4,
+            "location": 15,
+            "red": 0.1
+          }
+        ],
+        "content": "Red, green and blue",
+        "fontName": "ArialMT",
+        "fontSize": 24
+      }
+    }
+  ]
+}

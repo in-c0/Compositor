@@ -1,0 +1,22 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT stem, bars, bowl and diagonal at 72 px",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        261.0,
+        131.0
+      ],
+      "style": {
+        "content": "I_-o/",
+        "fontName": "ArialMT",
+        "fontSize": 72.0,
+        "tracking": 7.2
+      }
+    }
+  ]
+}

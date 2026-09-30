@@ -1,0 +1,18 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "An existing text layer retyped and resized",
+  "ops": [
+    {
+      "layer": "34A0A00F-9656-44E5-B2D5-C02D095A03DF",
+      "op": "editText",
+      "style": {
+        "blue": 0.7,
+        "content": "New words",
+        "fontSize": 26,
+        "green": 0.3,
+        "red": 0.2
+      }
+    }
+  ]
+}

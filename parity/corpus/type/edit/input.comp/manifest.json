@@ -1,0 +1,62 @@
+{
+  "activeLayerID" : "34A0A00F-9656-44E5-B2D5-C02D095A03DF",
+  "colorSpace" : "sRGB",
+  "documentID" : "C3C14B8B-DAF2-4282-B488-C32968F7E5CF",
+  "format" : "com.compositor.project",
+  "height" : 100,
+  "layers" : [
+    {
+      "id" : "AF021CEE-D3EC-45A8-8195-7D8211B0EAA1",
+      "imageFile" : "AF021CEE-D3EC-45A8-8195-7D8211B0EAA1.png",
+      "isVisible" : true,
+      "name" : "Background",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          180,
+          100
+        ]
+      }
+    },
+    {
+      "id" : "34A0A00F-9656-44E5-B2D5-C02D095A03DF",
+      "imageFile" : "34A0A00F-9656-44E5-B2D5-C02D095A03DF.png",
+      "isVisible" : true,
+      "name" : "Old text",
+      "text" : {
+        "alignment" : "Left",
+        "blue" : 0,
+        "content" : "Old text",
+        "fontName" : "ArialMT",
+        "fontSize" : 20,
+        "green" : 0,
+        "leading" : 0,
+        "red" : 0,
+        "tracking" : 0
+      },
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          4,
+          4
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          100,
+          40
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 180
+}

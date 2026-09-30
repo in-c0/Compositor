@@ -1,0 +1,21 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "A face that isn't installed falls back to the system font",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        260.0,
+        48.0
+      ],
+      "style": {
+        "content": "Hamburgefonstiv 0123",
+        "fontName": "NoSuchFont-Regular",
+        "fontSize": 20
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "feature": "type",
+  "input": "input.comp",
+  "label": "ArialMT stems at 10 px in gray 0.75",
+  "ops": [
+    {
+      "op": "text",
+      "rect": [
+        1.0,
+        1.0,
+        48.0,
+        42.0
+      ],
+      "style": {
+        "blue": 0.75,
+        "content": "llll",
+        "fontName": "ArialMT",
+        "fontSize": 10.0,
+        "green": 0.75,
+        "red": 0.75,
+        "tracking": 2.7783203125
+      }
+    }
+  ]
+}
