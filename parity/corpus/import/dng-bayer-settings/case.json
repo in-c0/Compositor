@@ -1,0 +1,11 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Bayer DNG with exposure +0.7, 4200 K, tint +12, boost 0.5",
+  "raw": {
+    "boost": 0.5,
+    "exposure": 0.7,
+    "temperature": 4200,
+    "tint": 12
+  }
+}

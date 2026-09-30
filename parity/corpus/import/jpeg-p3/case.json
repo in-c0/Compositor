@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "JPEG with an embedded Display P3 profile"
+}

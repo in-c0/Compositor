@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Linear (demosaiced) DNG, as shot"
+}

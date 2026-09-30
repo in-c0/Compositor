@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.tif",
+  "label": "8-bit RGBA TIFF with unassociated alpha"
+}

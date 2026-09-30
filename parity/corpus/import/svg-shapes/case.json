@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.svg",
+  "label": "SVG with a gradient, circle, ellipse, curve and rotated rectangle: antialiased edges"
+}

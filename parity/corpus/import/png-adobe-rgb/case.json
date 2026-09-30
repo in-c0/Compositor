@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGB PNG with an embedded Adobe RGB (1998)-compatible profile (v2, gamma 563/256), every value"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Adobe CMYK JPEG with no profile: converted from the system's generic CMYK"
+}

@@ -14,6 +14,9 @@ pub struct CaseSpec {
     /// Export JPEG options (`quality`, `matte`); the harness writes `<case>.jpg` when present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jpeg: Option<Value>,
+    /// For a camera RAW input, the develop sheet's settings to change before importing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<Value>,
 }
 
 #[derive(Clone, Debug)]

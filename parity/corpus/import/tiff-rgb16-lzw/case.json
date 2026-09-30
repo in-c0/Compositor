@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.tif",
+  "label": "LZW-compressed 16-bit RGB TIFF"
+}

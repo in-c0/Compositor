@@ -111,9 +111,9 @@ name = "Type"
 paths = ["port/crates/engine/src/type/**"]
 
 [[feature]]
-key = "raw"
-name = "RAW and HEIC import"
-paths = ["port/crates/engine/src/raw/**"]
+key = "import"
+name = "Image import: JPEG, PNG, HEIC, TIFF, SVG and camera RAW"
+paths = ["port/crates/image-import/**"]
 
 [[feature]]
 key = "ml"

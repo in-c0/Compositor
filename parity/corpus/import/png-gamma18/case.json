@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGB PNG with only a gAMA chunk, gamma 1/1.8"
+}

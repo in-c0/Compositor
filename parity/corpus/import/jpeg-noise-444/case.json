@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Baseline JPEG of per-pixel noise, quality 75: the most IDCT rounding"
+}

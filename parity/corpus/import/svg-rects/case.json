@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.svg",
+  "label": "SVG of pixel-aligned rectangles, one half transparent, at its declared size"
+}

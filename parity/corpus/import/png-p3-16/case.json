@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "16-bit RGB PNG with a Display P3 profile"
+}

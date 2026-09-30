@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.heic",
+  "label": "HEIC, 4:2:0, odd width and height"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGB PNG with gAMA 1/2.2 and cHRM with Adobe RGB's primaries"
+}

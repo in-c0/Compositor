@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.gif",
+  "label": "A GIF, which the app doesn't import: both refuse it with the same message"
+}

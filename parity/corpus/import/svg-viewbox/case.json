@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.svg",
+  "label": "SVG whose viewBox is scaled 2x to its width and height"
+}

@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Baseline JPEG, 4:2:0, odd width and height"
+}

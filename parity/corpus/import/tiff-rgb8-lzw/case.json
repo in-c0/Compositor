@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.tiff",
+  "label": "LZW-compressed 8-bit RGB TIFF"
+}

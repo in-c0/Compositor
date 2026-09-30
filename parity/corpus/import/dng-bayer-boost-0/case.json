@@ -1,0 +1,8 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Bayer DNG with Boost 0: Apple's tone curve off",
+  "raw": {
+    "boost": 0
+  }
+}

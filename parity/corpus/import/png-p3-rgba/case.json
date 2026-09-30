@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.png",
+  "label": "8-bit RGBA PNG with a Display P3 profile: color conversion and alpha together"
+}

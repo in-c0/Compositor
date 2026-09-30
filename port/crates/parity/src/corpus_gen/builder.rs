@@ -177,6 +177,15 @@ impl CaseWriter {
         self.write_spec(&dir, feature, label, input_name, ops)
     }
 
+    /// Like `write_file`, for a camera RAW input: `raw` (when not null) is the develop sheet's
+    /// settings, written as the case's `raw` field.
+    pub fn write_file_with(&mut self, feature: &str, case: &str, label: &str, input_name: &str, bytes: &[u8], raw: Value) -> Result<()> {
+        self.extra = if raw.is_null() { Value::Null } else { serde_json::json!({ "raw": raw }) };
+        let result = self.write_file(feature, case, label, input_name, bytes, vec![]);
+        self.extra = Value::Null;
+        result
+    }
+
     fn write_spec(&mut self, dir: &Path, feature: &str, label: &str, input: &str, ops: Vec<Value>) -> Result<()> {
         let mut spec = serde_json::json!({ "feature": feature, "label": label, "input": input });
         if !ops.is_empty() {

@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Baseline JPEG, quality 90, no chroma subsampling"
+}
