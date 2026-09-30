@@ -185,15 +185,35 @@ impl Session {
     }
 }
 
-/// Applies one `stroke` op to `project`, as the harness drives the Mac's mouse handlers.
-pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value) -> Result<()> {
-    let op = session.prepare(op)?;
-    if !project.manifest.layers.iter().any(|l| l.id == op.layer) {
+/// `EditorSession.canPaint`, with `paintRefusal`'s reasons: what the Mac refuses to paint on.
+fn refusal(project: &Project, op: &Op) -> Result<()> {
+    let layers = &project.manifest.layers;
+    let Some(layer) = layers.iter().find(|l| l.id == op.layer) else {
         return failed(format!("there's no layer {}", op.layer));
-    }
+    };
+    let by_id: std::collections::HashMap<&str, &comp_format::LayerRecord> = layers.iter().map(|l| (l.id.as_str(), l)).collect();
     if op.mask && !project.masks.contains_key(&op.layer) {
         return failed("the layer has no mask to paint");
     }
+    if layer.is_group() && !op.mask {
+        return failed(format!("“{}” is a folder, which has no pixels of its own.", layer.name));
+    }
+    if !layer.is_visible || crate::order::folders(layer, &by_id).iter().any(|f| !f.is_visible) {
+        return failed(format!("“{}” is hidden, or inside a hidden folder. Show it to paint on it.", layer.name));
+    }
+    if op.mask && !layer.mask_enabled() {
+        return failed("The layer mask is turned off.");
+    }
+    if !op.mask && layer.adjustment.is_some() {
+        return failed(format!("“{}” is an adjustment layer, with no pixels to paint.", layer.name));
+    }
+    Ok(())
+}
+
+/// Applies one `stroke` op to `project`, as the harness drives the Mac's mouse handlers.
+pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value) -> Result<()> {
+    let op = session.prepare(op)?;
+    refusal(project, &op)?;
     let tip = session.tips[op.tool.family()];
     // mouseDown: a Shift-click paints on from the last stroke's end, on the same target.
     let shift_from = session.last_point.as_ref().filter(|(_, id, mask)| *id == op.layer && *mask == op.mask).map(|(p, _, _)| *p);
