@@ -385,6 +385,10 @@ fn press(app: &mut App, pos: Pos2, pixel: Point, modifiers: egui::Modifiers, can
         }
         t if t.is_brush() => press_paint(app, pixel, modifiers),
         Tool::Marquee | Tool::Lasso | Tool::Wand => crate::ui::selection::press(app, pos, pixel, modifiers, canvas, double),
+        // The engine's gradient, shape and type rendering hasn't landed on this build.
+        Tool::Gradient => app.notify("The Gradient tool isn’t available yet: the engine can’t draw gradients exactly on this build"),
+        Tool::Shape => app.notify("The Shape tool isn’t available yet: the engine can’t draw shapes exactly on this build"),
+        Tool::Type => app.notify("The Type tool isn’t available yet: the engine can’t set type on this build"),
         _ => {}
     }
 }
@@ -699,10 +703,26 @@ fn preview_stroke(app: &mut App, stroke: &mut PaintStroke) {
         Some(a) => preview.masks.insert(layer.clone(), a.clone()),
         None => preview.masks.remove(&layer),
     };
+    ensure_pixels(preview, &layer, &op);
     match engine::paint::apply(&engine.gpu, preview, &mut session, &op) {
         Ok(()) => doc.preview_changed(),
         Err(_) => doc.set_preview(None),
     }
+}
+
+/// A blank layer (New Blank Layer) has no pixels until it's painted; the Mac's brush raster
+/// starts it as clear pixels the layer's size, which is what this gives the engine.
+fn ensure_pixels(p: &mut Project, id: &str, op: &serde_json::Value) {
+    if op["target"] == "mask" || p.images.contains_key(id) {
+        return;
+    }
+    let Some(layer) = p.manifest.layers.iter_mut().find(|l| l.id == id) else { return };
+    if layer.is_group() || layer.adjustment.is_some() {
+        return;
+    }
+    let (w, h) = (layer.transform.size[0].round().max(1.0) as u32, layer.transform.size[1].round().max(1.0) as u32);
+    layer.image_file = Some(format!("{id}.png"));
+    p.images.insert(id.to_string(), comp_format::Asset::new(image::RgbaImage::new(w, h)));
 }
 
 fn finish_stroke(app: &mut App, stroke: PaintStroke) {
@@ -720,7 +740,11 @@ fn finish_stroke(app: &mut App, stroke: PaintStroke) {
     let mut op = stroke.op;
     op["points"] = json!(stroke.points);
     let mut session = doc.paint.clone();
-    let result = doc.apply(title, |p| engine::paint::apply(&engine.gpu, p, &mut session, &op));
+    let layer = op["layer"].as_str().unwrap_or_default().to_string();
+    let result = doc.apply(title, |p| {
+        ensure_pixels(p, &layer, &op);
+        engine::paint::apply(&engine.gpu, p, &mut session, &op)
+    });
     match result {
         Ok(()) => {
             doc.paint = session;
@@ -758,6 +782,32 @@ pub fn overlay(app: &mut App, ui: &Ui, canvas: Rect) {
     let Some(doc) = app.doc() else { return };
     let p = ui.painter().with_clip_rect(canvas.intersect(ui.clip_rect()));
     let size = doc.size();
+    // Guides: cyan lines across the view.
+    if app.show_guides {
+        for guide in doc.project.manifest.guides.iter().flatten() {
+            let stroke = Stroke::new(1.0, Color32::from_rgba_unmultiplied(0, 255, 255, 230));
+            match guide.axis {
+                comp_format::GuideAxis::Vertical => {
+                    let x = to_view(&doc.view, size, canvas, [guide.position, 0.0]).x;
+                    p.line_segment([pos2(x, canvas.min.y), pos2(x, canvas.max.y)], stroke);
+                }
+                comp_format::GuideAxis::Horizontal => {
+                    let y = to_view(&doc.view, size, canvas, [0.0, guide.position]).y;
+                    p.line_segment([pos2(canvas.min.x, y), pos2(canvas.max.x, y)], stroke);
+                }
+            }
+        }
+    }
+    // A notice, for a few seconds.
+    if let Some((message, when)) = &app.notice {
+        if when.elapsed().as_secs_f32() < 3.0 {
+            let g = p.layout_no_wrap(message.clone(), crate::theme::medium(12.0), Color32::WHITE);
+            let badge = Rect::from_center_size(pos2(canvas.center().x, canvas.max.y - 27.0), vec2(g.size().x + 24.0, 26.0));
+            p.rect_filled(badge, egui::CornerRadius::same(13), black_alpha(0.75));
+            p.galley(badge.center() - g.size() / 2.0, g, Color32::WHITE);
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+        }
+    }
     // Snap lines.
     let (gx, gy) = &doc.snap_guides;
     for x in gx {

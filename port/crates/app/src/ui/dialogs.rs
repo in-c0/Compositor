@@ -29,6 +29,8 @@ pub enum Sheet {
     /// Select > Expand (0), Contract (1) or Feather (2).
     Modify { kind: u8, amount: f64 },
     ColorRange(crate::ui::selection::ColorRange),
+    /// The color picker for the foreground (or background) color, and the color it opened with.
+    ColorPicker { background: bool, color: egui::ecolor::Hsva, original: [f32; 3] },
 }
 
 /// What a sheet asked for when it closed this frame.
@@ -105,6 +107,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         Sheet::Shortcuts(search) => shortcuts_sheet(ctx, search),
         Sheet::Modify { kind, amount } => modify_sheet(app, ctx, *kind, amount),
         Sheet::ColorRange(s) => color_range_sheet(app, ctx, s),
+        Sheet::ColorPicker { background, color, original } => color_picker_sheet(app, ctx, *background, color, *original),
     };
     if keep && app.sheet.is_none() {
         app.sheet = Some(sheet);
@@ -124,6 +127,14 @@ pub fn canvas_press(app: &mut App, pixel: [f64; 2], modifiers: egui::Modifiers) 
                 "Sample"
             };
             s.samples.push((pixel, mode));
+        }
+        Some(Sheet::ColorPicker { .. }) => {
+            // "Click the canvas to sample".
+            let gfx = app.gfx.clone();
+            let sampled = app.current.and_then(|i| app.docs.get_mut(i)).and_then(|d| d.sample(&gfx, pixel));
+            if let (Some(c), Some(Sheet::ColorPicker { color, .. })) = (sampled, &mut app.sheet) {
+                *color = egui::ecolor::Hsva::from_rgb(c);
+            }
         }
         Some(Sheet::Filter(f)) if f.sampling.is_some() => {
             let gfx = app.gfx.clone();
@@ -431,11 +442,13 @@ pub struct FilterSheet {
 }
 
 impl FilterSheet {
+    #[cfg(test)]
     pub fn error(&self) -> Option<&str> {
         self.error.as_deref()
     }
 
     /// Sets one setting by its path in the op's settings (`exposure.exposure`).
+    #[cfg(test)]
     pub fn set_setting(&mut self, path: &str, value: Value) {
         set(&mut self.settings, path, value);
     }
@@ -2090,6 +2103,71 @@ fn effect_sheet(app: &mut App, ctx: &egui::Context, s: &mut EffectSheet) -> bool
                 }
             });
             doc.set_preview(None);
+            false
+        }
+    }
+}
+
+// The color picker.
+
+/// The Color Picker panel for the foreground or background color.
+pub fn open_color_picker(app: &mut App, background: bool) {
+    let original = if background { app.settings.background } else { app.settings.foreground };
+    app.sheet = Some(Sheet::ColorPicker { background, color: egui::ecolor::Hsva::from_rgb(original), original });
+}
+
+fn color_picker_sheet(app: &mut App, ctx: &egui::Context, background: bool, color: &mut egui::ecolor::Hsva, original: [f32; 3]) -> bool {
+    let title = if background { "Color Picker (Background Color)" } else { "Color Picker (Foreground Color)" };
+    let mut close = Close::Open;
+    window(ctx, title, 520.0, |ui| {
+        ui.horizontal_top(|ui| {
+            ui.spacing_mut().item_spacing.x = 14.0;
+            egui::widgets::color_picker::color_picker_hsva_2d(ui, color, egui::widgets::color_picker::Alpha::Opaque);
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 8.0;
+                let rgb = color.to_rgb();
+                let (preview, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
+                ui.painter().rect_filled(preview, 5.0, w::rgb(rgb));
+                let mut values = rgb.map(|c| (c * 255.0).round() as f64);
+                let before = values;
+                for (i, label) in ["R", "G", "B"].iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        w::text(ui, *label, theme::regular(13.0), color::label());
+                        w::number_field(ui, ("picker", *label), &mut values[i], 0.0..=255.0, w::fmt_int, 52.0, false, true);
+                    });
+                }
+                if values != before {
+                    *color = egui::ecolor::Hsva::from_rgb(values.map(|v| (v / 255.0) as f32));
+                }
+                let mut hex = format!("{:02X}{:02X}{:02X}", values[0] as u8, values[1] as u8, values[2] as u8);
+                ui.horizontal(|ui| {
+                    w::text(ui, "#", theme::regular(13.0), color::label());
+                    if w::text_field(ui, "picker-hex", &mut hex, 84.0, "", egui::FontId::monospace(12.0)).changed() {
+                        if let (6, Ok(v)) = (hex.len(), u32::from_str_radix(hex.trim(), 16)) {
+                            let c = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map(|x| x as f32 / 255.0);
+                            *color = egui::ecolor::Hsva::from_rgb(c);
+                        }
+                    }
+                });
+                para(ui, "Click the canvas to sample", color::secondary());
+            });
+        });
+        divider(ui);
+        close = footer(ui, "OK", true);
+    });
+    match close {
+        Close::Open => true,
+        Close::Cancel => {
+            let _ = original;
+            false
+        }
+        Close::Ok => {
+            let rgb = color.to_rgb();
+            if background {
+                app.settings.background = rgb;
+            } else {
+                app.settings.foreground = rgb;
+            }
             false
         }
     }

@@ -264,17 +264,34 @@ fn brush(app: &mut App, ui: &mut Ui) {
             w::number_field(ui, "smoothing", &mut s.smoothing, 0.0..=100.0, w::fmt_int, 42.0, false, true);
         });
     }
-    if matches!(tool, Tool::Brush | Tool::SpotHealing) {
+    let mask = app.doc().is_some_and(|d| d.mask_target && d.active_layer().is_some_and(|l| l.mask_file.is_some()));
+    let s = &mut app.settings;
+    if mask {
+        // On a mask the brush paints black or white.
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            w::labeled_popup(ui, "Paint", &mut s.mask_paint, &[MaskPaint::ALL], MaskPaint::title, 180.0, true);
+        });
+    } else if matches!(tool, Tool::Brush | Tool::SpotHealing) {
+        let mut open_picker = false;
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             w::label(ui, "Color");
-            w::swatch(ui, w::rgb(foreground), vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 });
+            open_picker = w::swatch(ui, w::rgb(foreground), vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 }).clicked();
         });
+        if open_picker {
+            crate::ui::dialogs::open_color_picker(app, false);
+        }
     }
     let _ = brush_mode;
-    if tool == Tool::CloneStamp {
+    let source = app.doc().is_some_and(|d| d.clone_source.is_some());
+    if tool == Tool::CloneStamp && !source {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             w::secondary(ui, "Option-click to set the source", 12.0);
+        });
+    } else if mask {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            w::secondary(ui, "Mask", 12.0);
         });
     }
 }

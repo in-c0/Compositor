@@ -163,6 +163,8 @@ pub enum Command {
     /// Layer effects: "Stroke", "Drop Shadow", …
     Effect(&'static str),
     ToggleSnap,
+    ToggleGuides,
+    ClearGuides,
     SelectAll,
     Deselect,
     InverseSelection,
@@ -255,6 +257,8 @@ pub struct MenuState {
     pub merge: Option<&'static str>,
     pub has_mask: bool,
     pub snap: bool,
+    pub guides: bool,
+    pub has_guides: bool,
     pub has_selection: bool,
     /// The engine can make selections.
     pub selections: bool,
@@ -426,7 +430,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         Item::new("Snap").run(Command::ToggleSnap, true).check(s.snap),
         Item::new("Show Transform Controls").key(cmd(Key::H)).run(Command::ToggleTransformControls, s.move_tool).check(s.show_controls),
         Item::separator(),
-        Item::new("Show").sub(vec![later("Grid").key(cmd(Key::Quote)).check(false), later("Guides").key(cmd(Key::Semicolon)).check(true)]),
+        Item::new("Show").sub(vec![later("Grid").key(cmd(Key::Quote)).check(false), Item::new("Guides").key(cmd(Key::Semicolon)).run(Command::ToggleGuides, doc).check(s.guides)]),
         later("Grid Settings…"),
         Item::new("Rulers").key(cmd(Key::R)).run(Command::ToggleRulers, doc).check(s.rulers),
         Item::separator(),
@@ -439,7 +443,7 @@ pub fn build(s: &MenuState) -> Vec<Menu> {
         ]),
         Item::separator(),
         later("Lock Guides").key(opt_cmd(Key::Semicolon)).check(false),
-        later("Clear Guides"),
+        Item::new("Clear Guides").run(Command::ClearGuides, s.has_guides),
         Item::new("Enter Full Screen").key(ctrl_cmd(Key::F)).run(Command::FullScreen, true).system(),
     ];
 

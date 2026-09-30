@@ -249,3 +249,19 @@ fn tool_keys_pick_tools() {
     frame(&off, &mut app, &[(1, key(egui::Key::CloseBracket))]);
     assert_eq!(app.settings.brush.size, 50.0, "] steps the brush up");
 }
+
+#[test]
+fn painting_a_new_blank_layer_gives_it_pixels() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "brush");
+    let ctx = egui::Context::default();
+    app.run(&ctx, Command::NewBlankLayer);
+    let id = app.doc().unwrap().active.clone().unwrap();
+    let (from, to) = (at(&app, [10.0, 10.0]), at(&app, [40.0, 30.0]));
+    frame(&off, &mut app, &drag(&[from, to], egui::Modifiers::NONE));
+    assert!(app.alert.is_none(), "{:?}", app.alert.as_ref().map(|a| &a.message));
+    let doc = app.doc().unwrap();
+    let pixels = &doc.project.images[&id].pixels;
+    assert!(pixels.get_pixel(20, 16)[3] == 255 && pixels.get_pixel(60, 60)[3] == 0, "the stroke is painted and the rest is clear");
+    assert_eq!(doc.layer(&id).unwrap().image_file.as_deref(), Some(format!("{id}.png").as_str()));
+}

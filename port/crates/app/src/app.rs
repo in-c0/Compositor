@@ -58,6 +58,10 @@ pub struct App {
     /// The filter settings the Filter menu's panels last used this session.
     pub filter_settings: serde_json::Value,
     pub jpeg_quality: f64,
+    /// View > Show > Guides.
+    pub show_guides: bool,
+    /// A short message over the canvas, and when it appeared.
+    pub notice: Option<(String, std::time::Instant)>,
 }
 
 impl App {
@@ -89,6 +93,8 @@ impl App {
             polygon: None,
             filter_settings: dialogs::default_settings(),
             jpeg_quality: 0.85,
+            show_guides: true,
+            notice: None,
         }
     }
 
@@ -138,6 +144,11 @@ impl App {
     pub fn form_valid(&self) -> bool {
         let parse = |s: &str| s.trim().parse::<i64>().ok().filter(|v| (1..=30_000).contains(v));
         parse(&self.form.width).is_some() && parse(&self.form.height).is_some()
+    }
+
+    /// Shows `message` over the canvas for a few seconds.
+    pub fn notify(&mut self, message: impl Into<String>) {
+        self.notice = Some((message.into(), std::time::Instant::now()));
     }
 
     pub fn alert(&mut self, title: &str, message: String) {
@@ -228,6 +239,8 @@ impl App {
             merge: doc.and_then(crate::layer_ops::merge_title).filter(|_| self.idle()),
             has_mask: active.is_some_and(|l| l.mask_file.is_some()),
             snap: self.snap,
+            guides: self.show_guides,
+            has_guides: doc.is_some_and(|d| d.project.manifest.guides.as_ref().is_some_and(|g| !g.is_empty())),
             has_selection: doc.is_some_and(|d| d.selection.is_some()),
             selections: true,
         }
@@ -423,6 +436,12 @@ impl App {
             }
             Command::Effect(kind) => dialogs::open_effect(self, kind),
             Command::ToggleSnap => self.snap = !self.snap,
+            Command::ToggleGuides => self.show_guides = !self.show_guides,
+            Command::ClearGuides => {
+                if let Some(d) = self.doc_mut() {
+                    d.edit("Clear Guides", false, |m| m.guides = None);
+                }
+            }
             Command::SelectAll
             | Command::Deselect
             | Command::InverseSelection
@@ -603,8 +622,11 @@ impl App {
             let command = if self.doc().is_some_and(|d| d.selection.is_some()) { Command::ClearSelectionPixels } else { Command::DeleteLayerOrMask };
             self.run(ctx, command);
         }
-        if self.tool == Tool::Move {
-            self.move_tool_keys(ctx);
+        self.canvas_keys(ctx);
+        // Shift-U cycles the shape kind with the Shape tool.
+        if self.tool == Tool::Shape && ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, egui::Key::U)) {
+            use crate::tools::ShapeKind;
+            self.settings.shape = ShapeKind::ALL[(self.settings.shape.index() + 1) % ShapeKind::ALL.len()];
         }
         let tools: Vec<Tool> = Tool::RAIL.iter().copied().chain([Tool::Idle]).collect();
         for tool in tools {
@@ -628,11 +650,24 @@ impl App {
         }
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Tab)) {
             use crate::tools::*;
+            // `cycleToolMode`: the setting at the left of the tool's bar.
+            fn next<T: Copy + PartialEq>(all: &[T], v: T) -> T {
+                all[(all.iter().position(|x| *x == v).unwrap_or(0) + 1) % all.len()]
+            }
+            let s = &mut self.settings;
             match self.tool {
-                Tool::Wand => self.settings.wand = if self.settings.wand == WandMode::Wand { WandMode::Object } else { WandMode::Wand },
-                Tool::Shape => {
-                    self.settings.shape = ShapeKind::ALL[(self.settings.shape.index() + 1) % ShapeKind::ALL.len()];
+                Tool::Marquee => s.marquee = next(MarqueeKind::ALL, s.marquee),
+                Tool::Lasso => {
+                    s.lasso = next(LassoKind::ALL, s.lasso);
+                    self.polygon = None;
                 }
+                Tool::Wand => s.wand = next(WandMode::ALL, s.wand),
+                Tool::Shape => s.shape = next(ShapeKind::ALL, s.shape),
+                Tool::Brush => s.brush_mode = next(BrushMode::ALL, s.brush_mode),
+                Tool::Blur => s.smear_mode = next(SmearMode::ALL, s.smear_mode),
+                Tool::SpotHealing => s.healing = next(HealingType::ALL, s.healing),
+                Tool::CloneStamp => s.clone_sample = next(SampleLayers::ALL, s.clone_sample),
+                Tool::Gradient => s.gradient = next(GradientKind::ALL, s.gradient),
                 _ => {}
             }
         }
@@ -640,9 +675,10 @@ impl App {
 }
 
 impl App {
-    /// With the Move tool: digits set the active layer's opacity (1 = 10% … 0 = 100%) and the
-    /// arrows nudge it by a pixel, ten with Shift.
-    fn move_tool_keys(&mut self, ctx: &egui::Context) {
+    /// Digits set the opacity (1 = 10% … 0 = 100%): the brush's with a painting tool, the
+    /// gradient's with Gradient, otherwise the active layer's. With the Move tool the arrows nudge
+    /// the layer by a pixel, ten with Shift. Shift-minus and Shift-equals step the blend mode.
+    fn canvas_keys(&mut self, ctx: &egui::Context) {
         use egui::Key;
         let digits = [Key::Num0, Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9];
         let mut opacity = None;
@@ -660,11 +696,36 @@ impl App {
                 nudge += dir * 10.0;
             }
         }
+        if self.tool != Tool::Move {
+            nudge = egui::Vec2::ZERO;
+        }
+        if let Some(o) = opacity {
+            if self.tool.is_brush() {
+                self.tip_mut().opacity = o;
+                opacity = None;
+            } else if self.tool == Tool::Gradient {
+                self.settings.gradient_opacity = o;
+                opacity = None;
+            }
+        }
+        let blend_step = if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::Minus)) {
+            -1
+        } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::Equals) || i.consume_key(egui::Modifiers::SHIFT, Key::Plus)) {
+            1
+        } else {
+            0
+        };
         let Some(doc) = self.doc_mut() else { return };
         let Some(layer) = doc.active_layer() else { return };
-        let (id, group, adjustment) = (layer.id.clone(), layer.is_group(), layer.adjustment.is_some());
+        let (id, group, adjustment, blend) = (layer.id.clone(), layer.is_group(), layer.adjustment.is_some(), layer.blend_mode());
         if let Some(o) = opacity {
             doc.set_opacity(&id, o, false);
+        }
+        if blend_step != 0 && !group {
+            let all = comp_format::BlendMode::ALL;
+            let i = all.iter().position(|m| *m == blend).unwrap_or(0) as i64;
+            let mode = all[(i + blend_step).rem_euclid(all.len() as i64) as usize];
+            doc.set_blend_mode(&id, mode);
         }
         if nudge != egui::Vec2::ZERO && !group && !adjustment {
             doc.edit("Nudge", true, |m| {

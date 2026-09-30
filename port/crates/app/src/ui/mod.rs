@@ -352,6 +352,13 @@ fn palette(app: &mut App, ui: &mut Ui, p: &egui::Painter, origin: Pos2) {
     let fg = Rect::from_min_size(origin, vec2(24.0, 24.0));
     widgets::paint_swatch(p, bg, widgets::rgb(app.settings.background), style);
     widgets::paint_swatch(p, fg, widgets::rgb(app.settings.foreground), style);
+    // The background swatch sits under the foreground one, so it's registered first.
+    if ui.interact(bg, ui.id().with("background-swatch"), Sense::click()).on_hover_text("Background color").clicked() {
+        dialogs::open_color_picker(app, true);
+    }
+    if ui.interact(fg, ui.id().with("foreground-swatch"), Sense::click()).on_hover_text("Foreground color").clicked() {
+        dialogs::open_color_picker(app, false);
+    }
     let swap = Rect::from_min_size(origin + vec2(27.0, -3.0), vec2(12.0, 12.0));
     icons::paint_rotated(p, "arrow.left.and.right", swap.center(), 9.0, color::secondary(), -std::f32::consts::FRAC_PI_4);
     if ui.interact(swap, ui.id().with("swap"), Sense::click()).on_hover_text("Swap foreground and background (X)").clicked() {
