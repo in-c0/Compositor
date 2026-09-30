@@ -1,0 +1,32 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Spot Healing along a thin scratch",
+  "ops": [
+    {
+      "layer": "46C5E14C-57DE-4DF4-A11E-DD5D1B0E2DE6",
+      "op": "stroke",
+      "points": [
+        [
+          44.5,
+          35.0
+        ],
+        [
+          44.5,
+          42.0
+        ],
+        [
+          44.5,
+          50.5
+        ]
+      ],
+      "settings": {
+        "hardness": 1,
+        "healingMode": "Content-Aware",
+        "opacity": 1,
+        "size": 6
+      },
+      "tool": "heal"
+    }
+  ]
+}

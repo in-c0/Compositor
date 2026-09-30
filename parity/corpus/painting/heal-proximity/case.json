@@ -1,0 +1,28 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Spot Healing, Proximity Match, over a blotch",
+  "ops": [
+    {
+      "layer": "24F2731E-144B-44EB-97D0-C03A96527EFF",
+      "op": "stroke",
+      "points": [
+        [
+          28.0,
+          25.0
+        ],
+        [
+          32.0,
+          27.0
+        ]
+      ],
+      "settings": {
+        "hardness": 1,
+        "healingMode": "Proximity Match",
+        "opacity": 1,
+        "size": 14
+      },
+      "tool": "heal"
+    }
+  ]
+}

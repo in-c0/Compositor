@@ -1,0 +1,55 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Clone Stamp, soft 20 px at 60%",
+  "ops": [
+    {
+      "layer": "2B23FBEA-64D4-45D3-9033-18D34832F651",
+      "op": "stroke",
+      "points": [
+        [
+          10.0,
+          40.0
+        ],
+        [
+          16.0,
+          44.5
+        ],
+        [
+          22.0,
+          46.0
+        ],
+        [
+          28.0,
+          43.25
+        ],
+        [
+          34.0,
+          38.25
+        ],
+        [
+          40.0,
+          34.5
+        ],
+        [
+          46.0,
+          34.5
+        ],
+        [
+          52.0,
+          38.25
+        ]
+      ],
+      "settings": {
+        "hardness": 0,
+        "opacity": 0.6,
+        "size": 20
+      },
+      "source": [
+        20.5,
+        12.25
+      ],
+      "tool": "clone"
+    }
+  ]
+}

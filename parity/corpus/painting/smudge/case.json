@@ -1,0 +1,31 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Smudge, 16 px at 80%",
+  "ops": [
+    {
+      "layer": "B8090CB9-B068-411F-A937-6E5F4E329861",
+      "op": "stroke",
+      "points": [
+        [
+          12.0,
+          20.0
+        ],
+        [
+          30.0,
+          28.0
+        ],
+        [
+          52.0,
+          30.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0,
+        "opacity": 0.8,
+        "size": 16
+      },
+      "tool": "smudge"
+    }
+  ]
+}

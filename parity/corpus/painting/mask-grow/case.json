@@ -1,0 +1,33 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Black on a mask, past its layer's edge",
+  "ops": [
+    {
+      "layer": "8F093D19-CE69-4C52-9A16-46C3898E27C5",
+      "op": "stroke",
+      "points": [
+        [
+          2.0,
+          20.0
+        ],
+        [
+          30.0,
+          26.0
+        ],
+        [
+          62.0,
+          40.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0.5,
+        "opacity": 1,
+        "size": 10,
+        "white": false
+      },
+      "target": "mask",
+      "tool": "brush"
+    }
+  ]
+}

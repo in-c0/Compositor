@@ -1,0 +1,29 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Blur tool on a mask",
+  "ops": [
+    {
+      "layer": "DAC59149-AB32-4344-B58A-4ED3780BC88A",
+      "op": "stroke",
+      "points": [
+        [
+          4.0,
+          32.0
+        ],
+        [
+          60.0,
+          32.0
+        ]
+      ],
+      "settings": {
+        "blurRadius": 4,
+        "hardness": 1,
+        "opacity": 1,
+        "size": 28
+      },
+      "target": "mask",
+      "tool": "blur"
+    }
+  ]
+}

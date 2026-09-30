@@ -1,0 +1,40 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "A stroke past a small layer's edge grows it",
+  "ops": [
+    {
+      "layer": "0F4CFAC7-BDA3-49E4-876F-39880B67402C",
+      "op": "stroke",
+      "points": [
+        [
+          4.0,
+          30.0
+        ],
+        [
+          30.0,
+          34.0
+        ],
+        [
+          58.0,
+          36.0
+        ],
+        [
+          70.0,
+          38.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0.9,
+          0.2,
+          0.1
+        ],
+        "hardness": 0.5,
+        "opacity": 1,
+        "size": 10
+      },
+      "tool": "brush"
+    }
+  ]
+}

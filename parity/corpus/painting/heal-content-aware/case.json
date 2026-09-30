@@ -1,0 +1,28 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Spot Healing, Content-Aware, over a blotch",
+  "ops": [
+    {
+      "layer": "B56D993D-BEEB-40EB-9A3A-8FCB1605EA75",
+      "op": "stroke",
+      "points": [
+        [
+          28.0,
+          25.0
+        ],
+        [
+          32.0,
+          27.0
+        ]
+      ],
+      "settings": {
+        "hardness": 1,
+        "healingMode": "Content-Aware",
+        "opacity": 1,
+        "size": 14
+      },
+      "tool": "heal"
+    }
+  ]
+}

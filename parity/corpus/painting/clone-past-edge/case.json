@@ -1,0 +1,35 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Clone Stamp copying from past the layer's edge",
+  "ops": [
+    {
+      "layer": "5A3696A6-8DCD-4A5D-A2D5-52774AB4C108",
+      "op": "stroke",
+      "points": [
+        [
+          40.0,
+          10.0
+        ],
+        [
+          44.0,
+          30.0
+        ],
+        [
+          40.0,
+          54.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0.5,
+        "opacity": 1,
+        "size": 16
+      },
+      "source": [
+        4.0,
+        40.0
+      ],
+      "tool": "clone"
+    }
+  ]
+}

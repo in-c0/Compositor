@@ -1,0 +1,60 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Soft 24 px brush",
+  "ops": [
+    {
+      "layer": "13D79AB9-AE2F-4CE6-ADBE-F3E520FB2EE5",
+      "op": "stroke",
+      "points": [
+        [
+          8.0,
+          30.0
+        ],
+        [
+          14.0,
+          37.0
+        ],
+        [
+          20.0,
+          40.0
+        ],
+        [
+          26.0,
+          37.0
+        ],
+        [
+          32.0,
+          30.0
+        ],
+        [
+          38.0,
+          23.0
+        ],
+        [
+          44.0,
+          20.0
+        ],
+        [
+          50.0,
+          23.0
+        ],
+        [
+          56.0,
+          30.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0.1,
+          0.3,
+          0.9
+        ],
+        "hardness": 0,
+        "opacity": 1,
+        "size": 24
+      },
+      "tool": "brush"
+    }
+  ]
+}

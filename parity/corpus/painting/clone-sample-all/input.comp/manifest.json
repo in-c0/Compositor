@@ -1,0 +1,72 @@
+{
+  "activeLayerID" : "A60E0AF2-1A0E-4436-B2ED-A73FFD39C404",
+  "colorSpace" : "sRGB",
+  "documentID" : "0D74E865-2B53-4111-A86F-AA235D6400AB",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "874E0333-9919-4C26-BAF1-7F57F9B13652",
+      "imageFile" : "874E0333-9919-4C26-BAF1-7F57F9B13652.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "AB07777C-C6A4-41C9-9A4D-031A552F2C2E",
+      "imageFile" : "AB07777C-C6A4-41C9-9A4D-031A552F2C2E.png",
+      "isVisible" : true,
+      "name" : "Veil",
+      "opacity" : 0.5,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "A60E0AF2-1A0E-4436-B2ED-A73FFD39C404",
+      "imageFile" : "A60E0AF2-1A0E-4436-B2ED-A73FFD39C404.png",
+      "isVisible" : true,
+      "name" : "Target",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          12,
+          12
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          40,
+          40
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

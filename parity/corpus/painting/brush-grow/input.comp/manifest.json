@@ -1,0 +1,51 @@
+{
+  "activeLayerID" : "0F4CFAC7-BDA3-49E4-876F-39880B67402C",
+  "colorSpace" : "sRGB",
+  "documentID" : "A0D0AE32-CDFE-4445-B447-BCF1C71532BD",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "56A3E1D6-5418-4C93-AB8C-4BBE77CE5FDC",
+      "imageFile" : "56A3E1D6-5418-4C93-AB8C-4BBE77CE5FDC.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "0F4CFAC7-BDA3-49E4-876F-39880B67402C",
+      "imageFile" : "0F4CFAC7-BDA3-49E4-876F-39880B67402C.png",
+      "isVisible" : true,
+      "name" : "Disc",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          20,
+          20
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          24,
+          24
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

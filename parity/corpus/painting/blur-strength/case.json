@@ -1,0 +1,28 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Blur tool, radius 8, strength 50%, over translucent noise",
+  "ops": [
+    {
+      "layer": "680DA4C5-120B-468B-8D66-3EFB6F85C434",
+      "op": "stroke",
+      "points": [
+        [
+          10.0,
+          20.0
+        ],
+        [
+          50.0,
+          44.0
+        ]
+      ],
+      "settings": {
+        "blurRadius": 8,
+        "hardness": 0.5,
+        "opacity": 0.5,
+        "size": 30
+      },
+      "tool": "blur"
+    }
+  ]
+}

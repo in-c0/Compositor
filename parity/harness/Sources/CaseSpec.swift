@@ -51,6 +51,8 @@ enum ParityOp {
     case crop(CGRect)
     /// Image > Image Size… `resolution` nil keeps the document's, as the sheet starts with it.
     case imageSize(width: Int, height: Int, resolution: Double?, sampling: LayerSampling)
+    /// A press, drag and release of a painting tool (see `StrokeOp`).
+    case stroke(StrokeOp)
 
     var name: String {
         switch self {
@@ -58,6 +60,7 @@ enum ParityOp {
         case .canvasSize: "canvasSize"
         case .crop: "crop"
         case .imageSize: "imageSize"
+        case .stroke: "stroke"
         }
     }
 
@@ -71,6 +74,8 @@ enum ParityOp {
             try await session.parityCrop(rect)
         case let .imageSize(width, height, resolution, sampling):
             try await session.parityImageSize(width: width, height: height, resolution: resolution, sampling: sampling)
+        case let .stroke(stroke):
+            try await session.parityStroke(stroke)
         }
     }
 
@@ -121,8 +126,10 @@ enum ParityOp {
                                 height: try JSONValue.integer(fields.required("height"), "\(path).height"),
                                 resolution: try fields.optional("resolution", JSONValue.number),
                                 sampling: try fields.optional("sampling") { try JSONValue.choice(LayerSampling.self, $0, $1) } ?? .high)
+        case "stroke":
+            result = .stroke(try StrokeOp.parse(fields, path: path))
         default:
-            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize")
+            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke")
         }
         try fields.rejectUnknown()
         return result
