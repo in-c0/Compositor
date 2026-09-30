@@ -110,6 +110,9 @@ impl Renderer {
         if name == "filter" {
             return filters::apply(&self.gpu, project, op);
         }
+        if name == "probeDraw" {
+            return transform::high::probe_draw(&self.gpu, project, op);
+        }
         if name == "stroke" {
             return paint::apply(&self.gpu, project, &mut paint::Session::default(), op);
         }

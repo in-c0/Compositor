@@ -107,9 +107,12 @@ fn placing(t: &Transform, map: &Affine) -> Transform {
 /// a gray `width` x `height` context scaled by `scale` and moved by `offset`. The clip is the mask
 /// sampled and faded at its rectangle's edges as an image is; the fill's own edges cover by area
 /// (`min(255, floor(area × 256))`, as Core Graphics fills shapes), and the two multiply rounding
-/// to nearest. That is within a few levels on the edge pixels of rotated masks, not exact (see
-/// `parity/features.toml`).
+/// to nearest. That is within a few levels on the edge pixels of rotated masks, not exact, so a
+/// mask at a rotation reports as not supported (see `parity/features.toml`).
 fn draw_coverage(mask: &GrayImage, t: &Transform, scale: [f64; 2], offset: [f64; 2], (width, height): (u32, u32)) -> Result<GrayImage> {
+    if t.sampling != Sampling::Nearest && t.rotation % 90.0 != 0.0 {
+        return Err(RenderError::Unsupported("Image Size redrawing a mask at a rotation (its edge fills aren't exact yet)".into()));
+    }
     let placement = Placement::in_context(t, scale, offset);
     let filter = match Quality::of(t.sampling) {
         Quality::None => Filter::Nearest,
