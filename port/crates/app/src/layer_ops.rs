@@ -668,15 +668,24 @@ fn coverage_in_grid(doc: &Doc, gfx: &crate::gfx::Gfx, t: &Transform, w: u32, h: 
 /// a selection, so this is the app's approximation: returns false when it can't (a transformed
 /// layer, or the operation resized the layer).
 pub fn limit_to_selection(doc: &Doc, gfx: &crate::gfx::Gfx, after: &mut Project, id: &str) -> bool {
-    let (Some(old), Some(layer)) = (doc.project.images.get(id), doc.layer(id)) else { return false };
-    let Some(new) = after.images.get_mut(id) else { return false };
+    let Some(layer) = doc.layer(id) else { return false };
     let Some(new_layer) = after.manifest.layers.iter().find(|l| l.id == id) else { return false };
-    if new.pixels.dimensions() != old.pixels.dimensions() || new_layer.transform != layer.transform {
+    let Some(new) = after.images.get_mut(id) else { return false };
+    let (w, h) = new.pixels.dimensions();
+    let t = new_layer.transform;
+    // The old pixels in the new grid: the operation may have grown the layer (a stroke reaching
+    // past it), or given a blank layer pixels.
+    let old = doc.project.images.get(id);
+    if old.is_some_and(|o| !plain(&layer.transform, o.pixels.width(), o.pixels.height())) {
         return false;
     }
-    let (w, h) = old.pixels.dimensions();
-    let Some(cover) = coverage_in_grid(doc, gfx, &layer.transform, w, h) else { return false };
-    for (i, (n, o)) in new.pixels.pixels_mut().zip(old.pixels.pixels()).enumerate() {
+    let offset = (layer.transform.origin[0] - t.origin[0], layer.transform.origin[1] - t.origin[1]);
+    let Some(cover) = coverage_in_grid(doc, gfx, &t, w, h) else { return false };
+    for (i, n) in new.pixels.pixels_mut().enumerate() {
+        let (x, y) = ((i as u32 % w) as f64 - offset.0, (i as u32 / w) as f64 - offset.1);
+        let o = old
+            .filter(|o| x >= 0.0 && y >= 0.0 && x < o.pixels.width() as f64 && y < o.pixels.height() as f64)
+            .map_or(image::Rgba([0, 0, 0, 0]), |o| *o.pixels.get_pixel(x as u32, y as u32));
         let m = cover[i] as f64 / 255.0;
         let (na, oa) = (n[3], o[3]);
         let mut out = [0f64; 4];

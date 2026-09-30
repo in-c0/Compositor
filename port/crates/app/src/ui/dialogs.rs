@@ -1279,6 +1279,14 @@ pub struct CanvasSizeSheet {
     error: Option<String>,
 }
 
+impl CanvasSizeSheet {
+    #[cfg(test)]
+    pub fn set_size(&mut self, width: f64, height: f64) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 pub fn open_canvas_size(app: &mut App) {
     let Some(d) = app.doc() else { return };
     let (w0, h0) = (d.project.manifest.width as f64, d.project.manifest.height as f64);

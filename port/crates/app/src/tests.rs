@@ -53,11 +53,12 @@ fn button(pos: Pos2, pressed: bool, modifiers: egui::Modifiers) -> egui::Event {
 
 /// A press at the first point, moves through the rest, and a release at the last.
 fn drag(points: &[Pos2], modifiers: egui::Modifiers) -> Vec<(usize, egui::Event)> {
-    let mut events = vec![(1, egui::Event::PointerMoved(points[0])), (1, button(points[0], true, modifiers))];
+    let mut events = vec![(0, egui::Event::ModifiersChanged(modifiers)), (1, egui::Event::PointerMoved(points[0])), (1, button(points[0], true, modifiers))];
     for p in &points[1..] {
         events.push((2, egui::Event::PointerMoved(*p)));
     }
     events.push((3, button(*points.last().unwrap(), false, modifiers)));
+    events.push((3, egui::Event::ModifiersChanged(egui::Modifiers::NONE)));
     events
 }
 
@@ -264,4 +265,79 @@ fn painting_a_new_blank_layer_gives_it_pixels() {
     let pixels = &doc.project.images[&id].pixels;
     assert!(pixels.get_pixel(20, 16)[3] == 255 && pixels.get_pixel(60, 60)[3] == 0, "the stroke is painted and the rest is clear");
     assert_eq!(doc.layer(&id).unwrap().image_file.as_deref(), Some(format!("{id}.png").as_str()));
+}
+
+#[test]
+fn a_stroke_inside_a_selection_stays_inside_it() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "painting/brush-hard", "marquee");
+    app.snap = false;
+    let path = [at(&app, [0.0, 0.0]), at(&app, [32.0, 64.0])];
+    frame(&off, &mut app, &drag(&path, egui::Modifiers::NONE));
+    assert!(app.doc().unwrap().selection.is_some());
+    app.tool = Tool::Brush;
+    app.settings.foreground = [1.0, 0.0, 0.0];
+    let before = layer_pixels(&app, 0);
+    let path = [at(&app, [10.0, 32.0]), at(&app, [54.0, 32.0])];
+    frame(&off, &mut app, &drag(&path, egui::Modifiers::NONE));
+    assert!(app.alert.is_none(), "{:?}", app.alert.as_ref().map(|a| &a.message));
+    let after = layer_pixels(&app, 0);
+    let px = |v: &Vec<u8>, x: usize, y: usize| v[(y * 64 + x) * 4..(y * 64 + x) * 4 + 4].to_vec();
+    assert_eq!(px(&after, 20, 32), vec![255, 0, 0, 255], "painted inside");
+    assert_eq!(px(&after, 45, 32), px(&before, 45, 32), "untouched outside");
+}
+
+#[test]
+fn option_drag_moves_a_copy() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "move");
+    let id = app.doc().unwrap().project.manifest.layers[1].id.clone();
+    app.doc_mut().unwrap().active = Some(id.clone());
+    app.snap = false;
+    let n = app.doc().unwrap().project.manifest.layers.len();
+    let path = [at(&app, [20.0, 20.0]), at(&app, [25.0, 20.0])];
+    frame(&off, &mut app, &drag(&path, egui::Modifiers::ALT));
+    let doc = app.doc().unwrap();
+    assert_eq!(doc.project.manifest.layers.len(), n + 1);
+    assert_eq!(doc.layer(&id).unwrap().transform.origin, [0.0, 0.0], "the original stays");
+    let copy = doc.active_layer().unwrap();
+    assert_eq!((copy.name.as_str(), copy.transform.origin), ("Screen copy", [5.0, 0.0]));
+}
+
+#[test]
+fn a_new_adjustment_layer_opens_its_sheet_and_ok_keeps_the_settings() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "move");
+    let ctx = egui::Context::default();
+    app.run(&ctx, Command::NewAdjustment(comp_format::AdjustmentKind::Exposure));
+    assert!(matches!(app.sheet, Some(ui::dialogs::Sheet::Filter(_))));
+    if let Some(ui::dialogs::Sheet::Filter(f)) = &mut app.sheet {
+        f.set_setting("exposure.exposure", json!(0.75));
+    }
+    frame(&off, &mut app, &[]);
+    let enter = egui::Event::Key { key: egui::Key::Enter, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE };
+    frame(&off, &mut app, &[(1, enter)]);
+    assert!(app.sheet.is_none());
+    let layer = app.doc().unwrap().active_layer().unwrap();
+    assert_eq!(layer.adjustment.as_ref().unwrap().exposure_settings.unwrap().exposure, 0.75);
+    assert!(app.doc().unwrap().render_error.is_none(), "the adjustment renders");
+}
+
+#[test]
+fn canvas_size_runs_the_canvas_size_op() {
+    let off = Offscreen::new().unwrap();
+    let mut app = open(&off, "blend/stack", "move");
+    let ctx = egui::Context::default();
+    app.run(&ctx, Command::CanvasSize);
+    assert!(matches!(app.sheet, Some(ui::dialogs::Sheet::CanvasSize(_))));
+    frame(&off, &mut app, &[]);
+    // Width 64 -> 80: typed into the sheet's first field isn't reachable offscreen, so set it.
+    if let Some(ui::dialogs::Sheet::CanvasSize(s)) = &mut app.sheet {
+        s.set_size(80.0, 64.0);
+    }
+    let enter = egui::Event::Key { key: egui::Key::Enter, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE };
+    frame(&off, &mut app, &[(1, enter)]);
+    let doc = app.doc().unwrap();
+    assert_eq!((doc.project.manifest.width, doc.project.manifest.height), (80, 64));
+    assert_eq!(doc.project.manifest.layers[0].transform.origin, [8.0, 0.0], "anchored in the center");
 }

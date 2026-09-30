@@ -686,6 +686,7 @@ fn preview_stroke(app: &mut App, stroke: &mut PaintStroke) {
     }
     stroke.previewed = stroke.points.len();
     let engine = app.gfx.engine.clone();
+    let gfx = app.gfx.clone();
     let Some(doc) = app.doc_mut() else { return };
     let mut op = stroke.op.clone();
     op["points"] = json!(stroke.points);
@@ -704,9 +705,14 @@ fn preview_stroke(app: &mut App, stroke: &mut PaintStroke) {
         None => preview.masks.remove(&layer),
     };
     ensure_pixels(preview, &layer, &op);
-    match engine::paint::apply(&engine.gpu, preview, &mut session, &op) {
-        Ok(()) => doc.preview_changed(),
-        Err(_) => doc.set_preview(None),
+    let result = engine::paint::apply(&engine.gpu, preview, &mut session, &op);
+    let mut shown = doc.preview.take().expect("the preview");
+    let clipped = result.is_ok() && (doc.selection.is_none() || op["target"] != "pixels" || crate::layer_ops::limit_to_selection(doc, &gfx, &mut shown, &layer));
+    doc.preview = Some(shown);
+    if clipped {
+        doc.preview_changed();
+    } else {
+        doc.set_preview(None);
     }
 }
 
@@ -741,10 +747,18 @@ fn finish_stroke(app: &mut App, stroke: PaintStroke) {
     op["points"] = json!(stroke.points);
     let mut session = doc.paint.clone();
     let layer = op["layer"].as_str().unwrap_or_default().to_string();
-    let result = doc.apply(title, |p| {
-        ensure_pixels(p, &layer, &op);
-        engine::paint::apply(&engine.gpu, p, &mut session, &op)
-    });
+    let gfx = app.gfx.clone();
+    let Some(doc) = app.doc_mut() else { return };
+    let mut next = doc.project.clone();
+    ensure_pixels(&mut next, &layer, &op);
+    let mut result = engine::paint::apply(&engine.gpu, &mut next, &mut session, &op);
+    // The Mac clips a stroke to the selection; the engine's stroke doesn't take one.
+    if result.is_ok() && doc.selection.is_some() && op["target"] == "pixels" && !crate::layer_ops::limit_to_selection(doc, &gfx, &mut next, &layer) {
+        result = Err(engine::RenderError::Unsupported("painting inside a selection on a transformed layer".into()));
+    }
+    if result.is_ok() {
+        doc.commit(title, next);
+    }
     match result {
         Ok(()) => {
             doc.paint = session;
