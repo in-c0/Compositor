@@ -3,7 +3,8 @@
 // Fitted to references: the ramp is a table of `slots` colors, sampled at the slots' centers,
 // where `slots` is 16 * (floor(ceil(length) / 16) + 1) - 2 for the line's length (a radial
 // gradient's radius). A pixel takes slot ceil(t * slots) - 1, the start color where t <= 0 and
-// the end color where t > 1. Each premultiplied channel is then dithered to a byte,
+// the end color where t > 1. A linear gradient's t runs along a unit direction kept to 14
+// significant bits; a radial one's t × slots is kept to 14 significant bits. Each premultiplied channel is then dithered to a byte,
 // floor(value + (d + 0.5) / 256), with `d` from a 16 x 16 table: row by document row; column by
 // document column along a row that changes color, halved for a radial gradient, and along a row
 // that is one slot (or one end) all the way across by the count the Mac's span fill steps
@@ -38,11 +39,20 @@ const RADIAL: u32 = 1u;
 @group(0) @binding(2) var<storage, read> layer: array<u32>;
 @group(0) @binding(3) var<storage, read_write> out: array<u32>;
 
+// `v` (positive) truncated to 14 significant bits, as the Mac keeps a radial gradient's position.
+fn coarse14(v: f32) -> f32 {
+    if (v <= 0.0) {
+        return v;
+    }
+    let scale = exp2(13.0 - floor(log2(v)));
+    return trunc(v * scale) / scale;
+}
+
 // t * slots at grid pixel p.
 fn position(p: vec2<i32>) -> f32 {
     if (params.kind == RADIAL) {
         let d = vec2<f32>(p) + vec2<f32>(0.5) - params.base;
-        return sqrt(dot(d, d)) * params.step.x;
+        return coarse14(sqrt(dot(d, d)) * params.step.x);
     }
     return params.base.x + f32(p.x) * params.step.x + f32(p.y) * params.step.y;
 }

@@ -200,14 +200,18 @@ fn slots(length: f64) -> f64 {
     16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0
 }
 
-/// `v` truncated to 14 significant bits, as Core Graphics keeps a linear gradient's direction and a
-/// radial one's slots per pixel: fitted to the slot the Mac picks where t × slots falls just past
-/// a whole number.
+/// `v` truncated to 14 significant bits, as Core Graphics keeps a linear gradient's direction:
+/// fitted to the slot the Mac picks where t × slots falls just past a whole number.
 fn coarse(v: f64) -> f64 {
+    coarse_to(v, 14)
+}
+
+/// `v` truncated to `bits` significant bits.
+fn coarse_to(v: f64, bits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 2f64.powi(13 - v.abs().log2().floor() as i32);
+    let scale = 2f64.powi(bits - 1 - v.abs().log2().floor() as i32);
     (v * scale).trunc() / scale
 }
 
@@ -239,8 +243,9 @@ pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i
     let length = dx.hypot(dy);
     let slots = slots(length);
     let (kind, base_point, step) = match fill.shape {
-        // The distance from the center, times slots / radius kept to 14 significant bits.
-        Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [coarse(slots / length), 0.0]),
+        // The distance from the center times slots / radius (kept to 16 significant bits), the
+        // product kept to 14 (in the shader).
+        Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [coarse_to(slots / length, 16), 0.0]),
         Shape::Linear => {
             // t is the distance along the line's unit direction, whose components Core Graphics
             // keeps to 14 significant bits, truncated; divided by the true length.
