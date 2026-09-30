@@ -601,5 +601,13 @@ fn export(w: &mut CaseWriter) -> Result<()> {
         }
         w.write_with("export", case, label, d, vec![], json!({ "jpeg": { "quality": quality, "matte": matte } }))?;
     }
+    // Probes that read ImageIO's quantization tables off every quality step.
+    for step in 0..=100u32 {
+        let quality = step as f64 / 100.0;
+        let case = format!("jpeg-table-{step:03}");
+        let mut d = w.doc("export", &case, 16, 16);
+        d.image("Photo", images::photo(16, 16), spec());
+        w.write_with("export", &case, &format!("JPEG quantization tables at quality {quality}"), d, vec![], json!({ "jpeg": { "quality": quality } }))?;
+    }
     Ok(())
 }

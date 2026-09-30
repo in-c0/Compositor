@@ -8,6 +8,7 @@ pub mod adjust;
 pub mod blend;
 pub mod composite;
 pub mod document;
+pub mod export;
 pub mod gpu;
 pub mod mask;
 pub mod order;
@@ -81,6 +82,11 @@ impl Renderer {
             other => return Err(RenderError::Unsupported(format!("operation `{other}`"))),
         };
         Ok(())
+    }
+
+    /// File > Export JPEG: the flattened image on the matte, encoded at `options.quality`.
+    pub fn export_jpeg(&self, _project: &Project, _options: &serde_json::Value) -> Result<Vec<u8>, RenderError> {
+        Err(RenderError::Unsupported("JPEG export".into()))
     }
 
     /// Imports a Photoshop file as the Mac app's File > Open does.

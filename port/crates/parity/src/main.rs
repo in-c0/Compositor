@@ -4,6 +4,7 @@ mod affected;
 mod cases;
 mod compare;
 mod corpus_gen;
+mod export_check;
 mod report;
 mod roundtrip;
 
@@ -131,6 +132,29 @@ fn run(
     let scratch = out.join("roundtrip");
     std::fs::create_dir_all(&scratch)?;
     results.extend(cases.par_iter().filter_map(|case| roundtrip::check(&case.id, refs, &scratch)).collect::<Vec<_>>());
+    // Export: the PNG's metadata for every export case, and the JPEG where the case asks for one.
+    let out_dir = out;
+    results.extend(
+        cases
+            .par_iter()
+            .filter(|case| case.spec.feature == "export")
+            .flat_map(|case| {
+                let mut out = Vec::new();
+                let Ok(project) = build_project(&renderer, case) else { return out };
+                let Ok(image) = renderer.render(&project) else { return out };
+                let resolution = project.manifest.resolution.unwrap_or(72.0);
+                if let Ok(png) = engine::export::png(&image, resolution) {
+                    out.push(export_check::png_metadata(&case.id, &case.spec.feature, &png, refs));
+                }
+                if let Some(options) = &case.spec.jpeg {
+                    if let Ok(jpeg) = renderer.export_jpeg(&project, options) {
+                        out.push(export_check::jpeg(&case.id, &case.spec.feature, &jpeg, refs, out_dir, &tolerances));
+                    }
+                }
+                out
+            })
+            .collect::<Vec<_>>(),
+    );
     // Cases the Mac saved a project for: compare the port's project with it.
     results.extend(
         cases

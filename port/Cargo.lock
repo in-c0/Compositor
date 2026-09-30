@@ -324,6 +324,7 @@ dependencies = [
  "bytemuck",
  "comp-format",
  "image",
+ "png",
  "pollster",
  "serde_json",
  "uuid",

@@ -1,0 +1,8 @@
+{
+  "feature": "export",
+  "input": "input.comp",
+  "jpeg": {
+    "quality": 0.15
+  },
+  "label": "JPEG quantization tables at quality 0.15"
+}
