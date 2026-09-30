@@ -58,6 +58,13 @@ impl Gpu {
         Ok(Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()) })
     }
 
+    /// Wraps a device someone else created, such as the app window's, so the engine renders on the
+    /// same device that presents. The device should have been requested with `adapter.limits()`,
+    /// as `new` does, or large canvases can exceed its buffer limits.
+    pub fn from_parts(instance: wgpu::Instance, adapter: wgpu::Adapter, device: wgpu::Device, queue: wgpu::Queue) -> Self {
+        Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()) }
+    }
+
     pub fn image(&self, width: u32, height: u32) -> GpuImage {
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("image"),
@@ -191,7 +198,7 @@ impl Gpu {
 /// DX12 compiles WGSL through Microsoft's DXC, loaded from `dxcompiler.dll` next to the executable
 /// (`port/tools/fetch-dxc.ps1` puts it there) or on the PATH. The older FXC can't compile the
 /// engine's shaders.
-fn dx12_compiler() -> wgpu::Dx12Compiler {
+pub fn dx12_compiler() -> wgpu::Dx12Compiler {
     let beside_exe = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|dir| dir.join("dxcompiler.dll")));
     match beside_exe {
         Some(path) if path.exists() => wgpu::Dx12Compiler::DynamicDxc { dxc_path: path.to_string_lossy().into_owned() },
