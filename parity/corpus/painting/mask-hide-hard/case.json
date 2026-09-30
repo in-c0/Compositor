@@ -1,0 +1,65 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Hard black on a mask",
+  "ops": [
+    {
+      "layer": "DF060C07-EBE1-4FFC-B948-CC695972293D",
+      "op": "stroke",
+      "points": [
+        [
+          6.0,
+          32.0
+        ],
+        [
+          11.0,
+          40.0
+        ],
+        [
+          16.0,
+          45.0
+        ],
+        [
+          21.0,
+          45.5
+        ],
+        [
+          26.0,
+          41.25
+        ],
+        [
+          31.0,
+          33.75
+        ],
+        [
+          36.0,
+          25.5
+        ],
+        [
+          41.0,
+          19.5
+        ],
+        [
+          46.0,
+          18.0
+        ],
+        [
+          51.0,
+          21.5
+        ],
+        [
+          56.0,
+          28.75
+        ]
+      ],
+      "settings": {
+        "hardness": 1,
+        "opacity": 1,
+        "size": 12,
+        "white": false
+      },
+      "target": "mask",
+      "tool": "brush"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "A stroke, then a Shift-click line on from its end",
+  "ops": [
+    {
+      "layer": "629587AD-BCE8-4176-95F1-ACE447C6ED72",
+      "op": "stroke",
+      "points": [
+        [
+          8.0,
+          8.0
+        ],
+        [
+          20.0,
+          12.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0,
+          0,
+          0
+        ],
+        "hardness": 1,
+        "opacity": 1,
+        "size": 6
+      },
+      "tool": "brush"
+    },
+    {
+      "layer": "629587AD-BCE8-4176-95F1-ACE447C6ED72",
+      "op": "stroke",
+      "points": [
+        [
+          50.0,
+          52.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0,
+          0,
+          0
+        ],
+        "hardness": 1,
+        "opacity": 1,
+        "size": 6
+      },
+      "shift": true,
+      "tool": "brush"
+    }
+  ]
+}

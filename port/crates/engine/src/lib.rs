@@ -15,6 +15,7 @@ pub mod gpu;
 pub mod mask;
 pub mod ml;
 pub mod order;
+pub mod paint;
 pub mod session;
 pub mod transform;
 
@@ -63,11 +64,27 @@ impl Renderer {
         Ok(RgbaImage::from_raw(width, height, bytes).expect("canvas size"))
     }
 
-    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`) to `project`.
+    /// Applies a case's operations to `project` in order. Painting ops share a `paint::Session`,
+    /// as strokes in one Mac session share the brush settings and Clone Stamp's source.
+    pub fn apply_ops(&self, project: &mut Project, ops: &[serde_json::Value]) -> Result<(), RenderError> {
+        let mut painting = paint::Session::default();
+        for op in ops {
+            match op.get("op").and_then(|v| v.as_str()) {
+                Some("stroke") => paint::apply(&self.gpu, project, &mut painting, op)?,
+                _ => self.apply_op(project, op)?,
+            }
+        }
+        Ok(())
+    }
+
+    /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`) to `project`.
     pub fn apply_op(&self, project: &mut Project, op: &serde_json::Value) -> Result<(), RenderError> {
         let name = op.get("op").and_then(|v| v.as_str()).unwrap_or("unknown");
         if name == "filter" {
             return filters::apply(&self.gpu, project, op);
+        }
+        if name == "stroke" {
+            return paint::apply(&self.gpu, project, &mut paint::Session::default(), op);
         }
         let num = |key: &str| op.get(key).and_then(|v| v.as_f64());
         let pair = |key: &str| op.get(key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>());

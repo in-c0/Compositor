@@ -1,0 +1,35 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Clone Stamp, hard 12 px, from 20 px away",
+  "ops": [
+    {
+      "layer": "97290657-800D-4BE4-BCED-0D6CBF1FCDBD",
+      "op": "stroke",
+      "points": [
+        [
+          14.0,
+          40.0
+        ],
+        [
+          30.0,
+          44.0
+        ],
+        [
+          48.0,
+          42.0
+        ]
+      ],
+      "settings": {
+        "hardness": 1,
+        "opacity": 1,
+        "size": 12
+      },
+      "source": [
+        34.0,
+        20.0
+      ],
+      "tool": "clone"
+    }
+  ]
+}

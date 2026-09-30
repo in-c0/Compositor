@@ -1,0 +1,37 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Soft white at 100% over a ramp mask",
+  "ops": [
+    {
+      "layer": "927BABCE-3425-45D4-986B-E560AE7F7F8C",
+      "op": "stroke",
+      "points": [
+        [
+          2.0,
+          12.0
+        ],
+        [
+          62.0,
+          16.0
+        ],
+        [
+          60.0,
+          44.0
+        ],
+        [
+          4.0,
+          50.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0.0,
+        "opacity": 1.0,
+        "size": 36,
+        "white": true
+      },
+      "target": "mask",
+      "tool": "brush"
+    }
+  ]
+}

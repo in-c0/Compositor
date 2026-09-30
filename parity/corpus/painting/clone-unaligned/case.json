@@ -1,0 +1,53 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Two Clone Stamp strokes, not aligned, each from the source",
+  "ops": [
+    {
+      "layer": "1A49FF5A-352B-4A9A-BAAC-2B7BF0E82028",
+      "op": "stroke",
+      "points": [
+        [
+          10.0,
+          40.0
+        ],
+        [
+          24.0,
+          42.0
+        ]
+      ],
+      "settings": {
+        "aligned": false,
+        "hardness": 0.75,
+        "opacity": 1,
+        "size": 10
+      },
+      "source": [
+        12.0,
+        12.0
+      ],
+      "tool": "clone"
+    },
+    {
+      "layer": "1A49FF5A-352B-4A9A-BAAC-2B7BF0E82028",
+      "op": "stroke",
+      "points": [
+        [
+          40.0,
+          50.0
+        ],
+        [
+          54.0,
+          46.0
+        ]
+      ],
+      "settings": {
+        "aligned": false,
+        "hardness": 0.75,
+        "opacity": 1,
+        "size": 10
+      },
+      "tool": "clone"
+    }
+  ]
+}

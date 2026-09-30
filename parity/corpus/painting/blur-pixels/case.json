@@ -1,0 +1,56 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Blur tool, radius 3, soft 24 px",
+  "ops": [
+    {
+      "layer": "E2D70F36-0658-4637-A0FD-EABD6A2792A6",
+      "op": "stroke",
+      "points": [
+        [
+          6.0,
+          32.0
+        ],
+        [
+          12.0,
+          38.75
+        ],
+        [
+          18.0,
+          42.0
+        ],
+        [
+          24.0,
+          40.25
+        ],
+        [
+          30.0,
+          34.5
+        ],
+        [
+          36.0,
+          27.25
+        ],
+        [
+          42.0,
+          22.75
+        ],
+        [
+          48.0,
+          22.75
+        ],
+        [
+          54.0,
+          27.25
+        ]
+      ],
+      "settings": {
+        "blurRadius": 3,
+        "hardness": 0,
+        "opacity": 1,
+        "size": 24
+      },
+      "tool": "blur"
+    }
+  ]
+}

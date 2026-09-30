@@ -5,6 +5,7 @@ mod builder;
 mod images;
 mod import_files;
 mod import_suite;
+mod painting_suite;
 mod psd_suite;
 mod suites;
 
@@ -22,6 +23,7 @@ pub fn generate(out: &Path) -> Result<()> {
     suites::all(&mut w)?;
     psd_suite::psd(&mut w)?;
     import_suite::import(&mut w)?;
+    painting_suite::painting(&mut w)?;
     eprintln!("wrote {} cases to {}", w.count, out.display());
     Ok(())
 }

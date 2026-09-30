@@ -1,0 +1,28 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Spot Healing with a soft tip at 80%",
+  "ops": [
+    {
+      "layer": "8BA3839C-5C3A-4939-9741-AEAD5563143B",
+      "op": "stroke",
+      "points": [
+        [
+          28.0,
+          25.0
+        ],
+        [
+          32.0,
+          27.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0.3,
+        "healingMode": "Content-Aware",
+        "opacity": 0.8,
+        "size": 16
+      },
+      "tool": "heal"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Painting past a masked layer's edge",
+  "ops": [
+    {
+      "layer": "87588138-6DDC-4EBB-90DD-76AC98A9D51D",
+      "op": "stroke",
+      "points": [
+        [
+          30.0,
+          4.0
+        ],
+        [
+          32.0,
+          30.0
+        ],
+        [
+          34.0,
+          60.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0.1,
+          0.3,
+          0.9
+        ],
+        "hardness": 1,
+        "opacity": 1,
+        "size": 12
+      },
+      "tool": "brush"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "E2D70F36-0658-4637-A0FD-EABD6A2792A6",
+  "colorSpace" : "sRGB",
+  "documentID" : "D1800417-134B-4018-95CF-34392BBF91C2",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "E2D70F36-0658-4637-A0FD-EABD6A2792A6",
+      "imageFile" : "E2D70F36-0658-4637-A0FD-EABD6A2792A6.png",
+      "isVisible" : true,
+      "name" : "Pattern",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

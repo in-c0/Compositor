@@ -1,0 +1,55 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "30 px eraser, 50% hardness, over translucent noise",
+  "ops": [
+    {
+      "layer": "4F0E8874-53BA-4ED9-BD63-EC693A770A3D",
+      "op": "stroke",
+      "points": [
+        [
+          6.0,
+          32.0
+        ],
+        [
+          12.0,
+          40.0
+        ],
+        [
+          18.0,
+          44.0
+        ],
+        [
+          24.0,
+          42.0
+        ],
+        [
+          30.0,
+          34.75
+        ],
+        [
+          36.0,
+          26.5
+        ],
+        [
+          42.0,
+          20.75
+        ],
+        [
+          48.0,
+          20.75
+        ],
+        [
+          54.0,
+          26.5
+        ]
+      ],
+      "settings": {
+        "hardness": 0.5,
+        "opacity": 0.85,
+        "size": 30
+      },
+      "tool": "eraser"
+    }
+  ]
+}

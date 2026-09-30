@@ -1,0 +1,53 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Two aligned Clone Stamp strokes keep one offset",
+  "ops": [
+    {
+      "layer": "2EB01EC0-A413-4D1A-A6D8-D2453ACA7A0B",
+      "op": "stroke",
+      "points": [
+        [
+          10.0,
+          40.0
+        ],
+        [
+          24.0,
+          42.0
+        ]
+      ],
+      "settings": {
+        "aligned": true,
+        "hardness": 0.75,
+        "opacity": 1,
+        "size": 10
+      },
+      "source": [
+        12.0,
+        12.0
+      ],
+      "tool": "clone"
+    },
+    {
+      "layer": "2EB01EC0-A413-4D1A-A6D8-D2453ACA7A0B",
+      "op": "stroke",
+      "points": [
+        [
+          40.0,
+          50.0
+        ],
+        [
+          54.0,
+          46.0
+        ]
+      ],
+      "settings": {
+        "aligned": true,
+        "hardness": 0.75,
+        "opacity": 1,
+        "size": 10
+      },
+      "tool": "clone"
+    }
+  ]
+}

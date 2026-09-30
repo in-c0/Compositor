@@ -1,0 +1,56 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "40 px brush at 80% over translucent noise",
+  "ops": [
+    {
+      "layer": "8158C0B1-B238-4161-B8C2-54BEF1EE2B98",
+      "op": "stroke",
+      "points": [
+        [
+          4.0,
+          32.0
+        ],
+        [
+          12.0,
+          36.75
+        ],
+        [
+          20.0,
+          37.75
+        ],
+        [
+          28.0,
+          34.5
+        ],
+        [
+          36.0,
+          29.5
+        ],
+        [
+          44.0,
+          26.25
+        ],
+        [
+          52.0,
+          27.25
+        ],
+        [
+          60.0,
+          32.0
+        ]
+      ],
+      "settings": {
+        "color": [
+          0.3,
+          0.6,
+          0.2
+        ],
+        "hardness": 0.25,
+        "opacity": 0.8,
+        "size": 40
+      },
+      "tool": "brush"
+    }
+  ]
+}

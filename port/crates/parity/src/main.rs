@@ -307,8 +307,6 @@ fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp
         "psd" | "psb" => renderer.import_psd(&input)?,
         _ => renderer.import_image(&input, case.spec.raw.as_ref())?,
     };
-    for op in &case.spec.ops {
-        renderer.apply_op(&mut project, op)?;
-    }
+    renderer.apply_ops(&mut project, &case.spec.ops)?;
     Ok(project)
 }

@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "0D90F85D-D935-4485-834D-D470CAE7C10C",
+  "colorSpace" : "sRGB",
+  "documentID" : "7DB18AD3-8F38-49E8-9331-5F583007C93A",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "0D90F85D-D935-4485-834D-D470CAE7C10C",
+      "imageFile" : "0D90F85D-D935-4485-834D-D470CAE7C10C.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

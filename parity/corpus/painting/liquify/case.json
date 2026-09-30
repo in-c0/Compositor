@@ -1,0 +1,31 @@
+{
+  "feature": "painting",
+  "input": "input.comp",
+  "label": "Liquify, 20 px",
+  "ops": [
+    {
+      "layer": "09887C80-DCDC-4046-BE51-18E4D253FCB9",
+      "op": "stroke",
+      "points": [
+        [
+          16.0,
+          32.0
+        ],
+        [
+          28.0,
+          34.0
+        ],
+        [
+          44.0,
+          30.0
+        ]
+      ],
+      "settings": {
+        "hardness": 0.5,
+        "opacity": 1,
+        "size": 20
+      },
+      "tool": "liquify"
+    }
+  ]
+}
