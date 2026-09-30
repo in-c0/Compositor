@@ -11,7 +11,7 @@
 
 use super::builder::CaseWriter;
 use super::images::{self, hash};
-use super::import_files::{self as files, JpegOptions, PngOptions, RawCapture, TiffPixels, Trc};
+use super::import_files::{self as files, DngTags, JpegOptions, PngOptions, RawCapture, TiffPixels, Trc};
 use anyhow::Result;
 use jpeg_encoder::{ColorType as JpegColor, SamplingFactor};
 use png::{BitDepth, ColorType as PngColor};
@@ -226,6 +226,7 @@ fn heic_cases(w: &mut CaseWriter) -> Result<()> {
     put(w, "heic-odd-420", "HEIC, 4:2:0, odd width and height", "input.heic", include_bytes!("fixtures/heic-odd-420.heic"))?;
     put(w, "heic-noise-420", "HEIC of per-pixel noise, 4:2:0, quality 100: chroma upsampling", "input.heic", include_bytes!("fixtures/heic-noise-420.heic"))?;
     put(w, "heic-noise-444", "HEIC of per-pixel noise, 4:4:4, quality 100: YCbCr conversion", "input.heic", include_bytes!("fixtures/heic-noise-444.heic"))?;
+    put(w, "heic-noise-rgba", "HEIC of per-pixel noise with a noise alpha plane, 4:2:0, quality 100", "input.heic", include_bytes!("fixtures/heic-noise-rgba.heic"))?;
     Ok(())
 }
 
@@ -302,7 +303,7 @@ fn scene(width: u32, height: u32, x: u32, y: u32) -> [f64; 3] {
     }
 }
 
-fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>, with_preview: bool) -> RawCapture {
+fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>, with_preview: bool, tags: DngTags) -> RawCapture {
     let srgb_to_xyz = files::rgb_to_xyz([[0.64, 0.33], [0.30, 0.60], [0.15, 0.06]], [0.3127 / 0.3290, 1.0, (1.0 - 0.3127 - 0.3290) / 0.3290]);
     let to_camera = files::mat_mul(&CAMERA_MATRIX, &srgb_to_xyz);
     let white = files::mul(&to_camera, [1.0, 1.0, 1.0]);
@@ -339,28 +340,40 @@ fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>, with_preview: bool) ->
         color_matrix: CAMERA_MATRIX,
         as_shot_neutral: neutral,
         preview: with_preview.then_some((pw, ph, preview)),
+        tags,
     }
 }
 
 fn raw_cases(w: &mut CaseWriter) -> Result<()> {
-    // At 64 x 48 with a preview in IFD 0, the Mac imports the 16 x 12 preview instead of
-    // developing the raw image; the bigger files and the ones without a preview show what it
-    // needs.
-    let small = files::dng(&capture(64, 48, Some([0, 1, 1, 2]), true));
-    put_raw(w, "dng-small-preview", "64 x 48 Bayer DNG with a 16 x 12 preview in IFD 0: the Mac imports the preview", &small, Value::Null)?;
-    shared(w, "dng-small-preview-settings", "The same file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-small-preview",
+    const BAYER: Option<[u8; 4]> = Some([0, 1, 1, 2]);
+    let bare = DngTags::default();
+    let all = DngTags { cfa_layout: true, crop: true, rendering: true, full_levels: true };
+    // A 64 x 48 Bayer DNG with only the required tags and a preview in IFD 0: the Mac can't
+    // develop the raw image and imports the 16 x 12 preview instead.
+    let small = files::dng(&capture(64, 48, BAYER, true, bare));
+    put_raw(w, "dng-small-preview", "64 x 48 Bayer DNG, required tags only, 16 x 12 preview in IFD 0: the Mac imports the preview", &small, Value::Null)?;
+    // The same without a preview: the Mac refuses it.
+    let bayer = files::dng(&capture(192, 128, BAYER, false, bare));
+    put_raw(w, "dng-bayer", "192 x 128 Bayer (RGGB) DNG, 12-bit, required tags only: the Mac can't read it", &bayer, Value::Null)?;
+    // Which optional tags make a Bayer DNG developable.
+    for (case, label, tags) in [
+        ("dng-bayer-layout", "Bayer DNG with CFAPlaneColor and CFALayout", DngTags { cfa_layout: true, ..bare }),
+        ("dng-bayer-crop", "Bayer DNG with CFAPlaneColor, CFALayout, the default crop and ActiveArea", DngTags { cfa_layout: true, crop: true, ..bare }),
+        ("dng-bayer-levels", "Bayer DNG with CFAPlaneColor, CFALayout and a 2 x 2 black level", DngTags { cfa_layout: true, full_levels: true, ..bare }),
+        ("dng-bayer-full", "Bayer DNG with every optional tag the writer knows, as shot", all),
+    ] {
+        put_raw(w, case, label, &files::dng(&capture(192, 128, BAYER, false, tags)), Value::Null)?;
+    }
+    shared(w, "dng-bayer-boost-0", "The dng-bayer-full file with Boost 0: Apple's tone curve off", "dng-bayer-full", json!({ "boost": 0 }))?;
+    shared(w, "dng-bayer-settings", "The dng-bayer-full file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-bayer-full",
         json!({ "exposure": 0.7, "temperature": 4200, "tint": 12, "boost": 0.5 }))?;
-    let small_bare = files::dng(&capture(64, 48, Some([0, 1, 1, 2]), false));
-    put_raw(w, "dng-small", "64 x 48 Bayer DNG with no preview", &small_bare, Value::Null)?;
-    let preview = files::dng(&capture(192, 128, Some([0, 1, 1, 2]), true));
-    put_raw(w, "dng-bayer-preview", "192 x 128 Bayer DNG with a 48 x 32 preview in IFD 0", &preview, Value::Null)?;
-    let bayer = files::dng(&capture(192, 128, Some([0, 1, 1, 2]), false));
-    put_raw(w, "dng-bayer", "192 x 128 Bayer (RGGB) DNG, 12-bit, no preview, with the develop sheet's defaults (as shot)", &bayer, Value::Null)?;
-    shared(w, "dng-bayer-boost-0", "The dng-bayer file with Boost 0: Apple's tone curve off", "dng-bayer", json!({ "boost": 0 }))?;
-    shared(w, "dng-bayer-settings", "The dng-bayer file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-bayer",
-        json!({ "exposure": 0.7, "temperature": 4200, "tint": 12, "boost": 0.5 }))?;
-    let linear = files::dng(&capture(192, 128, None, false));
-    put_raw(w, "dng-linear", "192 x 128 linear (demosaiced) DNG, no preview, as shot", &linear, Value::Null)?;
+    let linear = files::dng(&capture(192, 128, None, false, bare));
+    put_raw(w, "dng-linear", "192 x 128 linear (demosaiced) DNG, one black and white level for three samples, as shot", &linear, Value::Null)?;
     shared(w, "dng-linear-boost-0", "The dng-linear file with Boost 0", "dng-linear", json!({ "boost": 0 }))?;
+    let levels = files::dng(&capture(96, 64, None, false, DngTags { full_levels: true, ..bare }));
+    put_raw(w, "dng-linear-levels", "96 x 64 linear DNG with a black and white level per sample, as shot", &levels, Value::Null)?;
+    shared(w, "dng-linear-levels-boost-0", "The dng-linear-levels file with Boost 0", "dng-linear-levels", json!({ "boost": 0 }))?;
+    shared(w, "dng-linear-levels-settings", "The dng-linear-levels file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-linear-levels",
+        json!({ "exposure": 0.7, "temperature": 4200, "tint": 12, "boost": 0.5 }))?;
     Ok(())
 }

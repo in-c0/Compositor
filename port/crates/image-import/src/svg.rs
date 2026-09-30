@@ -27,5 +27,51 @@ pub(crate) fn decode(data: &[u8]) -> Result<Layer> {
     for (out, p) in pixels.pixels_mut().zip(pixmap.pixels()) {
         out.0 = unpremultiply([p.red(), p.green(), p.blue(), p.alpha()]);
     }
-    Ok(Layer { pixels, approximation: None, notes: Vec::new() })
+    let approximation = (!pixel_aligned(tree.root(), transform)).then(|| {
+        "SVG with antialiased edges, strokes or gradients: resvg rasterizes them, not Core Graphics".to_string()
+    });
+    Ok(Layer { pixels, approximation, notes: Vec::new() })
+}
+
+/// True when everything in the group is drawn exactly by any rasterizer: solid fills of
+/// rectangles whose edges fall on whole pixels, with no strokes, gradients, patterns, images,
+/// clipping, masks or filters. That is what the Mac and resvg are known to agree on byte for byte.
+fn pixel_aligned(group: &usvg::Group, root: tiny_skia::Transform) -> bool {
+    if group.clip_path().is_some() || group.mask().is_some() || !group.filters().is_empty() {
+        return false;
+    }
+    group.children().iter().all(|node| match node {
+        usvg::Node::Group(g) => pixel_aligned(g, root),
+        usvg::Node::Path(path) => {
+            if !path.is_visible() {
+                return true;
+            }
+            if path.stroke().is_some() || !path.fill().is_some_and(|f| matches!(f.paint(), usvg::Paint::Color(_))) {
+                return false;
+            }
+            let t = root.pre_concat(path.abs_transform());
+            if t.kx != 0.0 || t.ky != 0.0 {
+                return false;
+            }
+            let whole = |p: tiny_skia::Point| {
+                let (x, y) = (p.x * t.sx + t.tx, p.y * t.sy + t.ty);
+                x == x.round() && y == y.round()
+            };
+            let mut last: Option<tiny_skia::Point> = None;
+            path.data().segments().all(|segment| match segment {
+                tiny_skia::PathSegment::MoveTo(p) => {
+                    last = Some(p);
+                    whole(p)
+                }
+                tiny_skia::PathSegment::LineTo(p) => {
+                    let straight = last.is_some_and(|l| l.x == p.x || l.y == p.y);
+                    last = Some(p);
+                    straight && whole(p)
+                }
+                tiny_skia::PathSegment::Close => true,
+                _ => false,
+            })
+        }
+        _ => false,
+    })
 }

@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "96 x 64 linear DNG with a black and white level per sample, as shot"
+}

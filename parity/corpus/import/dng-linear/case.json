@@ -1,5 +1,5 @@
 {
   "feature": "import",
   "input": "input.dng",
-  "label": "192 x 128 linear (demosaiced) DNG, no preview, as shot"
+  "label": "192 x 128 linear (demosaiced) DNG, one black and white level for three samples, as shot"
 }

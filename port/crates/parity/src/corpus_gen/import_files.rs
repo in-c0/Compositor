@@ -398,6 +398,24 @@ pub struct RawCapture {
     /// A small RGB8 preview for IFD 0, as DNG writers put there. Without one, IFD 0 is the raw
     /// image itself.
     pub preview: Option<(u32, u32, Vec<u8>)>,
+    /// Which optional DNG tags to write.
+    pub tags: DngTags,
+}
+
+/// Optional DNG tags, to find out which ones Apple's RAW engine needs.
+#[derive(Clone, Copy, Default)]
+pub struct DngTags {
+    /// CFAPlaneColor and CFALayout.
+    pub cfa_layout: bool,
+    /// DefaultCropOrigin and DefaultCropSize (8 pixels in from each edge) and ActiveArea.
+    pub crop: bool,
+    /// AnalogBalance, BaselineExposure, BaselineNoise, BaselineSharpness, BayerGreenSplit,
+    /// LinearResponseLimit, DefaultScale and BestQualityScale at their neutral values, and a
+    /// second calibration (Standard Light A) with the same matrix.
+    pub rendering: bool,
+    /// BlackLevel and WhiteLevel with one value per sample (LinearRaw) or BlackLevelRepeatDim
+    /// 2 x 2 with four black levels (CFA), as the specification counts them.
+    pub full_levels: bool,
 }
 
 /// A DNG 1.4 file, uncompressed. With a preview, IFD 0 holds it and the DNG tags and a SubIFD
@@ -423,12 +441,42 @@ pub fn dng(capture: &RawCapture) -> Vec<u8> {
         long(278, &[capture.height]),
         long(279, &[capture.samples.len() as u32 * 2]),
         short(284, &[1]),
-        short(50714, &[capture.black]),
-        short(50717, &[capture.white]),
     ];
+    let t = capture.tags;
+    match (t.full_levels, capture.cfa.is_some()) {
+        (false, _) => {
+            raw.push(short(50714, &[capture.black]));
+            raw.push(short(50717, &[capture.white]));
+        }
+        (true, true) => {
+            raw.push(short(50713, &[2, 2]));
+            raw.push(short(50714, &[capture.black; 4]));
+            raw.push(short(50717, &[capture.white]));
+        }
+        (true, false) => {
+            raw.push(short(50714, &[capture.black; 3]));
+            raw.push(short(50717, &[capture.white; 3]));
+        }
+    }
     if let Some(pattern) = capture.cfa {
         raw.push(short(33421, &[2, 2]));
         raw.push(byte(33422, &pattern));
+        if t.cfa_layout {
+            raw.push(byte(50710, &[0, 1, 2]));
+            raw.push(short(50711, &[1]));
+        }
+    }
+    if t.crop {
+        raw.push(long(50719, &[8, 8]));
+        raw.push(long(50720, &[capture.width - 16, capture.height - 16]));
+        raw.push(long(50829, &[0, 0, capture.height, capture.width]));
+    }
+    if t.rendering {
+        raw.push(rational(50718, &[1.0, 1.0]));
+        raw.push(rational(50780, &[1.0]));
+        if capture.cfa.is_some() {
+            raw.push(long(50733, &[0]));
+        }
     }
     let m = capture.color_matrix;
     let dng_tags = vec![
@@ -443,6 +491,18 @@ pub fn dng(capture: &RawCapture) -> Vec<u8> {
         rational(50728, &capture.as_shot_neutral),
         short(50778, &[21]),
     ];
+    let mut dng_tags = dng_tags;
+    if t.rendering {
+        dng_tags.extend([
+            srational(50722, &m.concat()),
+            rational(50727, &[1.0, 1.0, 1.0]),
+            srational(50730, &[0.0]),
+            rational(50731, &[1.0]),
+            rational(50732, &[1.0]),
+            rational(50734, &[1.0]),
+            short(50779, &[17]),
+        ]);
+    }
     let ifd0 = match &capture.preview {
         Some((pw, ph, preview)) => {
             let raw_ifd = write_ifd(&mut out, raw);

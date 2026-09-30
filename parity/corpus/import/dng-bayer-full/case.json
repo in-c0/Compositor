@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Bayer DNG with every optional tag the writer knows, as shot"
+}

@@ -11,6 +11,8 @@ use comp_format::RgbaImage;
 pub(crate) enum Samples {
     U8(Vec<u8>),
     U16(Vec<u16>),
+    /// Already in 0-1 and not rounded, as HEIC's YCbCr to RGB conversion leaves them.
+    F32(Vec<f32>),
 }
 
 impl Samples {
@@ -18,6 +20,7 @@ impl Samples {
         match self {
             Samples::U8(v) => v[i] as f64 / 255.0,
             Samples::U16(v) => v[i] as f64 / 65535.0,
+            Samples::F32(v) => v[i] as f64,
         }
     }
 }

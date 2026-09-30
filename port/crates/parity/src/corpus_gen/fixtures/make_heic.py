@@ -39,16 +39,16 @@ def picture(w, h, alpha=False):
     return img
 
 
-def noise(w, h, seed):
+def noise(w, h, seed, alpha=False):
     """Per-pixel pseudo-random colors, so chroma changes at every sample (for fitting the
     upsampling Apple's decoder uses)."""
-    img = Image.new("RGB", (w, h))
+    img = Image.new("RGBA" if alpha else "RGB", (w, h))
     px = img.load()
     state = seed
     for y in range(h):
         for x in range(w):
             rgb = []
-            for _ in range(3):
+            for _ in range(4 if alpha else 3):
                 state = (state * 1103515245 + 12345) & 0x7FFFFFFF
                 rgb.append(state >> 23)
             px[x, y] = tuple(rgb)
@@ -63,6 +63,7 @@ def main():
         ("heic-odd-420.heic", picture(47, 31), {"quality": 90, "chroma": 420}),
         ("heic-noise-420.heic", noise(64, 64, 1), {"quality": 100, "chroma": 420}),
         ("heic-noise-444.heic", noise(64, 64, 2), {"quality": 100, "chroma": 444}),
+        ("heic-noise-rgba.heic", noise(64, 64, 3, alpha=True), {"quality": 100, "chroma": 420}),
     ]
     for name, img, options in cases:
         heif = pillow_heif.from_pillow(img)

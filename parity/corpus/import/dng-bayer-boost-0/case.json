@@ -1,7 +1,7 @@
 {
   "feature": "import",
-  "input": "../dng-bayer/input.dng",
-  "label": "The dng-bayer file with Boost 0: Apple's tone curve off",
+  "input": "../dng-bayer-full/input.dng",
+  "label": "The dng-bayer-full file with Boost 0: Apple's tone curve off",
   "raw": {
     "boost": 0
   }

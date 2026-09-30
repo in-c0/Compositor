@@ -13,6 +13,8 @@ mod develop;
 mod exif;
 mod heic;
 mod jpeg;
+mod jpeg_coefficients;
+mod jpeg_markers;
 mod png_file;
 mod raw;
 mod svg;

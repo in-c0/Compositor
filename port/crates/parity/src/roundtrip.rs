@@ -61,7 +61,8 @@ fn round_trip(mac: &Path, out: &Path) -> Result<Option<String>> {
 /// Mac saved, `refs/<id>.comp`: the manifests as the Mac writes them, with layer and document IDs
 /// replaced by their positions (new layers get random IDs on both sides), and every layer and mask
 /// pixel. `layer_limit`, when given, holds layer and mask pixels to that limit instead of byte for
-/// byte: a mask a stand-in model made, for example (`structure_max_channel_diff` in tolerances.toml).
+/// byte: an imported layer is a decoder's output, held to the same limit as the rendered image, and
+/// a mask a stand-in model made has its own measured limit (`structure_max_channel_diff`).
 pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path, layer_limit: Option<&Limit>) -> Option<CaseResult> {
     let mac = refs.join(format!("{id}.comp"));
     if !mac.is_dir() {

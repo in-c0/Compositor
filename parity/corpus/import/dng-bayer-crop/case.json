@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.dng",
+  "label": "Bayer DNG with CFAPlaneColor, CFALayout, the default crop and ActiveArea"
+}
