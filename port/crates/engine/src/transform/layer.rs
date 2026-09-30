@@ -37,8 +37,17 @@ pub fn needs_resampling(project: &Project, layer: &LayerRecord) -> bool {
         return false;
     };
     let uniform = mask.pixels.width() == 1 && mask.pixels.height() == 1;
-    let unlinked = layer.mask_placement.is_some() && !layer.mask_linked();
-    unlinked || (!uniform && mask.pixels.dimensions() != (w, h))
+    placement_of(layer).is_some() || (!uniform && mask.pixels.dimensions() != (w, h))
+}
+
+/// Where the layer's mask sits apart from the layer, if it does: `LayerMask.clipImage` places any
+/// mask with a placement of its own (linked or not) unless it's the layer's own placement.
+fn placement_of(layer: &LayerRecord) -> Option<&comp_format::Transform> {
+    layer.mask_placement.as_ref().filter(|p| {
+        let mut same = **p;
+        same.sampling = layer.transform.sampling;
+        same != layer.transform
+    })
 }
 
 /// Straight PNG pixels premultiplied as Core Graphics loads them, rounding to nearest.
@@ -92,15 +101,15 @@ pub fn draw_layer(gpu: &Gpu, project: &Project, layer: &LayerRecord, canvas: &Gp
     let image = gpu.upload(reduced.0, reduced.1, pixels.as_raw());
     let mask_pixels;
     let mask = if layer.mask_enabled() {
-        if layer.mask_placement.is_some() && !layer.mask_linked() {
-            return unsupported("unlinked masks");
-        }
         let Some(m) = project.masks.get(&layer.id) else {
             return unsupported("a missing mask");
         };
-        let mask_size = m.pixels.dimensions();
+        let mut mask: GrayImage = match placement_of(layer) {
+            Some(p) if m.pixels.width() > 1 || m.pixels.height() > 1 => super::clip::placed_mask(&m.pixels, p, t, size).map_err(RenderError::Unsupported)?,
+            _ => m.pixels.clone(),
+        };
+        let mask_size = mask.dimensions();
         let mask_level = halvings(t.sampling, width, mask_size);
-        let mut mask: GrayImage = m.pixels.clone();
         for _ in 0..mask_level {
             mask = halve::halve_mask(&mask);
         }

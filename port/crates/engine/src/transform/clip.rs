@@ -134,3 +134,145 @@ pub fn folder_coverage(mask: &GrayImage, t: &Transform, (width, height): (u32, u
     let rect = placement.rect(1.0, 1.0);
     Ok(sample(mask, &placement, &rect, filter, (width, height)).into_iter().map(|(m, c)| m * c / 255).collect())
 }
+
+/// `LayerMask.background(of:)`: what an unlinked mask shows beyond its pixels, white or black,
+/// whichever most of its edge is. The Mac reads the edge from a thumbnail at most 96 pixels
+/// across; this reads the mask's own edge, which only differs for a mask whose edge averages
+/// within a hair of half gray.
+fn background(mask: &GrayImage) -> u32 {
+    let (w, h) = mask.dimensions();
+    let (mut total, mut count) = (0u64, 0u64);
+    for y in 0..h {
+        for x in 0..w {
+            if y == 0 || y == h - 1 || x == 0 || x == w - 1 {
+                total += mask.get_pixel(x, y)[0] as u64;
+                count += 1;
+            }
+        }
+    }
+    if total * 2 >= count * 255 { 255 } else { 0 }
+}
+
+/// One axis of a resampled placement: source position `a·(x + ½) + b` for target pixel x.
+#[derive(Clone, Copy)]
+struct Axis {
+    a: f64,
+    b: f64,
+    /// Source pixels.
+    size: u32,
+}
+
+/// High's filter along one axis for one target pixel: shrinking averages the target pixel's
+/// footprint over the source (a box of source pixels and their weights); enlarging blends like
+/// Low.
+enum AxisTaps {
+    Box(Vec<(i64, f64)>),
+    Low(Taps),
+}
+
+fn high_axis(axis: Axis, targets: u32) -> Result<Vec<AxisTaps>, String> {
+    let footprint = axis.a.abs();
+    let n = axis.size as i64;
+    let (start, step) = (fixed(axis.a * 0.5 + axis.b), fixed(axis.a));
+    let mut out = Vec::with_capacity(targets as usize);
+    for x in 0..targets as i64 {
+        let center = axis.a * (x as f64 + 0.5) + axis.b;
+        out.push(if footprint > 1.0 {
+            let (lo, hi) = (center - footprint / 2.0, center + footprint / 2.0);
+            let taps = (lo.floor() as i64..=hi.ceil() as i64)
+                .filter_map(|i| {
+                    let overlap = hi.min(i as f64 + 1.0) - lo.max(i as f64);
+                    (overlap > 0.0).then(|| (i.clamp(0, n - 1), overlap / footprint))
+                })
+                .collect();
+            AxisTaps::Box(taps)
+        } else if footprint < 1.0 {
+            let mut t = low(start.wrapping_add(step.wrapping_mul(x)));
+            t.heavy = t.heavy.clamp(0, n - 1);
+            t.light = t.light.clamp(0, n - 1);
+            AxisTaps::Low(t)
+        } else {
+            if center.fract() != 0.5 {
+                return Err("unlinked masks placed off the pixel grid at their own size".into());
+            }
+            AxisTaps::Box(vec![((center.floor() as i64).clamp(0, n - 1), 1.0)])
+        });
+    }
+    Ok(out)
+}
+
+/// One axis's taps applied to a line of values; a box rounds half up.
+fn apply(taps: &AxisTaps, at: impl Fn(i64) -> u32) -> u32 {
+    match taps {
+        AxisTaps::Low(t) => blend(at(t.heavy), if t.shift == 0 { 0 } else { at(t.light) }, t.shift),
+        AxisTaps::Box(taps) => {
+            let sum: f64 = taps.iter().map(|&(i, w)| w * at(i) as f64).sum();
+            // Exact halves round up; f64 lands within a hair of them.
+            (sum + 0.5 + 1e-7).floor().clamp(0.0, 255.0) as u32
+        }
+    }
+}
+
+/// `LayerMask.clipImage` for an unlinked mask: the mask at `placement` on the document, resampled
+/// with High into the `width` x `height` pixel grid of a layer at `layer`, what lies beyond it
+/// filled with its background. Errors name what isn't reproduced yet.
+pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (width, height): (u32, u32)) -> Result<GrayImage, String> {
+    if placement.rotation % 360.0 != 0.0 || layer.rotation % 360.0 != 0.0 {
+        return Err("unlinked masks placed at another rotation".into());
+    }
+    let (mw, mh) = mask.dimensions();
+    let covered = placement.size[0] / layer.size[0].max(1.0) * width as f64;
+    if super::reduction_level(covered / mw as f64) > 0 {
+        return Err("unlinked masks reduced by halvings".into());
+    }
+    // Layer grid pixel → document → mask pixel, per axis (flips mirror about the centers).
+    let axis = |origin: f64, size: f64, flip: bool, pixels: u32, m_origin: f64, m_size: f64, m_flip: bool, m_pixels: u32| {
+        // Document position of grid coordinate g: origin + size·g/pixels (mirrored when flipped).
+        let (da, db) = if flip { (-size / pixels as f64, origin + size) } else { (size / pixels as f64, origin) };
+        // Mask coordinate of document position p: (p − m_origin)·m_pixels/m_size (mirrored).
+        let (ma, mb) = if m_flip { (-(m_pixels as f64) / m_size, (m_origin + m_size) * m_pixels as f64 / m_size) } else { (m_pixels as f64 / m_size, -m_origin * m_pixels as f64 / m_size) };
+        Axis { a: ma * da, b: ma * db + mb, size: m_pixels }
+    };
+    let ax = axis(layer.origin[0], layer.size[0], layer.flip_x, width, placement.origin[0], placement.size[0], placement.flip_x, mw);
+    let ay = axis(layer.origin[1], layer.size[1], layer.flip_y, height, placement.origin[1], placement.size[1], placement.flip_y, mh);
+    // Where the mask's rectangle lies on the grid; its edges must fall between pixels for now.
+    let span = |origin: f64, size: f64, pixels: u32, m_origin: f64, m_size: f64| {
+        let grid = |p: f64| (p - origin) * pixels as f64 / size;
+        let (lo, hi) = (grid(m_origin), grid(m_origin + m_size));
+        let whole = |v: f64| (v - v.round()).abs() < 1e-9;
+        (lo.round(), hi.round(), (whole(lo) && whole(hi)) || hi <= 0.0 || lo >= pixels as f64)
+    };
+    if layer.flip_x || layer.flip_y {
+        return Err("unlinked masks over flipped layers".into());
+    }
+    let (x0, x1, x_whole) = span(layer.origin[0], layer.size[0], width, placement.origin[0], placement.size[0]);
+    let (y0, y1, y_whole) = span(layer.origin[1], layer.size[1], height, placement.origin[1], placement.size[1]);
+    if !x_whole || !y_whole {
+        return Err("unlinked masks with edges off the pixel grid".into());
+    }
+    let tx = high_axis(ax, width)?;
+    let ty = high_axis(ay, height)?;
+    let shrinks = (ax.a.abs() > 1.0, ay.a.abs() > 1.0);
+    if shrinks.0 && !shrinks.1 && ay.a.abs() < 1.0 {
+        return Err("unlinked masks shrunk across and enlarged down".into());
+    }
+    let at = |x: i64, y: i64| mask.as_raw()[(y * mw as i64 + x) as usize] as u32;
+    let bg = background(mask);
+    let mut out = GrayImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let inside = cx > x0 && cx < x1 && cy > y0 && cy < y1;
+            let value = if !inside {
+                bg
+            } else if shrinks.0 && shrinks.1 {
+                // Both boxes: across first.
+                apply(&ty[y as usize], |j| apply(&tx[x as usize], |i| at(i, j)))
+            } else {
+                apply(&tx[x as usize], |i| apply(&ty[y as usize], |j| at(i, j)))
+            };
+            out.put_pixel(x, y, image::Luma([value as u8]));
+        }
+    }
+    Ok(out)
+}
