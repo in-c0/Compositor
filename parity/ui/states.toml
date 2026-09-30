@@ -197,12 +197,13 @@ view = "sheet"
 document = "blend/stack"
 sheet = "color-range"
 
+# Layer 1 is "Shape", the layer with the effects; the panel edits its first effect.
 [[state]]
 id = "sheet/layer-effects"
 view = "sheet"
 document = "effects/all"
 sheet = "layer-effects"
-layer = 0
+layer = 1
 
 [[state]]
 id = "sheet/filter-gaussian-blur"
