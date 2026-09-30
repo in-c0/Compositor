@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "An Invert adjustment ('nvrt'), which the Mac reader skips with a note"
+}

@@ -1,0 +1,9 @@
+[package]
+name = "psd"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true

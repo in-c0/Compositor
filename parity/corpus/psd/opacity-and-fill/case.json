@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Opacity 75% and fill 40%, which the Mac reader multiplies"
+}

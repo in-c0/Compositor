@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "8-bit grayscale, flattened; the Mac reader imports only RGB"
+}

@@ -16,3 +16,4 @@ toml.workspace = true
 comp-format.workspace = true
 engine.workspace = true
 uuid.workspace = true
+psd.workspace = true

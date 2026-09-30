@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Layer and folder names with accents, CJK, an emoji (a UTF-16 surrogate pair) and a long name, in 'luni' blocks"
+}

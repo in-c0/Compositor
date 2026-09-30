@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A full-size mask with flag bit 0 (position relative to layer), which the Mac reader reads as unlinked"
+}

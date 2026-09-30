@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Hard Mix at fill 50%, which Photoshop renders differently from opacity 50%"
+}

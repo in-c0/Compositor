@@ -830,6 +830,7 @@ dependencies = [
  "engine",
  "glob",
  "image",
+ "psd",
  "rayon",
  "serde",
  "serde_json",
@@ -926,6 +927,14 @@ name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
+
+[[package]]
+name = "psd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "image",
+]
 
 [[package]]
 name = "pxfm"

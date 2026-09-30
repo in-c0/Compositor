@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Darker Color ('dkCl') at 60% over a photo; the Mac reader has no such mode and applies Normal"
+}

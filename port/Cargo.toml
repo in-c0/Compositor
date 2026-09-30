@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/comp-format", "crates/engine", "crates/parity"]
+members = ["crates/comp-format", "crates/engine", "crates/parity", "crates/psd"]
 
 [workspace.package]
 edition = "2024"
@@ -23,6 +23,7 @@ glob = "0.3"
 
 comp-format = { path = "crates/comp-format" }
 engine = { path = "crates/engine" }
+psd = { path = "crates/psd" }
 
 [profile.release]
 debug = 1

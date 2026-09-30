@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Hue/Saturation, master: hue +30, saturation -20, lightness +10"
+}

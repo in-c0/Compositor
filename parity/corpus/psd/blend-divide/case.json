@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Divide ('fdiv') at 60% over a photo"
+}

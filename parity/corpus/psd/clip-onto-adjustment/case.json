@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A layer clipped to an adjustment layer; the Mac reader skips this clipping with a note"
+}

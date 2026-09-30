@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "16-bit RGB, flattened (no layers); the Mac reader imports only 8-bit"
+}

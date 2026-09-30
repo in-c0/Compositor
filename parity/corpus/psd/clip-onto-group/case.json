@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "A layer clipped to a folder; the Mac reader skips this clipping with a note"
+}

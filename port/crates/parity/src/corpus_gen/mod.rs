@@ -3,6 +3,7 @@
 
 mod builder;
 mod images;
+mod psd_suite;
 mod suites;
 
 use anyhow::Result;
@@ -17,6 +18,7 @@ pub fn generate(out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut w = CaseWriter::new(out);
     suites::all(&mut w)?;
+    psd_suite::psd(&mut w)?;
     eprintln!("wrote {} cases to {}", w.count, out.display());
     Ok(())
 }

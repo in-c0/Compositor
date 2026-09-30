@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Names only in the Pascal string, with no 'luni' block"
+}

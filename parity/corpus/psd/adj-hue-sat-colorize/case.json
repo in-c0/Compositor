@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psd",
+  "label": "Hue/Saturation with Colorize: hue 200, saturation 60, lightness -10"
+}

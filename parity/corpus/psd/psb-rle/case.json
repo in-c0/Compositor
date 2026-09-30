@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psb",
+  "label": "The multi-feature document as a PSB (8-byte lengths, 4-byte RLE row counts)"
+}

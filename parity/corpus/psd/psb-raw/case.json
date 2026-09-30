@@ -1,0 +1,5 @@
+{
+  "feature": "psd",
+  "input": "input.psb",
+  "label": "The multi-feature document as a PSB, channels uncompressed"
+}

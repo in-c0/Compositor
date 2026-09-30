@@ -53,6 +53,10 @@ paths = ["port/crates/engine/src/effects/**"]
 key = "psd"
 name = "PSD and PSB import and export"
 paths = ["port/crates/engine/src/psd/**", "port/crates/psd/**"]
+gaps = [
+    "The Mac importer reads a Curves adjustment (`curv`) with a 2-byte curve count where Photoshop stores a 4-byte channel mask, so Curves layers from real Photoshop files import as identity curves. The port reads them the same way, to match.",
+    "The Mac importer drops Dissolve, Darker Color and Lighter Color (they become Normal), makes every folder pass-through, folds fill opacity into opacity, and skips unsupported adjustment layers. The port does the same.",
+]
 
 [[feature]]
 key = "document"
