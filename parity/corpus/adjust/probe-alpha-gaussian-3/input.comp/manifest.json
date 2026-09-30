@@ -113,7 +113,6 @@
         "saturation" : 0
       },
       "id" : "A8731A69-00B0-4CA0-99B6-3DB50E1598BC",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Gaussian blur 3 over translucent pixels",
       "transform" : {

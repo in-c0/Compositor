@@ -157,11 +157,10 @@ impl<'a> Compositor<'a> {
     fn adjust(&self, layer: &LayerRecord, target: GpuImage, clip: Option<&wgpu::Buffer>) -> Result<GpuImage> {
         let gpu = self.gpu;
         let settings = layer.adjustment.as_ref().expect("an adjustment layer");
-        // Core Image's blurs aren't reproduced exactly yet (see feature/ci-blur).
-        if matches!(settings.kind, comp_format::AdjustmentKind::GaussianBlur | comp_format::AdjustmentKind::MotionBlur) {
-            return unsupported("Gaussian and Motion Blur adjustment layers");
-        }
         let region = crate::adjust::Region::whole(&target);
+        if let Some(what) = crate::adjust::unsupported(settings, region) {
+            return unsupported(&what);
+        }
         let mut adjusted = crate::adjust::apply(gpu, &target, settings, region)?;
         let mode = layer.blend_mode();
         if mode != comp_format::BlendMode::Normal {

@@ -114,7 +114,6 @@
         "saturation" : 0
       },
       "id" : "9BA700D1-472F-42B4-8A64-C63F9762118E",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Motion blur 0 degrees, 10 px over an impulse and ramped steps",
       "transform" : {

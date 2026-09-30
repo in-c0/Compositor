@@ -44,6 +44,11 @@ gaps = [
 key = "adjust"
 name = "Adjustment layers"
 paths = ["port/crates/engine/src/adjust/**"]
+gaps = [
+    "Gaussian Blur reproduces Core Image exactly, but above σ 1.12 Core Image hands the blur to Metal Performance Shaders, which fits its weights on the CPU. The port carries the weights logged for every σ that is a multiple of 0.05 from 1 to 250 (`port/tools/mps-gaussian`) and returns Unsupported for any other σ.",
+    "Motion Blur at 0° and 90° is exact. At other angles Core Image rotates the image into the streak's frame and back, and a few pixels come out one or two levels off because the port can't yet match how the Mac's GPU rounds those sample coordinates: the probes show max 1 (3 of 4,096 pixels) at 45° and 10 px, max 1 (9 pixels) at 30° and 20 px, max 2 (6 pixels) at 45° and 20 px, and max 3 (43 of 16,384 pixels) at 45° and 40 px. The cases over 1/255 are listed in `KNOWN_GAPS` in `adjust/tests.rs`.",
+    "Motion Blur returns Unsupported for distances where Core Image blurs a shrunk image with a 3-tap kernel whose sample offset isn't known yet (about 14–16, 32–36, 57–64 and 127–142 px).",
+]
 
 [[feature]]
 key = "filters"

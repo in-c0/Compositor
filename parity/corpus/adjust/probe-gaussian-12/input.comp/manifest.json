@@ -113,7 +113,6 @@
         "saturation" : 0
       },
       "id" : "48E4C83C-D55B-4B3A-AEFB-4214B5BAABD5",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Gaussian blur 12 over ramped lines and a step",
       "transform" : {

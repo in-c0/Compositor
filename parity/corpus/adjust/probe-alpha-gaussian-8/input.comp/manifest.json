@@ -113,7 +113,6 @@
         "saturation" : 0
       },
       "id" : "CBC58408-BA79-46F6-B31F-00423CC88977",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Gaussian blur 8 over translucent pixels",
       "transform" : {
