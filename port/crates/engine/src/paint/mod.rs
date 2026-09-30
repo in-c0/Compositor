@@ -255,7 +255,7 @@ pub fn apply(gpu: &Gpu, project: &mut Project, session: &mut Session, op: &Value
         session.clone_offset = Some(offset);
     }
     if op.tool == Tool::Blur {
-        stroke.set_blur(gpu, project, session.blur_radius)?;
+        stroke.set_blur(gpu, session.blur_radius)?;
     }
     stroke.path.append(first);
     // `brushAnchor`, `brushPointer` and `lastBrushPoint`, as `beginBrush` sets them.

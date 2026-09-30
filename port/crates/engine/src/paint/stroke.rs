@@ -20,6 +20,10 @@ pub struct Settings {
     pub healing_mode: i32,
 }
 
+/// Whether the port's Core Image Gaussian blur matches the Mac's to the byte. It doesn't yet
+/// (see `adjust/blur.rs`), so Blur strokes report as not supported.
+const BLUR_IS_EXACT: bool = false;
+
 /// `BrushStroke.tileSize`.
 const TILE: i64 = 256;
 
@@ -52,7 +56,6 @@ pub struct Stroke {
     sample: Option<Sample>,
     /// Smudge and Liquify's result replaces what's under the tip rather than drawing over it.
     pub replaces: bool,
-    pub is_blur: bool,
 }
 
 fn unsupported<T>(what: &str) -> Result<T> {
@@ -194,7 +197,6 @@ impl Stroke {
             path: Path::default(),
             sample: None,
             replaces: false,
-            is_blur: false,
         })
     }
 
@@ -234,9 +236,45 @@ impl Stroke {
         sample
     }
 
-    /// Blur's sample (`blurSample`): the layer or mask softened by Core Image's Gaussian blur.
-    pub fn set_blur(&mut self, _gpu: &Gpu, _project: &Project, _radius: f64) -> Result<()> {
-        unsupported("the Blur tool (Core Image's Gaussian blur isn't exact yet)")
+    /// Blur's sample (`blurSample`): the layer's pixels (or its mask) softened by Core Image's
+    /// Gaussian blur, `radius` canvas pixels, with room around them for the blur to spread.
+    pub fn set_blur(&mut self, gpu: &Gpu, radius: f64) -> Result<()> {
+        if !BLUR_IS_EXACT {
+            return unsupported("the Blur tool (Core Image's Gaussian blur isn't reproduced exactly yet)");
+        }
+        let (sw, sh) = (self.source_rect.w, self.source_rect.h);
+        let sigma = (0.5f64.max(radius).min(50.0)).min(sw.max(sh) / 2.0);
+        let margin = (3.0 * sigma).ceil();
+        let (w, h) = ((sw + 2.0 * margin) as i64, (sh + 2.0 * margin) as i64);
+        let m = margin as i64;
+        // A mask is clamped to its extent before blurring, so its edge tone carries on; pixels
+        // are blurred as they are, transparent past the context.
+        let pad = if self.mask { (3.0 * sigma).floor() as i64 + 2 } else { 0 };
+        let (pw, ph) = (w + 2 * pad, h + 2 * pad);
+        let mut context = vec![if self.mask { self.mask_background * 0x0001_0101 | 0xff00_0000 } else { 0 }; (w * h) as usize];
+        for y in 0..sh as i64 {
+            for x in 0..sw as i64 {
+                let g = self.base[((y + self.source_rect.y as i64) * self.width + x + self.source_rect.x as i64) as usize];
+                context[((y + m) * w + x + m) as usize] = if self.mask { (g & 255) * 0x0001_0101 | 0xff00_0000 } else { g };
+            }
+        }
+        let padded: Vec<u32> = (0..ph)
+            .flat_map(|y| (0..pw).map(move |x| (x, y)))
+            .map(|(x, y)| context[((y - pad).clamp(0, h - 1) * w + (x - pad).clamp(0, w - 1)) as usize])
+            .collect();
+        let image = gpu.upload(pw as u32, ph as u32, bytemuck::cast_slice(&padded));
+        let soft = crate::adjust::blur::gaussian(gpu, &image, sigma);
+        let soft: Vec<u32> = bytemuck::cast_slice(&gpu.download(&soft)?).to_vec();
+        let mask = self.mask;
+        let cropped: Vec<u32> = (0..h)
+            .flat_map(|y| (0..w).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                let p = soft[((y + pad) * pw + x + pad) as usize];
+                if mask { p & 255 } else { p }
+            })
+            .collect();
+        self.sample = Some(self.lay(&cropped, w as u32, h as u32, [self.source_rect.x - margin, self.source_rect.y - margin]));
+        Ok(())
     }
 
     /// Smudge and Liquify's result, a document-sized premultiplied image, painted over the grid.
