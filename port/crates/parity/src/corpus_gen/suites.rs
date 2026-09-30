@@ -206,6 +206,25 @@ fn folders(w: &mut CaseWriter) -> Result<()> {
     d.image("Shallow", images::disc(N, N, [250, 30, 30]), LayerSpec { parent: Some(outer), ..spec() });
     w.write("folders", "nested", "Nested folders at 70% and 60%", d, vec![])?;
 
+    // Probes that take "nested" apart, one step each.
+    let mut d = w.doc("folders", "probe-deep-direct", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    d.image("Deep", images::noise(N, N, 32, Alpha::Varied), LayerSpec { blend: Some(BlendMode::Overlay), opacity: Some(0.7 * 0.6), ..spec() });
+    w.write("folders", "probe-deep-direct", "The nested case's Overlay layer at 0.42 with no folders", d, vec![])?;
+
+    let mut d = w.doc("folders", "probe-deep-nested", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    let outer = d.group("Outer", LayerSpec { opacity: Some(0.7), ..spec() });
+    let inner = d.group("Inner", LayerSpec { opacity: Some(0.6), parent: Some(outer), ..spec() });
+    d.image("Deep", images::noise(N, N, 32, Alpha::Varied), LayerSpec { parent: Some(inner), blend: Some(BlendMode::Overlay), ..spec() });
+    w.write("folders", "probe-deep-nested", "The nested case's Overlay layer inside both folders, alone", d, vec![])?;
+
+    let mut d = w.doc("folders", "probe-shallow", N, N);
+    d.image("Backdrop", images::photo(N, N), spec());
+    let outer = d.group("Outer", LayerSpec { opacity: Some(0.7), ..spec() });
+    d.image("Shallow", images::disc(N, N, [250, 30, 30]), LayerSpec { parent: Some(outer), ..spec() });
+    w.write("folders", "probe-shallow", "The nested case's disc inside a 70% folder, alone", d, vec![])?;
+
     let mut d = w.doc("folders", "hidden", N, N);
     d.image("Backdrop", images::photo(N, N), spec());
     let f = d.group("Hidden folder", LayerSpec { visible: Some(false), ..spec() });

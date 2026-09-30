@@ -1,0 +1,74 @@
+{
+  "activeLayerID" : "323A3952-F22D-4D73-86C8-037361EAAD41",
+  "colorSpace" : "sRGB",
+  "documentID" : "5D90066C-85DB-4F3D-8C14-7E637FF1A326",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "D795F256-7139-4817-8F46-9131E7489A7B",
+      "imageFile" : "D795F256-7139-4817-8F46-9131E7489A7B.png",
+      "isVisible" : true,
+      "name" : "Backdrop",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "550D1668-4680-433A-B7A4-ECC203C8C306",
+      "imageFile" : null,
+      "isGroup" : true,
+      "isVisible" : true,
+      "name" : "Outer",
+      "opacity" : 0.7,
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "323A3952-F22D-4D73-86C8-037361EAAD41",
+      "imageFile" : "323A3952-F22D-4D73-86C8-037361EAAD41.png",
+      "isVisible" : true,
+      "name" : "Shallow",
+      "parentID" : "550D1668-4680-433A-B7A4-ECC203C8C306",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}
