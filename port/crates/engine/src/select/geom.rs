@@ -2,12 +2,13 @@
 //! (`CGPath.union`, `intersection`, `subtracting` and `copy(strokingWithWidth:)`).
 //!
 //! An outline is lines and cubic Béziers, as a `CGPath` is. The path operations run on polygons
-//! through iOverlay, with each cubic flattened as Core Graphics flattens it; afterwards every run
-//! of chords that came from one cubic becomes that cubic again, or the piece of it that survived.
-//! That is what Core Graphics does too, and its pieces show how: a cubic is cut where its
-//! flattened chords cross the other outline, split at the parameter interpolated along the chord,
-//! and the piece's end moved onto the crossing. The pieces are then flattened afresh to fill,
-//! which the coverage shows.
+//! through iOverlay, with each cubic flattened into 16 even pieces as Core Graphics flattens it
+//! for them; afterwards every run of chords that came from one cubic becomes that cubic again, or
+//! the piece of it that survived. That is what Core Graphics does too, and its pieces show how: a
+//! cubic is cut where its chords cross the other outline, split at the parameter interpolated
+//! along the chord, and the piece's end moved onto the crossing. A piece cut again is cut the
+//! same way, as a cubic of its own. The pieces are then flattened afresh to fill, which the
+//! coverage shows.
 
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -21,18 +22,6 @@ pub type Point = [f64; 2];
 pub enum Seg {
     Line(Point, Point),
     Cubic([Point; 4]),
-    /// What a path operation left of a cubic it cut.
-    Piece(Cut),
-}
-
-/// A piece of a cubic: `shape` as it is filled, cut from `origin` between parameters `t0` (at
-/// its start) and `t1`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Cut {
-    pub shape: [Point; 4],
-    pub origin: [Point; 4],
-    pub t0: f64,
-    pub t1: f64,
 }
 
 impl Seg {
@@ -40,16 +29,6 @@ impl Seg {
         match self {
             Seg::Line(a, _) => *a,
             Seg::Cubic(p) => p[0],
-            Seg::Piece(c) => c.shape[0],
-        }
-    }
-
-    /// The cubic that is filled, if this is a curve.
-    pub fn cubic(&self) -> Option<[Point; 4]> {
-        match self {
-            Seg::Line(..) => None,
-            Seg::Cubic(p) => Some(*p),
-            Seg::Piece(c) => Some(c.shape),
         }
     }
 
@@ -57,7 +36,6 @@ impl Seg {
         match self {
             Seg::Line(a, b) => Seg::Line(f(*a), f(*b)),
             Seg::Cubic(p) => Seg::Cubic(p.map(f)),
-            Seg::Piece(c) => Seg::Piece(Cut { shape: c.shape.map(&f), origin: c.origin.map(&f), ..*c }),
         }
     }
 }
@@ -110,9 +88,9 @@ pub fn flatten_within(contour: &Contour, flatness: f64) -> Vec<Point> {
     let mut out = Vec::new();
     for seg in contour {
         out.push(seg.start());
-        if let Some(p) = seg.cubic() {
+        if let Seg::Cubic(p) = seg {
             let mut points = Vec::new();
-            flatten_piece(p, 0.0, 1.0, flatness, &mut points, 0);
+            flatten_piece(*p, 0.0, 1.0, Flatten::Within(flatness), &mut points, 0);
             points.pop();
             out.extend(points.into_iter().map(|(p, _)| p));
         }
@@ -120,18 +98,35 @@ pub fn flatten_within(contour: &Contour, flatness: f64) -> Vec<Point> {
     out
 }
 
-/// Appends the cubic's flattened points after its first, with their parameters: halved until both
-/// second differences of its control points are within `flatness` along x and along y.
-fn flatten_piece(p: [Point; 4], t0: f64, t1: f64, flatness: f64, out: &mut Vec<(Point, f64)>, depth: u32) {
+/// How finely a cubic is flattened.
+#[derive(Clone, Copy)]
+enum Flatten {
+    /// Halved until both second differences of its control points are within this along x and
+    /// along y, as Core Graphics flattens to fill.
+    Within(f64),
+    /// Halved this many times, as Core Graphics flattens for its path operations.
+    Depth(u32),
+}
+
+/// Core Graphics' path operations flatten every cubic into 16 even pieces, whatever its size:
+/// fitted to ellipses cut by lines and small round joins cut by each other.
+const OPERATION_DEPTH: u32 = 4;
+
+/// Appends the cubic's flattened points after its first, with their parameters.
+fn flatten_piece(p: [Point; 4], t0: f64, t1: f64, how: Flatten, out: &mut Vec<(Point, f64)>, depth: u32) {
     let second = |a: Point, b: Point, c: Point| (a[0] - 2.0 * b[0] + c[0]).abs().max((a[1] - 2.0 * b[1] + c[1]).abs());
-    if depth >= 16 || second(p[0], p[1], p[2]).max(second(p[1], p[2], p[3])) <= flatness {
+    let done = match how {
+        Flatten::Within(flatness) => depth >= 16 || second(p[0], p[1], p[2]).max(second(p[1], p[2], p[3])) <= flatness,
+        Flatten::Depth(d) => depth >= d,
+    };
+    if done {
         out.push((p[3], t1));
         return;
     }
     let (a, b) = halves(p);
     let m = (t0 + t1) / 2.0;
-    flatten_piece(a, t0, m, flatness, out, depth + 1);
-    flatten_piece(b, m, t1, flatness, out, depth + 1);
+    flatten_piece(a, t0, m, how, out, depth + 1);
+    flatten_piece(b, m, t1, how, out, depth + 1);
 }
 
 fn lerp(a: Point, b: Point, t: f64) -> Point {
@@ -158,10 +153,7 @@ fn piece(p: [Point; 4], t0: f64, t1: f64) -> [Point; 4] {
 
 /// A cubic of an operand, flattened, with each point's parameter.
 struct Curve {
-    /// The whole cubic the parameters are on.
     cubic: [Point; 4],
-    /// The piece of it this operand holds, if an earlier path operation cut it.
-    cut: Option<Cut>,
     points: Vec<Point>,
     params: Vec<f64>,
 }
@@ -172,8 +164,6 @@ struct Origins {
     curves: Vec<Curve>,
     /// Flattened points on a coarse grid, with (curve, parameter) for each.
     at: HashMap<(i64, i64), Vec<(Point, usize, f64)>>,
-    /// A piece was cut again.
-    recut: bool,
 }
 
 const MATCH: f64 = 1e-6;
@@ -183,27 +173,6 @@ impl Origins {
         ((p[0] * 64.0).floor() as i64, (p[1] * 64.0).floor() as i64)
     }
 
-    /// A piece's flattened points, with parameters on its origin.
-    fn piece_points(c: &Cut) -> Vec<(Point, f64)> {
-        let mode = std::env::var("SELECTION_RECUT_MODE").unwrap_or_default();
-        if mode == "OO" {
-            let mut all = vec![(c.origin[0], 0.0)];
-            flatten_piece(c.origin, 0.0, 1.0, FLATNESS, &mut all, 0);
-            let (lo, hi) = (c.t0.min(c.t1), c.t0.max(c.t1));
-            let mut inner: Vec<(Point, f64)> = all.into_iter().filter(|&(_, t)| t > lo + 1e-12 && t < hi - 1e-12).collect();
-            if c.t0 > c.t1 {
-                inner.reverse();
-            }
-            let mut out = vec![(c.shape[0], c.t0)];
-            out.extend(inner);
-            out.push((c.shape[3], c.t1));
-            return out;
-        }
-        let mut flat = vec![(c.shape[0], 0.0)];
-        flatten_piece(c.shape, 0.0, 1.0, FLATNESS, &mut flat, 0);
-        flat.into_iter().map(|(p, u)| (p, c.t0 + (c.t1 - c.t0) * u)).collect()
-    }
-
     /// The operand as polygons for iOverlay.
     fn polygons(&mut self, region: &Region) -> Vec<Vec<Point>> {
         let mut out = Vec::new();
@@ -211,21 +180,15 @@ impl Origins {
             let mut points = Vec::new();
             for seg in contour {
                 points.push(seg.start());
-                let (flat, origin, cut) = match seg {
-                    Seg::Line(..) => continue,
-                    Seg::Cubic(p) => {
-                        let mut flat = vec![(p[0], 0.0)];
-                        flatten_piece(*p, 0.0, 1.0, FLATNESS, &mut flat, 0);
-                        (flat, *p, None)
-                    }
-                    Seg::Piece(c) => (Self::piece_points(c), c.origin, Some(*c)),
-                };
+                let Seg::Cubic(p) = seg else { continue };
+                let mut flat = vec![(p[0], 0.0)];
+                flatten_piece(*p, 0.0, 1.0, Flatten::Depth(OPERATION_DEPTH), &mut flat, 0);
                 let id = self.curves.len();
                 for &(q, t) in &flat {
                     self.at.entry(Self::key(q)).or_default().push((q, id, t));
                 }
                 points.extend(flat[1..flat.len() - 1].iter().map(|&(q, _)| q));
-                self.curves.push(Curve { cubic: origin, cut, points: flat.iter().map(|f| f.0).collect(), params: flat.iter().map(|f| f.1).collect() });
+                self.curves.push(Curve { cubic: *p, points: flat.iter().map(|f| f.0).collect(), params: flat.iter().map(|f| f.1).collect() });
             }
             if points.len() >= 3 {
                 out.push(points);
@@ -280,7 +243,7 @@ impl Origins {
     }
 
     /// iOverlay's output polygon as an outline, with its runs of curve chords made curves again.
-    fn outline(&mut self, points: &[Point]) -> Contour {
+    fn outline(&self, points: &[Point]) -> Contour {
         let n = points.len();
         let tags: Vec<Vec<(usize, f64)>> = points.iter().map(|&p| self.tags(p)).collect();
         // Each edge on a curve: (curve, parameter at its start, at its end).
@@ -320,40 +283,17 @@ impl Origins {
                     }
                     let t_end = on[last].unwrap().2;
                     let end = points[(last + 1) % n];
-                    let (cubic, cut) = (self.curves[id].cubic, self.curves[id].cut);
-                    let whole = match cut {
-                        None => t_start.min(t_end) == 0.0 && t_start.max(t_end) == 1.0,
-                        Some(c) => (t_start == c.t0 && t_end == c.t1) || (t_start == c.t1 && t_end == c.t0),
-                    };
-                    if whole {
-                        out.push(match cut {
-                            None if t_start < t_end => Seg::Cubic(cubic),
-                            None => Seg::Cubic([cubic[3], cubic[2], cubic[1], cubic[0]]),
-                            Some(c) if t_start == c.t0 => Seg::Piece(c),
-                            Some(c) => Seg::Piece(Cut { shape: [c.shape[3], c.shape[2], c.shape[1], c.shape[0]], t0: c.t1, t1: c.t0, ..c }),
-                        });
-                        continue;
-                    }
-                    let mode = std::env::var("SELECTION_RECUT_MODE").unwrap_or_default();
-                    // The piece is cut from the curve it came from, or (by default) from the piece.
-                    let (base, u0, u1) = match cut {
-                        Some(c) if mode.is_empty() || mode == "PS" => {
-                            let local = |t: f64| (t - c.t0) / (c.t1 - c.t0);
-                            (c.shape, local(t_start), local(t_end))
-                        }
-                        _ => (cubic, t_start, t_end),
-                    };
-                    let mut part = if u0 < u1 {
-                        piece(base, u0, u1)
+                    let cubic = self.curves[id].cubic;
+                    let mut part = if t_start < t_end {
+                        piece(cubic, t_start, t_end)
                     } else {
-                        let p = piece(base, u1, u0);
+                        let p = piece(cubic, t_end, t_start);
                         [p[3], p[2], p[1], p[0]]
                     };
-                    // The piece ends where the chords were cut, not on the curve.
+                    // A cut piece ends where the chords were cut, not on the curve.
                     part[0] = start;
                     part[3] = end;
-                    self.recut |= cut.is_some();
-                    out.push(Seg::Piece(Cut { shape: part, origin: cubic, t0: t_start, t1: t_end }));
+                    out.push(Seg::Cubic(part));
                 }
             }
         }
@@ -371,13 +311,7 @@ fn run(a: &Region, b: &Region, rule: OverlayRule) -> Result<Region, Unmatched> {
         return Ok(Vec::new());
     }
     let polygons = subject.overlay(&clip, rule, FillRule::NonZero);
-    let out: Region = polygons.into_iter().flatten().filter(|c| c.len() >= 3).map(|c| origins.outline(&c)).collect();
-    // How Core Graphics cuts a piece of a curve a second time isn't known yet: such pieces land a
-    // few levels off.
-    if origins.recut && std::env::var_os("SELECTION_RECUT").is_none() {
-        return Err("cutting a curve that an earlier selection step already cut");
-    }
-    Ok(out)
+    Ok(polygons.into_iter().flatten().filter(|c| c.len() >= 3).map(|c| origins.outline(&c)).collect())
 }
 
 /// `a.union(b, using: .winding)`.
@@ -461,7 +395,6 @@ fn oriented(contour: Contour) -> Contour {
         .map(|seg| match seg {
             Seg::Line(a, b) => Seg::Line(*b, *a),
             Seg::Cubic(p) => Seg::Cubic([p[3], p[2], p[1], p[0]]),
-            Seg::Piece(c) => Seg::Piece(Cut { shape: [c.shape[3], c.shape[2], c.shape[1], c.shape[0]], t0: c.t1, t1: c.t0, ..*c }),
         })
         .collect()
 }
@@ -533,7 +466,7 @@ mod tests {
         // The right of an ellipse cut away: two curves are cut, two survive.
         let e = vec![ellipse(8.0, 10.0, 48.0, 40.0)];
         let cut = subtracting(&e, &vec![rect(45.0, 0.0, 19.0, 64.0)]).unwrap();
-        let cubics = cut.iter().flatten().filter(|s| matches!(s, Seg::Cubic(_) | Seg::Piece(_))).count();
+        let cubics = cut.iter().flatten().filter(|s| matches!(s, Seg::Cubic(_))).count();
         assert_eq!(cubics, 4);
         let lines = cut.iter().flatten().filter(|s| matches!(s, Seg::Line(..))).count();
         assert_eq!(lines, 1);
@@ -551,3 +484,4 @@ mod tests {
         assert_eq!(union(&tiny, &stroke_band(&tiny, 20.0).unwrap()).unwrap().len(), 1);
     }
 }
+
