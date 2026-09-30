@@ -2,18 +2,12 @@
 //! off the pixel grid, and the masks that follow it.
 //!
 //! The Mac translates to the layer's center, rotates, flips, and has Core Graphics draw the image
-//! into the layer's bounds. What Core Graphics does there was measured from references (see the
-//! probe cases in `parity/corpus/transform/probe-*`):
-//!
-//! - Every device pixel samples the image at its center, mapped back into image pixels.
-//! - Interpolation `.none` takes the pixel under that point, clamped to the image.
-//! - `.low` (and `.high` while enlarging) is a 2x2 filter whose phase is rounded to eighths and
-//!   whose weights are sharper than bilinear (see `resample.wgsl`). The image is clamped at its
-//!   edges.
-//! - With antialiasing on, the edges of the image's rectangle fade over one pixel's footprint
-//!   measured across the edge (its L1 width, |cos| + |sin|), each edge on its own, multiplied at
-//!   corners. With antialiasing off (Nearest), a pixel is drawn when the rectangle overlaps it at
-//!   all.
+//! into the layer's bounds, clipped to its mask. What Core Graphics does there was measured from
+//! the references (the `transform/probe-*` cases isolate each part), and `resample.wgsl` spells it
+//! out: sample positions stepped in 32.32 fixed point, interpolation `.none` as the pixel under the
+//! position, `.low` as a two-pixel shift blend per axis, edges faded across the pixel's L1 width.
+//! `.high` is `.low` while enlarging and a box average while shrinking (`clip.rs`); large
+//! reductions start from vImage's Lanczos halvings (`halve.rs`).
 
 pub mod clip;
 mod halve;
@@ -90,18 +84,6 @@ impl Placement {
             width: t.size[0],
             height: t.size[1],
         }
-    }
-
-    /// Canvas to drawing space, as a 2x3 affine `[a, b, c, d, e, f]`: `qx = a·x + b·y + c`,
-    /// `qy = d·x + e·y + f`. The inverse of translate(center) · rotate · scale(±1, ±1).
-    pub fn inverse(&self) -> [f64; 6] {
-        let sx = if self.flip_x { -1.0 } else { 1.0 };
-        let sy = if self.flip_y { 1.0 } else { -1.0 };
-        let (c, s) = (self.cos, self.sin);
-        let [cx, cy] = self.center;
-        // Rotate by −θ, then undo the scale (its own inverse).
-        let (a, b, d, e) = (c * sx, s * sx, -s * sy, c * sy);
-        [a, b, -(a * cx + b * cy), d, e, -(d * cx + e * cy)]
     }
 
     /// The drawing-space corners of `rect` on the canvas.

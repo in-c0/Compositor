@@ -12,12 +12,12 @@
 //   eighths from the heavy pixel for k = 4 to 2, and a half for k = 1 (none at 0). The heavy pixel
 //   is the first below a phase of one half. The image is clamped at its edges.
 // - With antialiasing, each edge of the image rectangle fades linearly across the canvas pixel's
-//   width measured along the edge's normal (|cos| + |sin|); the four edges multiply, and the
-//   coverage is ceil(product × 256) − 1, at most 255. In a pixel that an edge only partly covers, the
-//   image isn't interpolated across that edge: that axis takes its heavy pixel alone.
+//   width measured along the edge's normal (|cos| + |sin|); the four fades multiply, and the
+//   coverage byte is ceil(product × 256) − 1, at most 255. Where an edge only partly covers a
+//   pixel, the image isn't interpolated across that edge: that axis takes its heavy pixel alone.
 // - Without antialiasing (Nearest), a pixel is drawn when the rectangle overlaps it at all.
-// - A mask clipped through its own rectangle is sampled the same way. Its coverage combines with the
-//   edges' as floor(floor(mask × mask edges / 255) × image edges / 255).
+// - A mask clipped through its own rectangle is sampled the same way. Its coverage combines with
+//   the edges' as floor(floor(mask × mask edges / 255) × image edges / 255).
 
 struct Dda {
     // Position at the center of canvas pixel (0, 0), and its steps per canvas pixel right and down,
