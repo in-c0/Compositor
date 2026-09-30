@@ -1,8 +1,9 @@
 //! The Shape and Gradient tools (`ShapeTool.swift`, `Gradient.swift`) and Move / Transform's
 //! resize of a layer, which draws a shape layer again at its new size (`redrawShape`).
 //!
-//! Shapes are drawn as Core Graphics fills and strokes them, and gradients as `CGGradient` fills
-//! a layer; `raster` and `gradient` hold the drawing, fitted to references.
+//! Shapes are drawn as Core Graphics fills and strokes their paths, and gradients as its axial
+//! and radial shadings draw a `CGGradient`: `raster` holds the drawing, fitted to references, and
+//! `gradient` the tool's edit of a layer's pixels.
 
 mod gradient;
 mod raster;
@@ -229,5 +230,24 @@ pub(crate) fn unpremultiply(pixels: &mut [u8]) {
                 *c = ((*c as u32 * 255 + a / 2) / a).min(255) as u8;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drags_make_whole_pixel_boxes() {
+        assert_eq!(drag_box([10.0, 10.0], [30.4, 25.6], false, false), [10.0, 10.0, 20.0, 16.0]);
+        assert_eq!(drag_box([10.0, 10.0], [4.0, 40.0], true, false), [-20.0, 10.0, 30.0, 30.0]);
+        assert_eq!(drag_box([32.0, 32.0], [45.0, 40.0], false, true), [19.0, 24.0, 26.0, 16.0]);
+    }
+
+    #[test]
+    fn premultiplied_bytes_are_saved_as_the_mac_saves_them() {
+        let mut pixels = [7, 70, 0, 73, 0, 0, 0, 0, 10, 20, 30, 255];
+        unpremultiply(&mut pixels);
+        assert_eq!(pixels, [24, 245, 0, 73, 0, 0, 0, 0, 10, 20, 30, 255]);
     }
 }

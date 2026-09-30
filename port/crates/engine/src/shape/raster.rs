@@ -140,6 +140,12 @@ pub fn shape_image(gpu: &Gpu, style: &ShapeStyle, size: [f64; 2]) -> Result<imag
     Ok(image::RgbaImage::from_raw(width, height, pixels).expect("image size"))
 }
 
+/// How many colors Core Graphics' gradient table holds for a line (or radius) this long: the
+/// length rounded up to whole pixels, then up past the next multiple of 16, less two.
+fn slots(length: f64) -> f64 {
+    16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0
+}
+
 /// Core Graphics' 16 x 16 gradient dither thresholds, in 256ths, row by row.
 const DITHER: [u32; 256] = [
     244, 188, 16, 150, 107, 199, 156, 243, 118, 176, 46, 154, 202, 7, 136, 216,
@@ -166,8 +172,7 @@ const DITHER: [u32; 256] = [
 pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i64; 4], offset: [i64; 2], fill: &Fill) -> Result<Vec<u8>> {
     let (dx, dy) = (fill.end[0] - fill.start[0], fill.end[1] - fill.start[1]);
     let length = dx.hypot(dy);
-    // The table's slots: 16 per 16 pixels of length, rounded up past it, less the two ends.
-    let slots = 16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0;
+    let slots = slots(length);
     let (kind, base_point, step) = match fill.shape {
         Shape::Radial => (1u32, [fill.start[0] - offset[0] as f64, fill.start[1] - offset[1] as f64], [slots / length, 0.0]),
         Shape::Linear => {
@@ -195,4 +200,27 @@ pub fn gradient_over(gpu: &Gpu, base: &[u8], width: u32, height: u32, region: [i
     let dither = gpu.bytes(bytemuck::cast_slice(&DITHER));
     gpu.dispatch(&pipeline, &params, &[&dither, &layer.buffer, &out.buffer], width, height);
     Ok(gpu.download(&out)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gradient_tables_follow_the_length() {
+        for (length, expected) in [(16.0, 30.0), (24.0, 30.0), (40.0, 46.0), (64.0, 78.0), (73.41, 78.0), (79.2, 94.0), (256.0, 270.0), (600.0, 606.0)] {
+            assert_eq!(slots(length), expected, "length {length}");
+        }
+    }
+
+    #[test]
+    fn curves_split_where_they_bend_most() {
+        // Measured against references: a 5 px circle's quarters split in six (the ends finer),
+        // a 4 px circle's in four, a 6 px circle's in eight.
+        assert_eq!(ellipse(5.0, 5.0).len(), 24);
+        assert_eq!(ellipse(4.0, 4.0).len(), 16);
+        assert_eq!(ellipse(6.0, 6.0).len(), 32);
+        // Square corners stay four points.
+        assert_eq!(rounded_rect(9.0, 7.0, 0.0).len(), 4);
+    }
 }
