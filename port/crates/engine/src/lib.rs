@@ -5,6 +5,7 @@ use comp_format::Project;
 use image::RgbaImage;
 
 pub mod gpu;
+pub mod order;
 
 #[derive(Debug)]
 pub enum RenderError {

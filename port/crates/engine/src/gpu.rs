@@ -1,4 +1,6 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// A headless wgpu device. The parity tool and the app share this setup.
 pub struct Gpu {
@@ -6,6 +8,18 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+    pipelines: Mutex<HashMap<&'static str, Arc<wgpu::ComputePipeline>>>,
+}
+
+/// An image on the GPU: one `u32` per pixel, RGBA8 packed with R in the low byte.
+///
+/// The Mac app works on 8-bit premultiplied canvases and rounds after every step, so the port
+/// keeps pixels as integers in storage buffers and rounds in WGSL exactly where Core Graphics and
+/// Core Image do, rather than trusting each GPU's float-to-unorm conversion.
+pub struct GpuImage {
+    pub buffer: wgpu::Buffer,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Gpu {
@@ -36,6 +50,100 @@ impl Gpu {
             ..Default::default()
         }))
         .context("creating the GPU device")?;
-        Ok(Self { instance, adapter, device, queue })
+        Ok(Self { instance, adapter, device, queue, pipelines: Mutex::new(HashMap::new()) })
+    }
+
+    pub fn image(&self, width: u32, height: u32) -> GpuImage {
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("image"),
+            size: (width as u64 * height as u64 * 4).max(4),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        GpuImage { buffer, width, height }
+    }
+
+    /// Uploads RGBA8 bytes as they are, without converting anything.
+    pub fn upload(&self, width: u32, height: u32, rgba: &[u8]) -> GpuImage {
+        let img = self.image(width, height);
+        self.queue.write_buffer(&img.buffer, 0, rgba);
+        img
+    }
+
+    /// Reads RGBA8 bytes back as they are.
+    pub fn download(&self, img: &GpuImage) -> Result<Vec<u8>> {
+        let size = (img.width as u64 * img.height as u64 * 4).max(4);
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("readback"),
+            size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder.copy_buffer_to_buffer(&img.buffer, 0, &staging, 0, size);
+        self.queue.submit([encoder.finish()]);
+        let slice = staging.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        self.device.poll(wgpu::PollType::wait_indefinitely())?;
+        rx.recv()??;
+        let data = slice.get_mapped_range()?.to_vec();
+        staging.unmap();
+        Ok(data[..(img.width as usize * img.height as usize * 4)].to_vec())
+    }
+
+    /// A compute pipeline for `source`, compiled once per `name`. Every kernel is prefixed with
+    /// the shared helpers in `common.wgsl`.
+    pub fn pipeline(&self, name: &'static str, source: &str) -> Arc<wgpu::ComputePipeline> {
+        let mut cache = self.pipelines.lock().unwrap();
+        cache
+            .entry(name)
+            .or_insert_with(|| {
+                let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some(name),
+                    source: wgpu::ShaderSource::Wgsl(format!("{}\n{}", include_str!("shaders/common.wgsl"), source).into()),
+                });
+                Arc::new(self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some(name),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                }))
+            })
+            .clone()
+    }
+
+    /// Runs `pipeline` once per pixel of a `width` x `height` grid. `params` is bound at
+    /// binding 0 as a uniform buffer, then `buffers` at 1, 2, … in order.
+    pub fn dispatch(&self, pipeline: &wgpu::ComputePipeline, params: &[u8], buffers: &[&wgpu::Buffer], width: u32, height: u32) {
+        use wgpu::util::DeviceExt;
+        let mut padded = params.to_vec();
+        padded.resize(padded.len().div_ceil(16).max(1) * 16, 0);
+        let uniform = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("params"),
+            contents: &padded,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let mut entries = vec![wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() }];
+        for (i, b) in buffers.iter().enumerate() {
+            entries.push(wgpu::BindGroupEntry { binding: i as u32 + 1, resource: b.as_entire_binding() });
+        }
+        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &entries,
+        });
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &bind, &[]);
+            pass.dispatch_workgroups(width.div_ceil(8), height.div_ceil(8), 1);
+        }
+        self.queue.submit([encoder.finish()]);
     }
 }
