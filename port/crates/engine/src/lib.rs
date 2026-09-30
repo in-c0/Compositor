@@ -6,6 +6,7 @@ use image::RgbaImage;
 
 pub mod blend;
 pub mod gpu;
+pub mod mask;
 pub mod order;
 
 #[derive(Debug)]
@@ -57,9 +58,7 @@ impl Renderer {
             if layer.adjustment.is_some() {
                 return unsupported("adjustment layers");
             }
-            if layer.mask_enabled() || order::folders(layer, &by_id).iter().any(|f| f.mask_enabled()) {
-                return unsupported("masks");
-            }
+
             if layer.mask_source_id.is_some() {
                 return unsupported("clipping masks");
             }
@@ -76,9 +75,14 @@ impl Renderer {
             if !upright {
                 return unsupported("transformed layers");
             }
+            let coverage = match mask::coverage(project, layer, &by_id, (w, h)) {
+                Ok(c) => c,
+                Err(what) => return unsupported(&what),
+            };
+            let coverage = coverage.map(|c| gpu.bytes(bytemuck::cast_slice(&c)));
             let pixels = gpu.upload(w, h, asset.pixels.as_raw());
             let opacity = order::effective_opacity(layer, &by_id);
-            canvas = blend::draw_upright(gpu, &canvas, &pixels, (t.origin[0] as i32, t.origin[1] as i32), layer.blend_mode(), opacity);
+            canvas = blend::draw_upright(gpu, &canvas, &pixels, (t.origin[0] as i32, t.origin[1] as i32), layer.blend_mode(), opacity, coverage.as_ref());
         }
         let straight = blend::unpremultiply(gpu, &canvas);
         let bytes = gpu.download(&straight)?;

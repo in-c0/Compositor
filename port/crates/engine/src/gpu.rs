@@ -71,6 +71,18 @@ impl Gpu {
         img
     }
 
+    /// A read-only storage buffer holding `data`.
+    pub fn bytes(&self, data: &[u8]) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        let mut padded = data.to_vec();
+        padded.resize(padded.len().div_ceil(4).max(1) * 4, 0);
+        self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("data"),
+            contents: &padded,
+            usage: wgpu::BufferUsages::STORAGE,
+        })
+    }
+
     /// Reads RGBA8 bytes back as they are.
     pub fn download(&self, img: &GpuImage) -> Result<Vec<u8>> {
         let size = (img.width as u64 * img.height as u64 * 4).max(4);

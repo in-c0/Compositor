@@ -9,8 +9,17 @@ pub fn mode_index(mode: BlendMode) -> u32 {
     BlendMode::ALL.iter().position(|m| *m == mode).unwrap() as u32
 }
 
-/// Draws `layer` (straight RGBA) 1:1 and upright at a whole-pixel `offset`, over `canvas`.
-pub fn draw_upright(gpu: &Gpu, canvas: &GpuImage, layer: &GpuImage, offset: (i32, i32), mode: BlendMode, opacity: f64) -> GpuImage {
+/// Draws `layer` (straight RGBA) 1:1 and upright at a whole-pixel `offset`, over `canvas`,
+/// clipped by `coverage` (one value per layer pixel) when there is a mask.
+pub fn draw_upright(
+    gpu: &Gpu,
+    canvas: &GpuImage,
+    layer: &GpuImage,
+    offset: (i32, i32),
+    mode: BlendMode,
+    opacity: f64,
+    coverage: Option<&wgpu::Buffer>,
+) -> GpuImage {
     let pipeline = gpu.pipeline("draw_upright", &format!("{MODES}\n{}", include_str!("draw_upright.wgsl")));
     let out = gpu.image(canvas.width, canvas.height);
     let mut params = Vec::with_capacity(32);
@@ -21,8 +30,17 @@ pub fn draw_upright(gpu: &Gpu, canvas: &GpuImage, layer: &GpuImage, offset: (i32
     params.extend_from_slice(&offset.1.to_le_bytes());
     params.extend_from_slice(&mode_index(mode).to_le_bytes());
     params.extend_from_slice(&(opacity as f32).to_le_bytes());
+    params.extend_from_slice(&(coverage.is_some() as u32).to_le_bytes());
     let table = opacity_table(gpu, opacity);
-    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, &layer.buffer, &out.buffer, &table], canvas.width, canvas.height);
+    let placeholder;
+    let coverage = match coverage {
+        Some(c) => c,
+        None => {
+            placeholder = gpu.bytes(&[0u8; 4]);
+            &placeholder
+        }
+    };
+    gpu.dispatch(&pipeline, &params, &[&canvas.buffer, &layer.buffer, &out.buffer, &table, coverage], canvas.width, canvas.height);
     out
 }
 
