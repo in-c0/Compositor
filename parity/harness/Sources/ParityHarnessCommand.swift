@@ -12,30 +12,40 @@ import Foundation
 ///
 /// Renders the app's own views for the UI states (see `UIOptions.usage`). `ui-state` and `ui-menus` are the child
 /// processes it runs, one per state and one for the menus; they aren't meant to be run by hand.
+///
+/// The work runs as a main-actor task while the main thread runs the run loop. The UI children run it inside
+/// `NSApp.run()`, as the app does, so AppKit handles its events (activation, key windows) itself.
 @main
 struct ParityHarnessCommand {
-    static func main() async {
+    static func main() {
         let arguments = Array(CommandLine.arguments.dropFirst())
         let usage = RenderOptions.usage + "\n\n" + UIOptions.usage
         if arguments.contains("--help") || arguments.contains("-h") || arguments.first == "help" {
             print(usage)
             exit(0)
         }
+        let work: @MainActor () async -> Void
+        var runsApplication = false
         do {
             switch arguments.first {
             case "ui", "ui-state", "ui-menus":
                 let options = try UIOptions.parse(arguments)
                 _ = NSApplication.shared
                 switch arguments.first {
-                case "ui-state": await UIChild.renderState(options)
-                case "ui-menus": await UIChild.dumpMenus(options)
-                default: await UIRunner(options: options).run()
+                case "ui-state":
+                    work = { await UIChild.renderState(options) }
+                    runsApplication = true
+                case "ui-menus":
+                    work = { await UIChild.dumpMenus(options) }
+                    runsApplication = true
+                default:
+                    work = { await UIRunner(options: options).run() }
                 }
             default:
                 let options = try RenderOptions.parse(arguments)
                 // Some AppKit code expects the shared application object to exist. It is created here but never run.
                 _ = NSApplication.shared
-                await CorpusRenderer(options: options).run()
+                work = { await CorpusRenderer(options: options).run() }
             }
         } catch let error as UsageError {
             standardError("ParityHarness: \(error.message)\n\n\(usage)")
@@ -44,7 +54,17 @@ struct ParityHarnessCommand {
             standardError("ParityHarness: \(error.localizedDescription)")
             exit(2)
         }
-        exit(0)
+        Task {
+            await work()
+            exit(0)
+        }
+        if runsApplication {
+            UIChild.startApplication()
+            // run() returns if something stops the application; the work isn't finished until it calls exit.
+            while true { NSApp.run() }
+        } else {
+            while true { CFRunLoopRun() }
+        }
     }
 }
 

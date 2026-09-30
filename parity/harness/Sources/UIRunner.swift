@@ -185,8 +185,8 @@ final class ChildApplicationDelegate: NSObject, NSApplicationDelegate {
 
 /// The child processes: one state, or the Layers panel's row menus.
 enum UIChild {
-    /// What the app delegate does at launch, plus an active app so the capture windows can be key.
-    static func prepareApplication() async {
+    /// Before `NSApp.run()`: what the app delegate does at launch, and nothing may end the process early.
+    static func startApplication() {
         NSApp.delegate = ChildApplicationDelegate.shared
         atexit {
             guard !childFinished else { return }
@@ -200,7 +200,11 @@ enum UIChild {
         SliderSnap.install()
         // Snapshots draw the canvas with Core Graphics anyway; this keeps the Metal view from ever being made.
         UserDefaults.standard.register(defaults: ["CompositorCPUCanvas": true])
-        NSApp.finishLaunching()
+    }
+
+    /// Once the application runs: make it active, so the capture windows can be key.
+    static func prepareApplication() async {
+        await settle(0.2)
         for _ in 0..<3 where !NSApp.isActive {
             activate()
             await settle(0.3)

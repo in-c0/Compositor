@@ -17,6 +17,11 @@ let offscreenOrigin = NSPoint(x: -20_000, y: -20_000)
 /// and the main actor is released between slices so tasks the views started can finish.
 func settle(_ seconds: Double) async {
     let end = Date().addingTimeInterval(seconds)
+    // Inside NSApp.run(), which the UI children use, the run loop around this task does all of that.
+    if NSApp.isRunning {
+        repeat { try? await Task.sleep(for: .milliseconds(10)) } while Date() < end
+        return
+    }
     repeat {
         while let event = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
             NSApp.sendEvent(event)
