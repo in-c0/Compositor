@@ -7,26 +7,43 @@ import Foundation
 /// Renders parity corpus cases through the Mac app's own code: the project is opened, the case's ops run through
 /// the app's editing commands, and the result is flattened by the same path as File > Export PNG. See
 /// parity/README.md for the case format.
+///
+/// `ParityHarness ui --states <file> --corpus <dir> --out <dir> [--main-menu <file>] [--state <id>]...`
+///
+/// Renders the app's own views for the UI states (see `UIOptions.usage`). `ui-state` and `ui-menus` are the child
+/// processes it runs, one per state and one for the menus; they aren't meant to be run by hand.
 @main
 struct ParityHarnessCommand {
     static func main() async {
-        let options: RenderOptions
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        let usage = RenderOptions.usage + "\n\n" + UIOptions.usage
+        if arguments.contains("--help") || arguments.contains("-h") || arguments.first == "help" {
+            print(usage)
+            exit(0)
+        }
         do {
-            options = try RenderOptions.parse(Array(CommandLine.arguments.dropFirst()))
-        } catch let error as UsageError {
-            if error.isHelp {
-                print(RenderOptions.usage)
-                exit(0)
+            switch arguments.first {
+            case "ui", "ui-state", "ui-menus":
+                let options = try UIOptions.parse(arguments)
+                _ = NSApplication.shared
+                switch arguments.first {
+                case "ui-state": await UIChild.renderState(options)
+                case "ui-menus": await UIChild.dumpMenus(options)
+                default: await UIRunner(options: options).run()
+                }
+            default:
+                let options = try RenderOptions.parse(arguments)
+                // Some AppKit code expects the shared application object to exist. It is created here but never run.
+                _ = NSApplication.shared
+                await CorpusRenderer(options: options).run()
             }
-            standardError("ParityHarness: \(error.message)\n\n\(RenderOptions.usage)")
+        } catch let error as UsageError {
+            standardError("ParityHarness: \(error.message)\n\n\(usage)")
             exit(2)
         } catch {
             standardError("ParityHarness: \(error.localizedDescription)")
             exit(2)
         }
-        // Some AppKit code expects the shared application object to exist. It is created here but never run.
-        _ = NSApplication.shared
-        await CorpusRenderer(options: options).run()
         exit(0)
     }
 }

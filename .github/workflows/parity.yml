@@ -80,7 +80,7 @@ jobs:
 
       - name: Reference cache key
         id: key
-        run: echo "key=refs-v1-${{ hashFiles('Compositor/**', 'Compositor.xcodeproj/**', 'parity/harness/**', 'parity/corpus/**') }}" >> "$GITHUB_OUTPUT"
+        run: echo "key=refs-v1-${{ hashFiles('Compositor/**', 'Compositor.xcodeproj/**', 'parity/harness/**', 'parity/corpus/**', 'parity/ui/**') }}" >> "$GITHUB_OUTPUT"
 
   references:
     name: references
@@ -104,6 +104,11 @@ jobs:
       - name: Render references with the Mac app's code
         if: steps.cache.outputs.cache-hit != 'true'
         run: parity/harness/render.sh refs
+
+      # The app's own views for each state in parity/ui/states.toml, and its menus (see parity/README.md).
+      - name: Render UI states and menus with the Mac app's views
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: parity/harness/ui.sh refs/ui
 
       - name: Save references
         if: steps.cache.outputs.cache-hit != 'true'

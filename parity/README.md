@@ -9,7 +9,8 @@ Each corpus case is rendered twice. The Mac app's own code renders it once, thro
 ```
 parity/
 ├── corpus/<feature>/<case>/case.json   one case, plus its input
-├── harness/                            Swift CLI: renders cases with the Mac app's code
+├── harness/                            Swift CLI: renders cases and UI states with the Mac app's code
+├── ui/states.toml                      the UI states to render
 ├── tolerances.toml                     per-feature overrides, each with a written reason
 └── features.toml                       feature list for PARITY.md and affected-case selection
 ```
@@ -69,6 +70,32 @@ parity/harness/render.sh <out-dir> [--case blend/multiply-50-opaque]...
 `render.sh` builds the tool with `harness/build.sh` (Release, into `build/parity-harness`) and runs `ParityHarness render --corpus parity/corpus --out <out-dir>`. A case id is the case folder's path inside `corpus/`. Leave out `--case` to render every case.
 
 A case that fails doesn't stop the run. The tool exits with a non-zero status only for a usage error. Each case's result is in `<out-dir>/harness-info.json`, with `ok` or `error` and the error message, next to the macOS version, the Xcode and Swift versions, and whether Metal found a GPU. Layer effects render with Metal when there is a GPU and on the CPU when there isn't, so references made both ways can differ.
+
+## UI states
+
+`ui/states.toml` lists views of the Mac app to render for comparison with the port's own UI: the editor window, the tool rail, each tool header, the status bar, the Layers panel, and the sheets and floating panels. The comments at the top of the file describe the fields. Render them on a Mac with:
+
+```
+parity/harness/ui.sh <out-dir> [--state layers/stack]...
+```
+
+This writes `<out-dir>/<id>.png` for each state, plus `ui-info.json` and `menus.json`. CI runs it after the references and puts the result in `refs/ui` in the references artifact.
+
+`ParityHarness ui` draws each state with the app's own SwiftUI and AppKit views, hosted as the app hosts them, in a key window placed off screen: `ContentView` for the window, `LayersPanel`, and each sheet or panel with the modifiers its presenter adds. A state's document is its corpus case's `input.comp`, opened as File > Open does, with none of the case's ops applied. `layer` selects a layer, counting from the bottom at 0. `tool` takes the tool rail's names in kebab case (`spot-healing`), plus `eraser`, `magic` and `smear`. Every PNG is 1 pixel per point, in the dark appearance, captured with `cacheDisplay` and flattened over the window's background color. Every state starts from an empty defaults domain, and ToolDefaults uses its compiled defaults (`XCTestConfigurationFilePath` is set).
+
+Some views can't be built on their own, so they are taken another way:
+
+- The tool rail, tool headers and status bar are private to `ContentView`, so those states are cropped from the 1180 × 780 editor. The editor's toolbar sits in the window's title bar and isn't captured.
+- Keyboard Shortcuts is private to the app. The harness opens it the way the Edit menu does and captures the panel's content.
+- `sheet = "layer-effects"` edits the selected layer's first effect.
+- Camera Raw is rendered at 440 × 780, the size it docks at.
+
+Each state runs in its own process. A state that fails, crashes or takes longer than two minutes is recorded in `ui-info.json` with the reason, and the others still render. `ui-info.json` also records each PNG's size, the window's backing scale, whether the window was key, and the Mac's accent color. The app has no accent color of its own, so the port has to use the same one.
+
+`menus.json` holds two menus in one form: each item's title, its key equivalent with the modifiers and how the menu draws it, whether it is enabled or checked, and separators and submenus.
+
+- `mainMenu` is the real app's menu bar just after launch, with no document open. The harness can't compile `CompositorApp.swift`, where the menu commands are declared, so `harness/menus/dump-main-menu.sh` builds the app itself (Debug, with the hardened runtime off so dyld accepts an inserted library) and launches it with `harness/menus/MenuDump.m` inserted. Once the app has launched, the library writes `NSApp.mainMenu` to standard output and exits the app. No app source is changed. The Services submenu is left empty because its items depend on what else is installed. Set `PARITY_SKIP_MAIN_MENU=1` to skip building the app.
+- `layerContextMenus` is the Layers panel's row menu, taken by right-clicking every row of a few corpus documents, so each variant title (Ungroup Layers, Release Clipping Mask, Show Layer) appears.
 
 ## Comparing
 
