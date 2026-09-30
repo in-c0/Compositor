@@ -2,6 +2,9 @@
 // `float` throughout; every step here rounds where the C rounds (`keep`, `mad` and the correctly
 // rounded helpers in `float.wgsl`), since a threshold compare turns one ulp into a whole level.
 //
+// Multiply-adds go through `fmad`, which doesn't depend on the GPU fusing `fma`: a halftone
+// spot can land exactly on its threshold, where only the fused rounding gives the Mac's answer.
+//
 // `tone` holds one plane per channel dithered (one for the two-color looks, three for Original):
 // each pixel's straight color or luminance after density and contrast.
 
@@ -67,12 +70,12 @@ fn sdiv(a: f32, b: f32) -> f32 {
 
 // `0.2126f * r + 0.7152f * g + 0.0722f * b`, as clang contracts it.
 fn luma(r: f32, g: f32, b: f32) -> f32 {
-    return mad(0.0722, b, mad(0.2126, r, keep(0.7152 * g)));
+    return fmad(0.0722, b, fmad(0.2126, r, keep(0.7152 * g)));
 }
 
 // `adjust_tone` with gamma 1 (Density 0): powf(v, 1) is v.
 fn adjust_tone(v: f32) -> f32 {
-    return clamp01(mad(keep(clamp01(v) - 0.5), params.contrast, 0.5));
+    return clamp01(fmad(keep(clamp01(v) - 0.5), params.contrast, 0.5));
 }
 
 fn alpha_at(i: u32) -> u32 {
@@ -142,45 +145,48 @@ fn pattern_row(index: u32, row: u32) -> u32 {
     return patterns[index][row];
 }
 
-// Error diffusion of one plane over rows row0..row1, in serpentine order.
+// Adds `weight` × `error` to the neighbor `dx`, `dy` away (mirrored on reversed rows), if it's
+// in the image.
+fn spread(base: u32, x: u32, y: u32, dx: i32, dy: u32, weight: f32, error: f32, reverse: bool) {
+    let nx = i32(x) + select(dx, -dx, reverse);
+    let ny = y + dy;
+    if (nx < 0 || nx >= i32(params.width) || ny >= params.height) {
+        return;
+    }
+    let n = base + ny * params.width + u32(nx);
+    tone[n] = fmad(error, weight, tone[n]);
+}
+
+// Error diffusion of one plane over rows row0..row1, in serpentine order. Atkinson passes 1/8 of
+// the error to six neighbors, Floyd–Steinberg 7, 3, 5 and 1 sixteenths to four.
 fn diffuse(plane: u32) {
     let w = params.width;
-    let h = params.height;
-    let base = plane * w * h;
+    let base = plane * w * params.height;
     let atkinson = params.style == ATKINSON;
-    // Atkinson: six neighbors at 1/8 each. Floyd–Steinberg: four at 7, 3, 5, 1 sixteenths.
-    var dxs = array<i32, 6>(1, -1, 0, 1, 0, 0);
-    var dys = array<i32, 6>(0, 1, 1, 1, 0, 0);
-    var weights = array<f32, 6>(7.0, 3.0, 5.0, 1.0, 0.0, 0.0);
-    var count = 4;
-    var divisor = 16.0;
-    if (atkinson) {
-        dxs = array<i32, 6>(1, 2, -1, 0, 1, 0);
-        dys = array<i32, 6>(0, 0, 1, 1, 1, 2);
-        weights = array<f32, 6>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
-        count = 6;
-        divisor = 8.0;
-    }
+    let divisor = select(16.0, 8.0, atkinson);
     for (var y = params.row0; y < params.row1; y++) {
         let reverse = (y & 1u) != 0u;
         for (var i = 0u; i < w; i++) {
             let x = select(i, w - 1u - i, reverse);
             let at = y * w + x;
-            if (alpha_at(at) == 0u) {
-                continue;
-            }
-            let old = tone[base + at];
-            let q = quantize(old, params.levels);
-            tone[base + at] = q;
-            let error = sdiv(keep(keep(old - q) * params.diffusion), divisor);
-            for (var t = 0; t < count; t++) {
-                let nx = i32(x) + select(dxs[t], -dxs[t], reverse);
-                let ny = i32(y) + dys[t];
-                if (nx < 0 || nx >= i32(w) || ny >= i32(h)) {
-                    continue;
+            if (alpha_at(at) != 0u) {
+                let old = tone[base + at];
+                let q = quantize(old, params.levels);
+                tone[base + at] = q;
+                let error = sdiv(keep(keep(old - q) * params.diffusion), divisor);
+                if (atkinson) {
+                    spread(base, x, y, 1, 0u, 1.0, error, reverse);
+                    spread(base, x, y, 2, 0u, 1.0, error, reverse);
+                    spread(base, x, y, -1, 1u, 1.0, error, reverse);
+                    spread(base, x, y, 0, 1u, 1.0, error, reverse);
+                    spread(base, x, y, 1, 1u, 1.0, error, reverse);
+                    spread(base, x, y, 0, 2u, 1.0, error, reverse);
+                } else {
+                    spread(base, x, y, 1, 0u, 7.0, error, reverse);
+                    spread(base, x, y, -1, 1u, 3.0, error, reverse);
+                    spread(base, x, y, 0, 1u, 5.0, error, reverse);
+                    spread(base, x, y, 1, 1u, 1.0, error, reverse);
                 }
-                let n = base + u32(ny) * w + u32(nx);
-                tone[n] = mad(error, weights[t], tone[n]);
             }
         }
     }
@@ -220,13 +226,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (p.w != 0u) {
             let dy = keep(keep(f32(y % block) + 0.5) - middle);
             let dx = keep(keep(f32(x % block) + 0.5) - middle);
-            let cover = clamp01(keep(keep(radius - root(mad(dx, dx, keep(dy * dy)))) + 0.5));
+            let cover = clamp01(keep(keep(radius - root(fmad(dx, dx, keep(dy * dy)))) + 0.5));
             if (cover < 1.0) {
                 // The gap color's bytes.
                 let gap = params.dark.xyz;
                 for (var c = 0; c < 3; c++) {
                     let back = keep(div(gap[c] * f32(p.w), 255.0) * keep(1.0 - cover));
-                    out[c] = u32(round_away(mad(f32(p[c]), cover, back)));
+                    out[c] = u32(round_away(fmad(f32(p[c]), cover, back)));
                 }
             }
         }
@@ -250,7 +256,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let threshold = ordered_threshold(params.style, x, y);
             for (var c = 0u; c < params.planes; c++) {
                 let v = tone[c * count + i];
-                let q = floor(mad(clamp01(v), steps, threshold));
+                let q = floor(fmad(clamp01(v), steps, threshold));
                 tone[c * count + i] = div(min(q, steps), steps);
             }
         }
@@ -268,9 +274,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         } else {
             let t = tone[i];
             dst[i] = write_pixel(p.w, vec3<f32>(
-                mad(keep(light.x - dark.x), t, dark.x),
-                mad(keep(light.y - dark.y), t, dark.y),
-                mad(keep(light.z - dark.z), t, dark.z)));
+                fmad(keep(light.x - dark.x), t, dark.x),
+                fmad(keep(light.y - dark.y), t, dark.y),
+                fmad(keep(light.z - dark.z), t, dark.z)));
         }
         return;
     }
@@ -289,13 +295,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let cell = f32(params.cell);
             let fx = f32(x) + 0.5;
             let fy = f32(y) + 0.5;
-            var u = sdiv(mad(fx, params.cos_a, keep(fy * params.sin_a)), cell);
-            var v = sdiv(mad(-fx, params.sin_a, keep(fy * params.cos_a)), cell);
+            var u = sdiv(fmad(fx, params.cos_a, keep(fy * params.sin_a)), cell);
+            var v = sdiv(fmad(-fx, params.sin_a, keep(fy * params.cos_a)), cell);
             u = keep(u - keep(floor(u) + 0.5));
             v = keep(v - keep(floor(v) + 0.5));
             var spot: f32;
             if (params.style == DOTS) {
-                spot = keep(3.14159265 * mad(u, u, keep(v * v)));
+                spot = keep(3.14159265 * fmad(u, u, keep(v * v)));
             } else if (params.style == LINES) {
                 spot = keep(abs(v) * 2.0);
             } else {
@@ -307,16 +313,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let paper = select(1.0, 0.0, lod);
             let s = straight(p);
             dst[i] = write_pixel(p.w, vec3<f32>(
-                mad(keep(s.x - paper), amount, paper),
-                mad(keep(s.y - paper), amount, paper),
-                mad(keep(s.z - paper), amount, paper)));
+                fmad(keep(s.x - paper), amount, paper),
+                fmad(keep(s.y - paper), amount, paper),
+                fmad(keep(s.z - paper), amount, paper)));
         } else {
             let ink = select(dark, light, lod);
             let paper = select(light, dark, lod);
             dst[i] = write_pixel(p.w, vec3<f32>(
-                mad(keep(ink.x - paper.x), amount, paper.x),
-                mad(keep(ink.y - paper.y), amount, paper.y),
-                mad(keep(ink.z - paper.z), amount, paper.z)));
+                fmad(keep(ink.x - paper.x), amount, paper.x),
+                fmad(keep(ink.y - paper.y), amount, paper.y),
+                fmad(keep(ink.z - paper.z), amount, paper.z)));
         }
         return;
     }
@@ -330,7 +336,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let shift = shifts[line];
     let offset = abs(keep(keep(f32(y - top) + 0.5) - middle));
     let along = keep(keep(f32(x % spacing) + 0.5) - middle);
-    let centered = i32(round_away(mad(-along, dots, f32(x))));
+    let centered = i32(round_away(fmad(-along, dots, f32(x))));
     let at = u32(clamp(centered, 0, i32(w) - 1));
     // The line's tone at column `at`: the rows it covers, `shift` pixels to the left.
     var sum = vec3<f32>(0.0);
@@ -362,18 +368,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     } else {
         t = scan.x;
         color = vec3<f32>(
-            mad(keep(light.x - dark.x), t, dark.x),
-            mad(keep(light.y - dark.y), t, dark.y),
-            mad(keep(light.z - dark.z), t, dark.z));
+            fmad(keep(light.x - dark.x), t, dark.x),
+            fmad(keep(light.y - dark.y), t, dark.y),
+            fmad(keep(light.z - dark.z), t, dark.z));
     }
     color = vec3<f32>(keep(color.x * 1.35), keep(color.y * 1.35), keep(color.z * 1.35));
-    let beam = keep(middle * mad(0.5, root(clamp01(t)), 0.2));
+    let beam = keep(middle * fmad(0.5, root(clamp01(t)), 0.2));
     let across = keep(along * dots);
-    let distance = root(mad(offset, offset, keep(across * across)));
+    let distance = root(fmad(offset, offset, keep(across * across)));
     let cover = clamp01(keep(keep(beam - distance) + 0.5));
     let screen = select(dark, vec3<f32>(0.0), params.original != 0u);
     dst[i] = write_pixel(p.w, vec3<f32>(
-        mad(keep(color.x - screen.x), cover, screen.x),
-        mad(keep(color.y - screen.y), cover, screen.y),
-        mad(keep(color.z - screen.z), cover, screen.z)));
+        fmad(keep(color.x - screen.x), cover, screen.x),
+        fmad(keep(color.y - screen.y), cover, screen.y),
+        fmad(keep(color.z - screen.z), cover, screen.z)));
 }

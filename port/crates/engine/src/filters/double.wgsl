@@ -72,3 +72,21 @@ fn dd_tanh(x: vec2<f32>) -> vec2<f32> {
     let t = dd_div(dd_sub(e, DD_ONE), dd_add(e, DD_ONE));
     return select(t, -t, negative);
 }
+
+// `fma(a, b, c)` from exact pieces, for GPUs whose `fma` isn't fused (WARP, the software adapter
+// on hosted Windows runners): the product split with Veltkamp's method, summed exactly with `c`,
+// then rounded once. Correctly rounded but for vanishingly rare double roundings.
+fn veltkamp(x: f32) -> vec2<f32> {
+    let t = keep(4097.0 * x);
+    let hi = keep(t - keep(t - x));
+    return vec2<f32>(hi, keep(x - hi));
+}
+
+fn fmad(a: f32, b: f32, c: f32) -> f32 {
+    let p = keep(a * b);
+    let sa = veltkamp(a);
+    let sb = veltkamp(b);
+    let e = keep(keep(keep(keep(sa.x * sb.x) - p) + keep(sa.x * sb.y)) + keep(sa.y * sb.x)) + keep(sa.y * sb.y);
+    let s = two_sum(p, c);
+    return keep(s.x + keep(s.y + keep(e)));
+}
