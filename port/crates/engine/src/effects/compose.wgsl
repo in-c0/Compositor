@@ -37,10 +37,12 @@ var<private> color: vec3<f32>;
 var<private> alpha: f32;
 
 // color = c * coverage + color * (1 - coverage), alpha = coverage + alpha * (1 - coverage).
+// Metal fuses the second product of the color sum, not the first: at an exact tie between two
+// bytes (effects/fractional, where the sum is 59.5 / 255) only that order rounds as the Mac does.
 fn over(c: vec3<f32>, coverage: f32) {
     let rest = keep(1.0 - coverage);
-    let kept = vec3<f32>(keep(color.x * rest), keep(color.y * rest), keep(color.z * rest));
-    color = fma(c, vec3<f32>(coverage), kept);
+    let painted = vec3<f32>(keep(c.x * coverage), keep(c.y * coverage), keep(c.z * coverage));
+    color = fma(color, vec3<f32>(rest), painted);
     alpha = keep(fma(alpha, rest, coverage));
 }
 
