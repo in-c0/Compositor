@@ -3,8 +3,9 @@
 //!
 //! vImage's high-quality scaling is Lanczos with five lobes, widened to the reduction: each output
 //! pixel weighs the 20 source pixels around it at sinc(d)·sinc(d/5), d the distance in output
-//! pixels. It runs vertically, then horizontally, each pass rounding and clamping to bytes. Measured
-//! on the `probe-halve-*` cases; see `parity/features.toml` for how close this is.
+//! pixels. The weights are normalized, truncated to 14 fractional bits, and what truncation lost is
+//! given back to the two middle ones. It runs vertically, then horizontally, each pass rounding and
+//! clamping to bytes. Measured on the `probe-halve-*` cases.
 
 use image::{GrayImage, RgbaImage};
 
@@ -19,14 +20,20 @@ fn lanczos5(x: f64) -> f64 {
     5.0 * px.sin() * (px / 5.0).sin() / (px * px)
 }
 
-/// The weights of source pixels 2j − 9 … 2j + 10 for output pixel j.
-fn weights() -> [f64; 20] {
+/// The weights of source pixels 2j − 9 … 2j + 10 for output pixel j, in 1/16384ths.
+fn weights() -> [i32; 20] {
     let mut w = [0.0; 20];
     for (t, w) in w.iter_mut().enumerate() {
         *w = lanczos5((t as f64 - 9.5) * 0.5);
     }
     let sum: f64 = w.iter().sum();
-    w.map(|v| v / sum)
+    let mut fixed = w.map(|v| (v / sum * 16384.0).trunc() as i32);
+    let mut middle = 9;
+    while fixed.iter().sum::<i32>() < 16384 {
+        fixed[middle] += 1;
+        middle = 19 - middle;
+    }
+    fixed
 }
 
 /// Halves `values` (`channels` per pixel, `width` x `height`, both even) with the weights above,
@@ -34,15 +41,12 @@ fn weights() -> [f64; 20] {
 fn halve_even(values: &[u8], width: usize, height: usize, channels: usize) -> Vec<u8> {
     let w = weights();
     let (hw, hh) = (width / 2, height / 2);
-    let at = |v: &[u8], stride: usize, count: usize, i: isize, offset: usize| -> f64 { v[i.clamp(0, count as isize - 1) as usize * stride + offset] as f64 };
-    let round = |v: f64| (v + 0.5).floor().clamp(0.0, 255.0) as u8;
+    let at = |v: &[u8], stride: usize, count: usize, i: isize, offset: usize| v[i.clamp(0, count as isize - 1) as usize * stride + offset] as i32;
+    let round = |v: i32| ((v + 8192) >> 14).clamp(0, 255) as u8;
     let mut rows = vec![0u8; width * hh * channels];
     for j in 0..hh {
         for x in 0..width * channels {
-            let mut s = 0.0;
-            for (t, w) in w.iter().enumerate() {
-                s += w * at(values, width * channels, height, 2 * j as isize - 9 + t as isize, x);
-            }
+            let s: i32 = w.iter().enumerate().map(|(t, w)| w * at(values, width * channels, height, 2 * j as isize - 9 + t as isize, x)).sum();
             rows[j * width * channels + x] = round(s);
         }
     }
@@ -51,10 +55,7 @@ fn halve_even(values: &[u8], width: usize, height: usize, channels: usize) -> Ve
         let row = &rows[y * width * channels..(y + 1) * width * channels];
         for i in 0..hw {
             for c in 0..channels {
-                let mut s = 0.0;
-                for (t, w) in w.iter().enumerate() {
-                    s += w * at(row, channels, width, 2 * i as isize - 9 + t as isize, c);
-                }
+                let s: i32 = w.iter().enumerate().map(|(t, w)| w * at(row, channels, width, 2 * i as isize - 9 + t as isize, c)).sum();
                 out[(y * hw + i) * channels + c] = round(s);
             }
         }
