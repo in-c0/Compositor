@@ -113,7 +113,6 @@
         "saturation" : 0
       },
       "id" : "76B9DB44-9EEF-4C52-B883-DEB747AEFB1A",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Gaussian blur, radius 3",
       "transform" : {

@@ -114,7 +114,6 @@
         "saturation" : 0
       },
       "id" : "42279673-D5CC-4A3F-A1C6-6A1DA9DAECEB",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Add Noise",
       "transform" : {

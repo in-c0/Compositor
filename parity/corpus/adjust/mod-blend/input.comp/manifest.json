@@ -121,7 +121,6 @@
       },
       "blendMode" : "Luminosity",
       "id" : "94218E31-14E7-490B-BD81-3FD76A8FA60F",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Curves in Luminosity mode",
       "transform" : {

@@ -27,7 +27,6 @@
     },
     {
       "id" : "0C83D305-7D22-4CF5-8B6E-5F482834A9B1",
-      "imageFile" : null,
       "isGroup" : true,
       "isVisible" : true,
       "name" : "Folder",
@@ -154,7 +153,6 @@
         "saturation" : 0
       },
       "id" : "8FAE1BA6-52F7-414E-AE23-3F72F218883F",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Invert",
       "parentID" : "0C83D305-7D22-4CF5-8B6E-5F482834A9B1",

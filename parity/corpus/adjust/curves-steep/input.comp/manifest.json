@@ -128,7 +128,6 @@
         "saturation" : 0
       },
       "id" : "0DB47DA9-34A1-42D3-AFC1-B1C305A60792",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "A steep many-point curve",
       "transform" : {

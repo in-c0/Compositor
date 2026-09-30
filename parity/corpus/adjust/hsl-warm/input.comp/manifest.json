@@ -112,7 +112,6 @@
         "saturation" : 30
       },
       "id" : "FA48C24B-CF5E-43FA-8D99-1510F090B621",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Hue +40, saturation +30",
       "transform" : {

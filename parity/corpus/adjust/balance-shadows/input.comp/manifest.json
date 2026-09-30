@@ -124,7 +124,6 @@
         "saturation" : 0
       },
       "id" : "73DC47BC-5EC9-48A8-A80F-68487E73F674",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Color Balance: shadows toward cyan and blue",
       "transform" : {

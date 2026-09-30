@@ -124,7 +124,6 @@
         "saturation" : 0
       },
       "id" : "94818001-C79D-4C51-8C3E-8E88ED63B040",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Color Balance: highlights, luminosity not preserved",
       "transform" : {

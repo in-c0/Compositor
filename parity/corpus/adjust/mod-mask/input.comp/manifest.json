@@ -120,7 +120,6 @@
         "saturation" : 0
       },
       "id" : "6101C2CE-F529-478C-9824-0EB4F41C4138",
-      "imageFile" : null,
       "isVisible" : true,
       "maskFile" : "6101C2CE-F529-478C-9824-0EB4F41C4138.mask.png",
       "name" : "Curves through a ramp mask",

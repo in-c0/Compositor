@@ -120,7 +120,6 @@
         "saturation" : 0
       },
       "id" : "DCC509B4-5F99-46FB-90E8-2BBC09BAB0FB",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "An S curve",
       "transform" : {

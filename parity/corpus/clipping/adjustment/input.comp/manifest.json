@@ -132,7 +132,6 @@
         "saturation" : 0
       },
       "id" : "2611DEE8-B52E-4706-BE31-FFC7E486D406",
-      "imageFile" : null,
       "isVisible" : true,
       "maskSourceID" : "967FD5A8-8CD4-41A5-9604-F3BAAEF67C90",
       "name" : "Invert",

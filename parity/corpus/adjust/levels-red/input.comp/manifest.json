@@ -112,7 +112,6 @@
         "saturation" : 0
       },
       "id" : "4C05B0E0-9047-42B0-BB37-25E0BE2E8D79",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Red channel gamma 0.6",
       "transform" : {

@@ -124,7 +124,6 @@
         "saturation" : 0
       },
       "id" : "B58D2CE2-D21D-4669-94C7-AC4FBD92F238",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Color Balance: midtones toward red and green",
       "transform" : {
