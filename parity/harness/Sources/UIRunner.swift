@@ -190,9 +190,7 @@ enum UIChild {
         NSApp.delegate = ChildApplicationDelegate.shared
         atexit {
             guard !childFinished else { return }
-            standardError("ParityHarness: exiting before the result was written, from:
-" + Thread.callStackSymbols.joined(separator: "
-"))
+            standardError("ParityHarness: exiting before the result was written, from:\n" + Thread.callStackSymbols.joined(separator: "\n"))
         }
         ProcessInfo.processInfo.disableSuddenTermination()
         ProcessInfo.processInfo.disableAutomaticTermination("rendering a UI state")
