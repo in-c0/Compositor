@@ -65,6 +65,18 @@ fn two_sum(a: f32, b: f32) -> vec2<f32> {
 
 // A value held as high + low floats, so a position just past a slot boundary stays past it on
 // every GPU.
+// The rounding error of a · b, whose rounded product is p, exactly (Dekker's split). `fma` would
+// do it in one step, but WARP computes `fma` unfused.
+fn product_error(a: f32, b: f32, p: f32) -> f32 {
+    let ca = keep(4097.0 * a);
+    let ah = keep(ca - keep(ca - a));
+    let al = keep(a - ah);
+    let cb = keep(4097.0 * b);
+    let bh = keep(cb - keep(cb - b));
+    let bl = keep(b - bh);
+    return keep(keep(keep(keep(keep(ah * bh) - p) + keep(ah * bl)) + keep(al * bh)) + keep(al * bl));
+}
+
 fn position(p: vec2<i32>) -> vec2<f32> {
     if (params.kind == RADIAL) {
         let d = vec2<f32>(p) + vec2<f32>(0.5) - params.base_hi;
@@ -74,8 +86,8 @@ fn position(p: vec2<i32>) -> vec2<f32> {
     let y = f32(p.y);
     let px = keep(x * params.step_hi.x);
     let py = keep(y * params.step_hi.y);
-    let ex = fma(x, params.step_hi.x, -px) + x * params.step_lo.x;
-    let ey = fma(y, params.step_hi.y, -py) + y * params.step_lo.y;
+    let ex = product_error(x, params.step_hi.x, px) + x * params.step_lo.x;
+    let ey = product_error(y, params.step_hi.y, py) + y * params.step_lo.y;
     let a = two_sum(params.base_hi.x, px);
     let b = two_sum(a.x, py);
     return two_sum(b.x, keep(keep(keep(a.y + b.y) + keep(ex + ey)) + params.base_lo.x));
