@@ -92,7 +92,12 @@ __attribute__((constructor)) static void parityMenuDumpInstall(void) {
         // Frontmost, as when a person uses the menu bar: some items follow the key window.
         [NSApp activateIgnoringOtherApps:YES];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(settleSeconds() * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            dumpAndExit(launched);
+            // macOS adds some of its own items (window tiling, Emoji & Symbols, Quit and Keep Windows) only once a menu
+            // has been updated, and not always straight away. One pass prompts that; the one written comes after a pause.
+            if (NSApp.mainMenu) dumpMenu(NSApp.mainMenu);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                dumpAndExit(launched);
+            });
         });
     }];
 }
