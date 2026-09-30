@@ -79,8 +79,31 @@ impl Gpu {
         self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("data"),
             contents: &padded,
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         })
+    }
+
+    /// A copy of `img`.
+    pub fn copy(&self, img: &GpuImage) -> GpuImage {
+        let out = self.image(img.width, img.height);
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder.copy_buffer_to_buffer(&img.buffer, 0, &out.buffer, 0, img.buffer.size());
+        self.queue.submit([encoder.finish()]);
+        out
+    }
+
+    /// A copy of a storage buffer.
+    pub fn copy_buffer(&self, buffer: &wgpu::Buffer) -> wgpu::Buffer {
+        let out = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("copy"),
+            size: buffer.size(),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder.copy_buffer_to_buffer(buffer, 0, &out, 0, buffer.size());
+        self.queue.submit([encoder.finish()]);
+        out
     }
 
     /// Reads RGBA8 bytes back as they are.
