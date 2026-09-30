@@ -1,0 +1,51 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: an ellipse less a strip along the top, then less a triangle",
+  "ops": [
+    {
+      "from": [
+        8.0,
+        10.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    },
+    {
+      "from": [
+        0.0,
+        0.0
+      ],
+      "mode": "Subtract",
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        64.0,
+        14.0
+      ]
+    },
+    {
+      "kind": "Polygonal",
+      "mode": "Subtract",
+      "op": "lasso",
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          40.0,
+          0.0
+        ],
+        [
+          0.0,
+          40.0
+        ]
+      ]
+    }
+  ]
+}

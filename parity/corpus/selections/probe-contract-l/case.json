@@ -1,0 +1,41 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: an L contracted by 3 (a whole round inside corner)",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          6.0,
+          6.0
+        ],
+        [
+          30.0,
+          6.0
+        ],
+        [
+          30.0,
+          30.0
+        ],
+        [
+          58.0,
+          30.0
+        ],
+        [
+          58.0,
+          58.0
+        ],
+        [
+          6.0,
+          58.0
+        ]
+      ]
+    },
+    {
+      "contract": 3,
+      "op": "modifySelection"
+    }
+  ]
+}

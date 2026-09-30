@@ -1029,6 +1029,28 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         ("probe-ellipse-cut-right", "Probe: an ellipse, less the rectangle right of x = 45", ellipse_then(subtract(marquee("Rectangle", [45.0, 0.0], [64.0, 64.0])))),
         ("probe-circle-cut-thin", "Probe: a circle, less a one-pixel column through it", vec![marquee("Ellipse", [8.0, 8.0], [56.0, 56.0]), subtract(marquee("Rectangle", [31.0, 0.0], [32.0, 64.0]))]),
         ("probe-ellipse-large", "Probe: an ellipse larger than the canvas, inside it at the corners", vec![marquee("Ellipse", [-6.0, -4.0], [70.0, 68.0])]),
+        // Long shallow edges whose 1/16 px steps round well away from their slope (Core Graphics
+        // truncates each step), meeting at vertices inside pixels.
+        ("probe-vertex-right", "Probe: two long shallow edges meeting at a vertex on the right", vec![polygon(&[[2.3, 2.4286], [61.4, 31.3], [2.3, 52.9571]])]),
+        ("probe-vertex-left", "Probe: two long shallow edges meeting at a vertex on the left", vec![polygon(&[[61.7, 3.8286], [61.7, 54.3571], [2.6, 32.7]])]),
+        ("probe-vertex-bottom", "Probe: two long steep edges meeting at a vertex at the bottom", vec![polygon(&[[2.43, 2.3], [52.96, 2.3], [31.3, 61.4]])]),
+        ("probe-edge-long-up", "Probe: one long shallow edge between two vertical ones", vec![polygon(&[[1.5, 20.3], [62.5, 29.25], [62.5, 60.0], [1.5, 60.0]])]),
+        ("probe-edge-long-down", "Probe: one long shallow edge the other way", vec![polygon(&[[1.5, 29.25], [62.5, 20.3], [62.5, 60.0], [1.5, 60.0]])]),
+        // Inside corners after Contract, and bands that cut each other's round joins.
+        ("probe-contract-l", "Probe: an L contracted by 3 (a whole round inside corner)", vec![polygon(&[[6.0, 6.0], [30.0, 6.0], [30.0, 30.0], [58.0, 30.0], [58.0, 58.0], [6.0, 58.0]]), modify("contract", 3)]),
+        ("probe-contract-step1", "Probe: a one-pixel step contracted by 2 (the corner's arc cut by the next edge's band)", vec![polygon(&[[20.0, 8.0], [26.0, 8.0], [26.0, 50.0], [18.0, 50.0], [18.0, 30.0], [20.0, 30.0]]), modify("contract", 2)]),
+        ("probe-contract-step3", "Probe: a three-pixel step contracted by 2", vec![polygon(&[[20.0, 8.0], [26.0, 8.0], [26.0, 50.0], [15.0, 50.0], [15.0, 30.0], [20.0, 30.0]]), modify("contract", 2)]),
+        ("probe-expand-gap", "Probe: a C with a 3 px gap expanded by 2 (round joins cut by each other)", vec![polygon(&[[10.0, 10.0], [54.0, 10.0], [54.0, 20.0], [20.0, 20.0], [20.0, 23.0], [54.0, 23.0], [54.0, 54.0], [10.0, 54.0]]), modify("expand", 2)]),
+        // A curve cut, then its piece cut again.
+        ("probe-recut-strips", "Probe: an ellipse less a strip along the top, then less a strip on the left", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0])), subtract(marquee("Rectangle", [0.0, 0.0], [26.0, 64.0]))]),
+        ("probe-recut-left", "Probe: an ellipse less the strip on the left only", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [26.0, 64.0]))]),
+        ("probe-recut-top", "Probe: an ellipse less the strip along the top only", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0]))]),
+        ("probe-recut-union", "Probe: a rectangle plus an ellipse, less a strip on the left", vec![marquee("Rectangle", [20.0, 20.0], [44.0, 44.0]), add(ellipse()), subtract(marquee("Rectangle", [0.0, 0.0], [30.0, 64.0]))]),
+        ("probe-recut-diagonal", "Probe: an ellipse less a strip along the top, then less a triangle", vec![ellipse(), subtract(marquee("Rectangle", [0.0, 0.0], [64.0, 14.0])), subtract(polygon(&[[0.0, 0.0], [40.0, 0.0], [0.0, 40.0]]))]),
+        // Expand and Contract on curves.
+        ("probe-expand-circle", "Probe: a circle expanded by 3", vec![marquee("Ellipse", [16.0, 16.0], [48.0, 48.0]), modify("expand", 3)]),
+        ("probe-contract-ellipse", "Probe: an ellipse contracted by 2", vec![ellipse(), modify("contract", 2)]),
+        ("probe-expand-small-ellipse", "Probe: a small ellipse expanded by 4", vec![marquee("Ellipse", [28.0, 28.0], [36.0, 34.0]), modify("expand", 4)]),
     ];
     for (case, label, ops) in probes {
         let mut d = w.doc(F, case, N, N);

@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a small ellipse expanded by 4",
+  "ops": [
+    {
+      "from": [
+        28.0,
+        28.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        36.0,
+        34.0
+      ]
+    },
+    {
+      "expand": 4,
+      "op": "modifySelection"
+    }
+  ]
+}

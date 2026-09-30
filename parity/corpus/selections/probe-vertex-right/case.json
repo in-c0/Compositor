@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: two long shallow edges meeting at a vertex on the right",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          2.3,
+          2.4286
+        ],
+        [
+          61.4,
+          31.3
+        ],
+        [
+          2.3,
+          52.9571
+        ]
+      ]
+    }
+  ]
+}

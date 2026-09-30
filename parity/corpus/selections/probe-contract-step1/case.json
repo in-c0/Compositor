@@ -1,0 +1,41 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: a one-pixel step contracted by 2 (the corner's arc cut by the next edge's band)",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          20.0,
+          8.0
+        ],
+        [
+          26.0,
+          8.0
+        ],
+        [
+          26.0,
+          50.0
+        ],
+        [
+          18.0,
+          50.0
+        ],
+        [
+          18.0,
+          30.0
+        ],
+        [
+          20.0,
+          30.0
+        ]
+      ]
+    },
+    {
+      "contract": 2,
+      "op": "modifySelection"
+    }
+  ]
+}
