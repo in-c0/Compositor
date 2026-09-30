@@ -173,8 +173,10 @@ enum UIChild {
         // Snapshots draw the canvas with Core Graphics anyway; this keeps the Metal view from ever being made.
         UserDefaults.standard.register(defaults: ["CompositorCPUCanvas": true])
         NSApp.finishLaunching()
-        activate()
-        await settle(0.3)
+        for _ in 0..<3 where !NSApp.isActive {
+            activate()
+            await settle(0.3)
+        }
     }
 
     /// Makes this process the active app, so its windows can be key. `NSApp.activate()` only asks, and a process

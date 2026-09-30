@@ -12,11 +12,15 @@ final class CaptureWindow: NSWindow {
 /// Where capture windows go: far outside every screen.
 let offscreenOrigin = NSPoint(x: -20_000, y: -20_000)
 
-/// Lets AppKit and SwiftUI catch up for `seconds`: the run loop runs (layout, display, timers) and the main actor is
-/// released between slices so tasks the views started can finish.
+/// Lets AppKit and SwiftUI catch up for `seconds`, doing what `NSApp.run()` would: waiting events are handled (the
+/// window server's activation and key-window changes arrive as events), the run loop runs (layout, display, timers),
+/// and the main actor is released between slices so tasks the views started can finish.
 func settle(_ seconds: Double) async {
     let end = Date().addingTimeInterval(seconds)
     repeat {
+        while let event = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
+            NSApp.sendEvent(event)
+        }
         CFRunLoopRunInMode(.defaultMode, 0.01, true)
         try? await Task.sleep(for: .milliseconds(10))
     } while Date() < end
