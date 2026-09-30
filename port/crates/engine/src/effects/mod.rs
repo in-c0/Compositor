@@ -7,10 +7,10 @@
 //! The Mac makes the image with Metal compute kernels (`MetalLayerEffects`) whenever it has a
 //! Metal device, which it always has; each kernel here is one of those, with the same float
 //! operations in the same order. Where Metal's fast math leaves the rounding open (it fuses
-//! multiply-adds and may approximate `/` and `exp`), the port fuses and rounds correctly. On the
-//! corpus it makes no difference: modeled on the CPU, the cases drawn over transparency come out
-//! the same byte for byte fused or not, with `/` as a reciprocal multiply, and with `exp` through
-//! `exp2`.
+//! multiply-adds and may approximate `/` and `exp`), the port fuses and rounds correctly. Which
+//! product of `compose`'s color sums is fused decides one exact tie in effects/fractional (see
+//! `over` in compose.wgsl); otherwise, modeled on the CPU, the cases drawn over transparency come
+//! out the same byte for byte fused or not, with `/` as a reciprocal multiply, and with `exp` through `exp2`.
 
 use crate::gpu::{Gpu, GpuImage};
 use comp_format::{ColorOverlayEffect, Effects, GlowEffect, ShadowEffect, StrokeEffect};
