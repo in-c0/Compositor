@@ -240,8 +240,11 @@ pub fn apply(gpu: &Gpu, project: &mut Project, selection: &mut Option<Selection>
                 "feather" => next.feather = (current.feather * current.feather + amount * amount).sqrt().min(250.0),
                 // A band `amount` wide either side of the outline, added (clipped to the canvas) or
                 // taken away.
-                "expand" => next.region = geom::intersection(&geom::offset(&current.region, amount), &canvas),
-                _ => next.region = geom::offset(&current.region, -amount),
+                "expand" => {
+                    let band = geom::stroke_band(&current.region, amount);
+                    next.region = geom::intersection(&geom::union(&current.region, &band), &canvas);
+                }
+                _ => next.region = geom::subtracting(&current.region, &geom::stroke_band(&current.region, amount)),
             }
             *selection = Some(next);
         }

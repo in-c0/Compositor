@@ -6,8 +6,6 @@
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
-use i_overlay::mesh::float::outline::offset::OutlineOffset;
-use i_overlay::mesh::float::style::{LineJoin, OutlineStyle};
 
 pub type Point = [f64; 2];
 /// One closed loop; the last point joins the first.
@@ -15,9 +13,10 @@ pub type Contour = Vec<Point>;
 /// Closed loops filled by the nonzero winding rule.
 pub type Region = Vec<Contour>;
 
-/// How far a curve's control points may stray from its chord's thirds before it is split, in
-/// pixels (fitted to the Mac's ellipses).
-const FLATNESS: f64 = 1.0 / 16.0;
+/// How far a cubic's control points may bend (their second differences, along x or y) before
+/// Core Graphics splits it to fill, in pixels: fitted to the Mac's ellipses, where any value from
+/// 0.0658 to 0.0699 draws the same.
+const FLATNESS: f64 = 1.0 / 15.0;
 
 pub fn rect(x: f64, y: f64, w: f64, h: f64) -> Contour {
     vec![[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
@@ -43,15 +42,14 @@ pub fn ellipse(x: f64, y: f64, w: f64, h: f64) -> Contour {
 }
 
 /// Appends a cubic's points after its first, as Core Graphics flattens it to fill: halved until
-/// each piece's inner control points lie within 1/16 px, along x and along y, of the points a
-/// third and two thirds along its chord.
+/// both second differences of its control points are within `FLATNESS` along x and along y.
 fn flatten_cubic(p: [Point; 4], out: &mut Contour) {
-    let off = |c: Point, a: Point, b: Point| {
-        let (x, y) = ((2.0 * a[0] + b[0]) / 3.0, (2.0 * a[1] + b[1]) / 3.0);
-        (c[0] - x).abs().max((c[1] - y).abs())
-    };
-    let flat = off(p[1], p[0], p[3]).max(off(p[2], p[3], p[0])) <= FLATNESS;
-    if flat {
+    flatten_piece(p, out, 0);
+}
+
+fn flatten_piece(p: [Point; 4], out: &mut Contour, depth: u32) {
+    let second = |a: Point, b: Point, c: Point| (a[0] - 2.0 * b[0] + c[0]).abs().max((a[1] - 2.0 * b[1] + c[1]).abs());
+    if depth >= 16 || second(p[0], p[1], p[2]).max(second(p[1], p[2], p[3])) <= FLATNESS {
         out.push(p[3]);
         return;
     }
@@ -59,8 +57,8 @@ fn flatten_cubic(p: [Point; 4], out: &mut Contour) {
     let (ab, bc, cd) = (mid(p[0], p[1]), mid(p[1], p[2]), mid(p[2], p[3]));
     let (abc, bcd) = (mid(ab, bc), mid(bc, cd));
     let m = mid(abc, bcd);
-    flatten_cubic([p[0], ab, abc, m], out);
-    flatten_cubic([m, bcd, cd, p[3]], out);
+    flatten_piece([p[0], ab, abc, m], out, depth + 1);
+    flatten_piece([m, bcd, cd, p[3]], out, depth + 1);
 }
 
 fn run(a: &Region, b: &Region, rule: OverlayRule) -> Region {
@@ -91,20 +89,62 @@ pub fn subtracting(a: &Region, b: &Region) -> Region {
     run(a, b, OverlayRule::Difference)
 }
 
-/// The region grown (`distance` > 0) or shrunk (< 0) by `distance`, with round corners: what the
-/// Mac gets from `path.copy(strokingWithWidth: 2 * |distance|, lineCap: .round, lineJoin: .round)`
-/// added to the path (Expand) or taken from it (Contract). Offsetting draws the same outline
-/// without the stroke's inner loops, which iOverlay mishandles once the band is wider than the
-/// shape.
-pub fn offset(region: &Region, distance: f64) -> Region {
-    if region.is_empty() || distance == 0.0 {
-        return region.clone();
+/// `path.copy(strokingWithWidth: 2 * half, lineCap: .round, lineJoin: .round, miterLimit: 10)`
+/// for a closed outline: the band within `half` of each edge, with a round join on the outside of
+/// every corner. Core Graphics draws each join as one cubic arc, however sharp the corner, and
+/// the arc is flattened as any cubic is.
+pub fn stroke_band(region: &Region, half: f64) -> Region {
+    let mut pieces: Region = Vec::new();
+    let mut add = |mut piece: Contour| {
+        if signed_area(&piece) < 0.0 {
+            piece.reverse();
+        }
+        if piece.len() >= 3 {
+            pieces.push(piece);
+        }
+    };
+    for contour in region {
+        let n = contour.len();
+        for i in 0..n {
+            let (a, b) = (contour[i], contour[(i + 1) % n]);
+            let length = (b[0] - a[0]).hypot(b[1] - a[1]);
+            if length == 0.0 {
+                continue;
+            }
+            let (nx, ny) = (-(b[1] - a[1]) / length * half, (b[0] - a[0]) / length * half);
+            add(vec![[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]]);
+        }
+        for i in 0..n {
+            let (p, v, q) = (contour[(i + n - 1) % n], contour[i], contour[(i + 1) % n]);
+            let incoming = (v[1] - p[1]).atan2(v[0] - p[0]);
+            let outgoing = (q[1] - v[1]).atan2(q[0] - v[0]);
+            let turn = wrap(outgoing - incoming);
+            if turn == 0.0 || v == p || v == q {
+                continue;
+            }
+            // From the incoming edge's normal to the outgoing edge's, on the outside of the turn.
+            let side = if turn > 0.0 { -1.0 } else { 1.0 };
+            let start = incoming + side * std::f64::consts::FRAC_PI_2;
+            let sweep = wrap(outgoing - incoming);
+            let end = start + sweep;
+            let handle = 4.0 / 3.0 * (sweep / 4.0).tan() * half;
+            let (s0, c0, s1, c1) = (start.sin(), start.cos(), end.sin(), end.cos());
+            let p0 = [v[0] + half * c0, v[1] + half * s0];
+            let p3 = [v[0] + half * c1, v[1] + half * s1];
+            let arc = [p0, [p0[0] - handle * s0, p0[1] + handle * c0], [p3[0] + handle * s1, p3[1] - handle * c1], p3];
+            let mut sector = vec![v, p0];
+            flatten_cubic(arc, &mut sector);
+            add(sector);
+        }
     }
-    // Normalize first: the offset needs outer loops counterclockwise and holes clockwise.
-    let normalized = run(region, &Vec::new(), OverlayRule::Union);
-    // Round corners as chords 1/64 of the radius long.
-    let style = OutlineStyle::new(distance).line_join(LineJoin::Round(1.0 / 64.0));
-    normalized.outline(&style).into_iter().flatten().filter(|c| c.len() >= 3).collect()
+    run(&pieces, &Vec::new(), OverlayRule::Union)
+}
+
+/// An angle wrapped into (-π, π].
+fn wrap(a: f64) -> f64 {
+    let t = std::f64::consts::TAU;
+    let w = a - t * (a / t).round();
+    if w <= -std::f64::consts::PI { w + t } else { w }
 }
 
 /// `CGPath.boundingBoxOfPath` is empty or null: nothing is selected.
@@ -148,16 +188,15 @@ mod tests {
     }
 
     #[test]
-    fn offsets_round_the_corners() {
+    fn a_band_rounds_the_outside_corners() {
         let square = vec![rect(0.0, 0.0, 10.0, 10.0)];
         let area = |r: &Region| r.iter().map(signed_area).sum::<f64>().abs();
-        // 14×14 with rounded corners of radius 2.
-        let grown = 14.0 * 14.0 - (4.0 - std::f64::consts::PI) * 4.0;
-        assert!((area(&offset(&square, 2.0)) - grown).abs() < 0.01);
-        assert!((area(&offset(&square, -2.0)) - 36.0).abs() < 0.01);
-        // Growing a small shape a long way fills it in, with no holes.
+        // 14×14 with rounded corners of radius 2, less the 6×6 inside; chords cut a little off.
+        let expected = 14.0 * 14.0 - (4.0 - std::f64::consts::PI) * 4.0 - 36.0;
+        let band = stroke_band(&square, 2.0);
+        assert!(area(&band) < expected && area(&band) > expected - 0.5, "{}", area(&band));
+        // A band wider than the shape covers it with no holes.
         let tiny = vec![vec![[0.0, 0.0], [3.0, 0.5], [1.0, 3.0]]];
-        let big = offset(&tiny, 20.0);
-        assert_eq!(big.len(), 1);
+        assert_eq!(union(&tiny, &stroke_band(&tiny, 20.0)).len(), 1);
     }
 }
