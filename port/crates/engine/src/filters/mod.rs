@@ -149,6 +149,9 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
     if nothing {
         return Ok(());
     }
+    if kind == FilterKind::RemoveBackground {
+        return remove_background(project, index, &s);
+    }
 
     let original = asset.pixels.clone();
     let (mut pixels, mut transform) = (original, layer.transform);
@@ -280,9 +283,39 @@ fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuIm
             return unsupported("Core Image's blurs (Gaussian Blur, Motion Blur, Bloom / Glow) aren't exact yet");
         }
         FilterKind::TonalContrast => return unsupported("Tonal Contrast (its base is Core Image's Gaussian blur)"),
-        FilterKind::RemoveBackground => return unsupported("Remove Background (Vision subject segmentation)"),
-        FilterKind::CameraRaw | FilterKind::ContentAwareFill => unreachable!("refused above"),
+        FilterKind::RemoveBackground | FilterKind::CameraRaw | FilterKind::ContentAwareFill => unreachable!("handled above"),
     })
+}
+
+/// `commitBackgroundMask`: Remove Background masks the background out rather than erasing it.
+/// The subject mask comes from [`crate::ml`], a stand-in for Apple's Vision. A mask already on the
+/// layer, in the layer's own grid, is kept: what either one hides stays hidden.
+fn remove_background(project: &mut Project, index: usize, s: &FilterSettings) -> Result<()> {
+    let layer = &project.manifest.layers[index];
+    if layer.mask_file.is_some() && layer.mask_placement.is_some() {
+        return unsupported("Remove Background on a layer whose mask is placed apart from it");
+    }
+    let image = &project.images[&layer.id].pixels;
+    let mut mask = crate::ml::subject_mask(image)?;
+    if s.advanced_background {
+        let refinement = crate::ml::Refinement { refine_edges: s.refine_edges, matte_contrast: s.matte_contrast, shift_edge: s.shift_edge };
+        mask = crate::ml::refined(&mask, image, &refinement);
+    }
+    if let Some(existing) = project.masks.get(&layer.id).filter(|m| m.pixels.dimensions() == image.dimensions()) {
+        // Drawn over the existing mask in Multiply.
+        for (m, e) in mask.pixels_mut().zip(existing.pixels.pixels()) {
+            m[0] = ((m[0] as u32 * e[0] as u32 + 127) / 255) as u8;
+        }
+    }
+    let id = layer.id.clone();
+    let record = &mut project.manifest.layers[index];
+    if record.mask_file.is_none() {
+        record.mask_file = Some(format!("{id}.mask.png"));
+        record.mask_linked = Some(true);
+    }
+    record.mask_enabled = Some(true);
+    project.masks.insert(id, Asset::new(mask));
+    Ok(())
 }
 
 /// `CurvesSettings.isValid`.

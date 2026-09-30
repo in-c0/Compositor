@@ -173,6 +173,9 @@ jobs:
         shell: pwsh
         run: port/tools/fetch-dxc.ps1 -Into port/target/release
 
+      - name: Fetch Remove Background's model
+        run: bash port/tools/fetch-models.sh port/target/release
+
       - name: Run parity
         run: |
           args=()

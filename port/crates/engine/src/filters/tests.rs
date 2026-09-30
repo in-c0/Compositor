@@ -82,6 +82,20 @@ fn filter_cases_match_the_mac_projects() {
             max = max.max(d);
             count += (d != 0) as usize;
         }
+        if let Some(want_mask) = want.masks.get(layer) {
+            // Remove Background: Vision's mask can't be reproduced; report how far the stand-in is.
+            let Some(got_mask) = project.masks.get(layer) else {
+                println!("{id:<22} no mask");
+                failures.push(id);
+                continue;
+            };
+            let (iou, mad) = mask_difference(&got_mask.pixels, &want_mask.pixels);
+            println!("{id:<22} mask IoU {iou:.4}  mean difference {mad:.2}/255  pixels max {max}  placement {placed}");
+            if max > 0 || !placed || got_record.mask_enabled() != want_record.mask_enabled() {
+                failures.push(id);
+            }
+            continue;
+        }
         let (w, h) = got.dimensions();
         println!(
             "{id:<22} max {max:>3}  differing pixels {count:>5} of {}  placement {}",
@@ -93,4 +107,16 @@ fn filter_cases_match_the_mac_projects() {
         }
     }
     assert!(failures.is_empty(), "differ from the Mac: {failures:?}");
+}
+
+/// Intersection over union of the masks' halves above 50%, and their mean absolute difference.
+fn mask_difference(a: &image::GrayImage, b: &image::GrayImage) -> (f64, f64) {
+    let (mut inter, mut union, mut total) = (0usize, 0usize, 0f64);
+    for (p, q) in a.pixels().zip(b.pixels()) {
+        let (p, q) = (p[0], q[0]);
+        inter += (p > 127 && q > 127) as usize;
+        union += (p > 127 || q > 127) as usize;
+        total += p.abs_diff(q) as f64;
+    }
+    (inter as f64 / union.max(1) as f64, total / (a.width() * a.height()) as f64)
 }

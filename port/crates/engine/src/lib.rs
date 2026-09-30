@@ -13,6 +13,7 @@ pub mod export;
 pub mod filters;
 pub mod gpu;
 pub mod mask;
+pub mod ml;
 pub mod order;
 pub mod session;
 
