@@ -114,7 +114,6 @@
         "saturation" : 0
       },
       "id" : "53DFC9AA-462D-4F20-AE7B-651488EF2562",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Motion blur, 45 degrees, 20 px",
       "transform" : {

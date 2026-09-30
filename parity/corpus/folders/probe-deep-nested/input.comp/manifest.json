@@ -27,7 +27,6 @@
     },
     {
       "id" : "4B640442-6798-4E31-BEA2-A4800AEF558D",
-      "imageFile" : null,
       "isGroup" : true,
       "isVisible" : true,
       "name" : "Outer",
@@ -49,7 +48,6 @@
     },
     {
       "id" : "12182704-3F44-439A-B6E2-D9F409D84932",
-      "imageFile" : null,
       "isGroup" : true,
       "isVisible" : true,
       "name" : "Inner",

@@ -5,6 +5,7 @@ mod cases;
 mod compare;
 mod corpus_gen;
 mod report;
+mod roundtrip;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -127,6 +128,9 @@ fn run(
         .collect();
     let mut results: Vec<CaseResult> =
         cases.par_iter().map(|case| run_case(&renderer, case, refs, out, &tolerances, rejected.get(&case.id))).collect();
+    let scratch = out.join("roundtrip");
+    std::fs::create_dir_all(&scratch)?;
+    results.extend(cases.par_iter().filter_map(|case| roundtrip::check(&case.id, refs, &scratch)).collect::<Vec<_>>());
     let baseline = match baseline {
         Some(path) if path.exists() => Some(RunResults::load(path)?),
         _ => None,

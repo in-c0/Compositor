@@ -116,7 +116,6 @@
         "saturation" : 0
       },
       "id" : "C8E7BA8A-51BE-4D33-9D06-C7A5488B6F51",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Noise 10, uniform, color",
       "transform" : {

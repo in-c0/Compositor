@@ -112,7 +112,6 @@
         "saturation" : 0
       },
       "id" : "5722F356-A785-4D03-9FB9-DE0CED0ABF83",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Output 30 to 220, blue input 0 to 180",
       "transform" : {

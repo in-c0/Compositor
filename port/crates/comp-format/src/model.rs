@@ -45,7 +45,8 @@ pub struct LayerRecord {
     pub name: String,
     pub is_visible: bool,
     pub transform: Transform,
-    /// Required key; `null` for groups, adjustment layers and blank layers.
+    /// Missing for groups, adjustment layers and blank layers; Swift leaves the key out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_file: Option<String>,
     #[serde(rename = "parentID", default, skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,

@@ -112,7 +112,6 @@
         "saturation" : 50
       },
       "id" : "BA20FA77-BB02-40ED-9EF2-FCB0C7C453CD",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Colorize at hue 200",
       "transform" : {

@@ -124,7 +124,6 @@
         "saturation" : 0
       },
       "id" : "C674AF5F-5701-4A2C-9937-723ACD735FC8",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "A warming curve per channel",
       "transform" : {

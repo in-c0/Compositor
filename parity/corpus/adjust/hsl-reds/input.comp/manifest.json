@@ -182,7 +182,6 @@
         "saturation" : 0
       },
       "id" : "5AF92148-3F46-40FE-ACC1-B04053287552",
-      "imageFile" : null,
       "isVisible" : true,
       "name" : "Reds only: hue +30, saturation +20",
       "transform" : {
