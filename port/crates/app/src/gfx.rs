@@ -10,13 +10,20 @@ use std::sync::Arc;
 pub struct Gfx {
     pub gpu: Arc<Gpu>,
     pub renderer: Arc<RwLock<egui_wgpu::Renderer>>,
+    /// The engine's operations (the parity ops, import and export) on the same device.
+    pub engine: Arc<engine::Renderer>,
 }
 
 impl Gfx {
     /// The engine on eframe's device.
     pub fn from_render_state(state: &egui_wgpu::RenderState) -> Self {
         let gpu = Gpu::from_parts(state.instance.clone(), state.adapter.clone(), state.device.clone(), state.queue.clone());
-        Self { gpu: Arc::new(gpu), renderer: state.renderer.clone() }
+        Self::new(Arc::new(gpu), state.renderer.clone())
+    }
+
+    pub fn new(gpu: Arc<Gpu>, renderer: Arc<RwLock<egui_wgpu::Renderer>>) -> Self {
+        let engine = engine::Renderer { gpu: Gpu::from_parts(gpu.instance.clone(), gpu.adapter.clone(), gpu.device.clone(), gpu.queue.clone()) };
+        Self { gpu, renderer, engine: Arc::new(engine) }
     }
 }
 

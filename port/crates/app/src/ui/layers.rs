@@ -4,6 +4,7 @@ use crate::app::App;
 use crate::document::{self, Doc};
 use crate::icons::{self, Icon};
 use crate::theme::{self, color, metric, white_alpha};
+use crate::menus::Command;
 use crate::widgets as w;
 use comp_format::{BlendMode, LayerRecord, Project};
 use eframe::egui::{self, Color32, ColorImage, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
@@ -103,11 +104,15 @@ fn empty_state(app: &App, ui: &mut Ui, rect: Rect) {
 }
 
 /// The footer: new layer, group, mask, effects, adjustment, and delete at the far end.
-fn footer_bar(_app: &mut App, ui: &mut Ui, rect: Rect) {
+fn footer_bar(app: &mut App, ui: &mut Ui, rect: Rect) {
     let p = ui.painter().with_clip_rect(rect);
-    let c = color::secondary().gamma_multiply(0.5);
+    let has_doc = app.doc().is_some();
+    let active = app.doc().and_then(|d| d.active_layer()).cloned();
+    let c = if has_doc { color::secondary() } else { color::secondary().gamma_multiply(0.5) };
     let mut x = rect.min.x + 8.0;
     let cy = rect.center().y;
+    let mut chosen = None;
+    let alt = ui.input(|i| i.modifiers.alt);
     for (symbol, menu, help) in [
         ("plus.square", false, "New blank layer (⇧⌘N)"),
         ("folder.badge.plus", false, "Group selected layers (⌘G)"),
@@ -121,10 +126,41 @@ fn footer_bar(_app: &mut App, ui: &mut Ui, rect: Rect) {
         if menu {
             icons::paint(&p, Icon::Symbol("chevron.down"), pos2(x + 30.0, cy + 1.0), 7.0, c);
         }
-        ui.interact(hit, ui.id().with(("footer", symbol)), Sense::hover()).on_hover_text(help);
+        let response = ui.interact(hit, ui.id().with(("footer", symbol)), if has_doc { Sense::click() } else { Sense::hover() }).on_hover_text(help);
+        match symbol {
+            "plus.square" if response.clicked() => chosen = Some(Command::NewBlankLayer),
+            "folder.badge.plus" if response.clicked() => chosen = Some(if active.is_some() { Command::GroupLayers } else { Command::NewFolder }),
+            "rectangle.inset.filled" if response.clicked() => chosen = Some(Command::AddMask(!alt)),
+            "sparkles" => {
+                egui::Popup::menu(&response).show(|ui| {
+                    for kind in ["Stroke", "Drop Shadow", "Color Overlay", "Inner Shadow", "Outer Glow", "Inner Glow"] {
+                        if ui.add_enabled(active.as_ref().is_some_and(|l| l.adjustment.is_none()), egui::Button::new(format!("{kind}…"))).clicked() {
+                            chosen = Some(Command::Effect(kind));
+                        }
+                    }
+                });
+            }
+            "circle.lefthalf.filled" => {
+                egui::Popup::menu(&response).show(|ui| {
+                    for kind in comp_format::AdjustmentKind::ALL {
+                        if ui.button(kind.name()).clicked() {
+                            chosen = Some(Command::NewAdjustment(*kind));
+                        }
+                    }
+                });
+            }
+            _ => {}
+        }
         x += width;
     }
-    icons::paint(&p, Icon::Symbol("trash"), pos2(rect.max.x - 8.0 - 16.0, cy), 13.0, c);
+    let trash = Rect::from_center_size(pos2(rect.max.x - 8.0 - 16.0, cy), vec2(32.0, rect.height() - 8.0));
+    icons::paint(&p, Icon::Symbol("trash"), trash.center(), 13.0, c);
+    if ui.interact(trash, ui.id().with("footer-trash"), if has_doc { Sense::click() } else { Sense::hover() }).on_hover_text("Delete selected layer mask or layer").clicked() && active.is_some() {
+        chosen = Some(Command::DeleteLayerOrMask);
+    }
+    if let Some(command) = chosen {
+        app.run(ui.ctx(), command);
+    }
 }
 
 /// Row pitch: the 52-point cell, 24 per effect, and the table's 2-point intercell spacing.
@@ -148,14 +184,29 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
             if ui.is_rect_visible(rect) {
                 draw_row(ui, doc, row, rect, focused, &mut actions);
             }
-            if response.clicked() || response.drag_started() || response.secondary_clicked() {
-                actions.push(Action::Select(row.layer.id.clone()));
+            let modifiers = ui.input(|i| i.modifiers);
+            let (mask, link) = mask_hit_rects(row, rect);
+            let at = response.interact_pointer_pos();
+            let on_mask = row.layer.mask_file.is_some() && at.is_some_and(|p| mask.contains(p));
+            let on_link = row.layer.mask_file.is_some() && at.is_some_and(|p| link.contains(p));
+            if response.clicked() && modifiers.alt {
+                // Alt-click toggles clipping to the layer below, as Option-click does on the Mac.
+                actions.push(Action::ToggleClipping(row.layer.id.clone()));
+            } else if response.clicked() && on_link {
+                actions.push(Action::ToggleLink(row.layer.id.clone()));
+            } else if response.clicked() && on_mask && modifiers.shift {
+                actions.push(Action::ToggleMask(row.layer.id.clone()));
+            } else if response.clicked() || response.drag_started() || response.secondary_clicked() {
+                actions.push(Action::Select(row.layer.id.clone(), on_mask));
             }
-            let menu = crate::menus::layer_context(&row_state(row));
+            if response.double_clicked() {
+                actions.push(Action::Run(if row.layer.adjustment.is_some() { Command::EditAdjustment } else { Command::RenameLayer }));
+            }
+            let menu = crate::menus::layer_context(&row_state_in(doc, row));
             response.context_menu(|ui| {
                 ui.set_min_width(200.0);
                 if let Some(c) = crate::menus::menu_items(ui, &menu) {
-                    actions.push(Action::Select(row.layer.id.clone()));
+                    actions.push(Action::Select(row.layer.id.clone(), false));
                     actions.push(Action::Run(c));
                 }
             });
@@ -183,10 +234,14 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
     for action in actions {
         match action {
             Action::Run(c) => commands.push(c),
-            Action::Select(id) => {
+            Action::Select(id, mask) => {
+                doc.mask_target = mask && doc.layer(&id).is_some_and(|l| l.mask_file.is_some());
                 doc.active = Some(id);
                 app.layers_focused = true;
             }
+            Action::ToggleClipping(id) => crate::layer_ops::toggle_clipping(doc, &id),
+            Action::ToggleLink(id) => crate::layer_ops::toggle_mask_link(doc, &id),
+            Action::ToggleMask(id) => crate::layer_ops::toggle_mask_enabled(doc, &id),
             Action::ToggleVisible(id) => {
                 if let Some(v) = doc.layer(&id).map(|l| l.is_visible) {
                     doc.set_visible(&id, !v);
@@ -209,7 +264,11 @@ fn layer_list(app: &mut App, ui: &mut Ui, rect: Rect) {
 }
 
 enum Action {
-    Select(String),
+    /// Select the layer, targeting its mask when `true`.
+    Select(String, bool),
+    ToggleClipping(String),
+    ToggleLink(String),
+    ToggleMask(String),
     ToggleVisible(String),
     ToggleCollapsed(String),
     DragStart(String),
@@ -226,7 +285,33 @@ pub fn row_state(row: &document::Row) -> crate::menus::RowState {
         visible: l.is_visible,
         mask: l.mask_file.as_ref().map(|_| l.mask_enabled()),
         mask_linked: l.mask_linked(),
+        mask_target: false,
+        can_clip: !l.is_group(),
+        in_folder: l.parent_id.is_some(),
+        can_merge: true,
     }
+}
+
+/// `row_state` with what only the document knows: whether it can clip or merge, the mask target.
+pub fn row_state_in(doc: &Doc, row: &document::Row) -> crate::menus::RowState {
+    let mut state = row_state(row);
+    let id = &row.layer.id;
+    state.can_clip = crate::layer_ops::can_toggle_clipping(doc, id);
+    state.mask_target = doc.mask_target && doc.active.as_deref() == Some(id.as_str());
+    state
+}
+
+/// Where a row's mask thumbnail and its link button are (as `draw_row` lays them out).
+fn mask_hit_rects(row: &document::Row, rect: Rect) -> (Rect, Rect) {
+    let layer = row.layer;
+    let top = rect.min.y + metric::ROW_GAP / 2.0;
+    let indent = row.depth.min(8) as f32 * 24.0 + if row.clipped { 24.0 } else { 0.0 };
+    let slot_max = rect.min.x + 8.0 + 20.0 + indent + 16.0 - 2.0 + 36.0;
+    let linkable = layer.mask_file.is_some() && layer.adjustment.is_none() && !layer.is_group();
+    let gap = if linkable { 13.0 } else { 5.0 };
+    let mask = Rect::from_min_size(pos2(slot_max + gap, top), vec2(30.0, 52.0));
+    let link = Rect::from_center_size(pos2(mask.min.x - 6.5, top + 26.0), vec2(9.0, 20.0));
+    (mask, if linkable { link } else { Rect::NOTHING })
 }
 
 /// `LayerCell`: eye, indent, disclosure, thumbnail, mask, name and detail; effect rows below.
@@ -290,8 +375,8 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
             r
         }
     };
-    let single_active = selected;
-    if single_active {
+    let mask_targeted = selected && doc.mask_target && layer.mask_file.is_some();
+    if selected && !mask_targeted {
         p.rect_stroke(thumb, 3.0, Stroke::new(2.0, color::ACCENT), StrokeKind::Inside);
     }
     // Mask.
@@ -303,6 +388,9 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
         let r = Rect::from_center_size(mask_slot.center(), fit(canvas, 30.0));
         if let Some((_, tex)) = doc.thumbs.get(&format!("{}#mask", layer.id)) {
             p.add(egui::epaint::RectShape::filled(r, 3.0, Color32::WHITE).with_texture(tex.id(), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0))));
+        }
+        if mask_targeted {
+            p.rect_stroke(r, 3.0, Stroke::new(2.0, color::ACCENT), StrokeKind::Inside);
         }
         if layer.mask_enabled == Some(false) {
             p.text(r.center(), egui::Align2::CENTER_CENTER, "╱", theme::medium(32.0), color::RED);

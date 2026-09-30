@@ -69,6 +69,7 @@ pub struct Tip {
 }
 
 /// What `EditorSession` keeps between strokes.
+#[derive(Clone)]
 pub struct Session {
     /// The tip of each family (`parkedBrushTips` plus the one in use).
     tips: [Tip; 3],

@@ -1,6 +1,7 @@
 //! The editor's state and the actions menus, keys and panels run on it.
 
 use crate::document::Doc;
+use crate::ui::dialogs::{self, Sheet};
 use crate::gfx::Gfx;
 use crate::menus::{self, Command, MenuState};
 use crate::theme::metric;
@@ -41,6 +42,26 @@ pub struct App {
     untitled: usize,
     /// When true the app is rendering for `--render-ui`: no dialogs, no window commands.
     pub headless: bool,
+    /// The drag in progress on the canvas.
+    pub gesture: Option<crate::ui::canvas_tools::Gesture>,
+    /// Where the pointer is over the canvas, for the brush tip.
+    pub brush_pointer: Option<egui::Pos2>,
+    pub hover_pixel: Option<[f64; 2]>,
+    /// The canvas's rectangle on screen last frame.
+    pub canvas_rect: egui::Rect,
+    /// View > Snap.
+    pub snap: bool,
+    /// The open sheet or floating panel.
+    pub sheet: Option<Sheet>,
+    /// A Polygonal Lasso being clicked out.
+    pub polygon: Option<crate::ui::selection::Polygon>,
+    /// The filter settings the Filter menu's panels last used this session.
+    pub filter_settings: serde_json::Value,
+    pub jpeg_quality: f64,
+    /// View > Show > Guides.
+    pub show_guides: bool,
+    /// A short message over the canvas, and when it appeared.
+    pub notice: Option<(String, std::time::Instant)>,
 }
 
 impl App {
@@ -63,6 +84,17 @@ impl App {
             dragging_layer: None,
             untitled: 0,
             headless: false,
+            gesture: None,
+            brush_pointer: None,
+            hover_pixel: None,
+            canvas_rect: egui::Rect::NOTHING,
+            snap: true,
+            sheet: None,
+            polygon: None,
+            filter_settings: dialogs::default_settings(),
+            jpeg_quality: 0.85,
+            show_guides: true,
+            notice: None,
         }
     }
 
@@ -114,8 +146,47 @@ impl App {
         parse(&self.form.width).is_some() && parse(&self.form.height).is_some()
     }
 
+    /// Shows `message` over the canvas for a few seconds.
+    pub fn notify(&mut self, message: impl Into<String>) {
+        self.notice = Some((message.into(), std::time::Instant::now()));
+    }
+
     pub fn alert(&mut self, title: &str, message: String) {
         self.alert = Some(Alert { title: title.into(), message });
+    }
+
+    /// The brush tip the current tool paints with: Clone Stamp and the Smear tools keep their own.
+    pub fn tip(&self) -> &crate::tools::Tip {
+        match self.tool {
+            Tool::CloneStamp => &self.settings.clone,
+            Tool::Blur => &self.settings.smear,
+            _ => &self.settings.brush,
+        }
+    }
+
+    pub fn tip_mut(&mut self) -> &mut crate::tools::Tip {
+        match self.tool {
+            Tool::CloneStamp => &mut self.settings.clone,
+            Tool::Blur => &mut self.settings.smear,
+            _ => &mut self.settings.brush,
+        }
+    }
+
+    /// `cropRatio`: width over height, or `None` for Free.
+    pub fn crop_ratio(&self) -> Option<f64> {
+        use crate::tools::CropRatio::*;
+        Some(match self.settings.crop_ratio {
+            Free => return None,
+            Original => {
+                let d = self.doc()?;
+                d.project.manifest.width as f64 / d.project.manifest.height as f64
+            }
+            Square => 1.0,
+            FourThree => 4.0 / 3.0,
+            ThreeFour => 3.0 / 4.0,
+            Wide => 16.0 / 9.0,
+            Tall => 9.0 / 16.0,
+        })
     }
 
     pub fn select_tool(&mut self, tool: Tool) {
@@ -152,7 +223,32 @@ impl App {
             can_move_down: doc.zip(active).is_some_and(|(d, l)| d.can_move(&l.id, false)),
             recent: self.recent.iter().map(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()).collect(),
             tabs: self.docs.iter().enumerate().map(|(i, d)| (d.name.clone(), Some(i) == self.current)).collect(),
+            can_edit: active.is_some() && self.idle(),
+            can_adjust: doc.zip(active).is_some_and(|(d, l)| {
+                self.idle() && !l.is_group() && l.adjustment.is_none() && d.project.images.contains_key(&l.id) && crate::ui::canvas_tools::effectively_visible(&d.project, l)
+            }),
+            can_invert: doc.zip(active).is_some_and(|(d, l)| {
+                self.idle() && if d.mask_target { l.mask_file.is_some() && l.mask_enabled() } else { !l.is_group() && d.project.images.contains_key(&l.id) }
+            }),
+            mask_target: doc.is_some_and(|d| d.mask_target),
+            can_transform: doc.zip(active).is_some_and(|(d, l)| self.idle() && !l.is_group() && l.adjustment.is_none() && d.project.images.contains_key(&l.id)),
+            can_clip: doc.zip(active).is_some_and(|(d, l)| self.idle() && crate::layer_ops::can_toggle_clipping(d, &l.id)),
+            is_folder: active.is_some_and(|l| l.is_group()) && self.idle(),
+            in_folder: active.is_some_and(|l| l.parent_id.is_some()) && self.idle(),
+            is_adjustment: active.is_some_and(|l| l.adjustment.as_ref().is_some_and(|a| a.kind != comp_format::AdjustmentKind::Invert)) && self.idle(),
+            merge: doc.and_then(crate::layer_ops::merge_title).filter(|_| self.idle()),
+            has_mask: active.is_some_and(|l| l.mask_file.is_some()),
+            snap: self.snap,
+            guides: self.show_guides,
+            has_guides: doc.is_some_and(|d| d.project.manifest.guides.as_ref().is_some_and(|g| !g.is_empty())),
+            has_selection: doc.is_some_and(|d| d.selection.is_some()),
+            selections: true,
         }
+    }
+
+    /// Nothing modal is in progress: no sheet open and no drag on the canvas.
+    pub fn idle(&self) -> bool {
+        self.sheet.is_none() && self.gesture.is_none()
     }
 
     pub fn run(&mut self, ctx: &egui::Context, command: Command) {
@@ -248,6 +344,216 @@ impl App {
                 }
             }
             Command::Exit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Command::ImportImages => self.import_images(),
+            Command::ExportJpeg => dialogs::open_export_jpeg(self),
+            Command::KeyboardShortcuts => self.sheet = Some(Sheet::Shortcuts(String::new())),
+            Command::FillForeground | Command::FillBackground => {
+                let color = if command == Command::FillForeground { self.settings.foreground } else { self.settings.background };
+                let gfx = self.gfx.clone();
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::fill(d, color, &gfx);
+                }
+            }
+            Command::Filter(kind) => dialogs::open_filter(self, kind),
+            Command::Invert => {
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::invert(d);
+                }
+            }
+            Command::CanvasSize => dialogs::open_canvas_size(self),
+            Command::ImageSize => dialogs::open_image_size(self),
+            Command::Trim => self.sheet = Some(Sheet::Trim(dialogs::TrimSheet::default())),
+            Command::FlipCanvas(h) => {
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::flip_canvas(d, h);
+                }
+            }
+            Command::NewAdjustment(kind) => {
+                let (fg, bg) = (self.settings.foreground, self.settings.background);
+                let seed = crate::layer_ops::random_seed();
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::new_adjustment(d, kind, fg, bg, seed);
+                }
+                if kind != comp_format::AdjustmentKind::Invert {
+                    dialogs::edit_adjustment(self);
+                }
+            }
+            Command::EditAdjustment => dialogs::edit_adjustment(self),
+            Command::TransformLayer => {
+                self.tool = Tool::Move;
+                self.settings.show_controls = true;
+            }
+            Command::DuplicateLayer => {
+                if let Some(d) = self.doc_mut() {
+                    if let Some(id) = d.active.clone() {
+                        crate::layer_ops::duplicate(d, &id);
+                    }
+                }
+            }
+            Command::ToggleClipping => {
+                if let Some(d) = self.doc_mut() {
+                    if let Some(id) = d.active.clone() {
+                        crate::layer_ops::toggle_clipping(d, &id);
+                    }
+                }
+            }
+            Command::GroupLayers => self.with_doc(crate::layer_ops::group),
+            Command::UngroupLayers => self.with_doc(crate::layer_ops::ungroup),
+            Command::MoveOutOfFolder => self.with_doc(crate::layer_ops::move_out_of_folder),
+            Command::NewBlankLayer => self.with_doc(crate::layer_ops::new_layer),
+            Command::NewFolder => self.with_doc(crate::layer_ops::new_folder),
+            Command::RenameLayer => {
+                if let Some(l) = self.doc().and_then(|d| d.active_layer()) {
+                    self.sheet = Some(Sheet::Rename { id: l.id.clone(), name: l.name.clone() });
+                }
+            }
+            Command::MergeLayers => {
+                let gfx = self.gfx.clone();
+                if let Some(d) = self.doc_mut() {
+                    if let Err(e) = crate::layer_ops::merge(d, &gfx.gpu) {
+                        self.alert("Couldn’t merge", e.to_string());
+                    }
+                }
+            }
+            Command::FlipLayer(h) => {
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::flip_layer(d, h);
+                }
+            }
+            Command::DeleteLayerOrMask => self.with_doc(crate::layer_ops::delete_layer_or_mask),
+            Command::AddMask(reveal) => {
+                if let Some(d) = self.doc_mut() {
+                    crate::layer_ops::add_mask(d, reveal);
+                }
+            }
+            Command::DeleteMask => self.with_doc(crate::layer_ops::delete_mask),
+            Command::ToggleMaskLink => {
+                if let Some(d) = self.doc_mut() {
+                    if let Some(id) = d.active.clone() {
+                        crate::layer_ops::toggle_mask_link(d, &id);
+                    }
+                }
+            }
+            Command::Effect(kind) => dialogs::open_effect(self, kind),
+            Command::ToggleSnap => self.snap = !self.snap,
+            Command::ToggleGuides => self.show_guides = !self.show_guides,
+            Command::ClearGuides => {
+                if let Some(d) = self.doc_mut() {
+                    d.edit("Clear Guides", false, |m| m.guides = None);
+                }
+            }
+            Command::SelectAll
+            | Command::Deselect
+            | Command::InverseSelection
+            | Command::LayerPixels
+            | Command::SelectSubject
+            | Command::MaskBlackAreas
+            | Command::ClearSelectionPixels
+            | Command::ContentAwareFill => crate::ui::selection::command(self, command),
+            Command::ColorRange => crate::ui::selection::open_color_range(self),
+            Command::ModifySelection(kind) => crate::ui::selection::open_modify(self, kind),
+        }
+    }
+
+    /// File > Import Images…: images and Photoshop files as new layers, or as a new project when
+    /// none is open (`EditorSession.importImages`).
+    pub fn import_images(&mut self) {
+        if self.headless {
+            return;
+        }
+        let Some(paths) = rfd::FileDialog::new()
+            .add_filter("Images", &["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "svg", "psd", "psb", "dng", "cr2", "cr3", "nef", "arw", "raf", "orf", "rw2"])
+            .pick_files()
+        else {
+            return;
+        };
+        for path in paths {
+            self.import_path(&path);
+        }
+    }
+
+    pub fn import_path(&mut self, path: &Path) {
+        let name = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        let psd = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("psd") || e.eq_ignore_ascii_case("psb"));
+        if psd {
+            match psd::import_file(path) {
+                Ok(imported) => {
+                    let conversions: Vec<(String, String)> = imported.conversions.into_iter().map(|c| (c.layer_name, c.message)).collect();
+                    let into_document = self.doc().is_some();
+                    if conversions.is_empty() {
+                        self.insert_psd(&name, imported.project, into_document);
+                    } else {
+                        self.sheet = Some(Sheet::Psd { name, conversions, project: Box::new(imported.project), into_document });
+                    }
+                }
+                Err(psd::ImportError::NotPorted(what)) => self.alert("Couldn’t import the Photoshop file", format!("The port can’t read this exactly yet: {what}.")),
+                Err(e) => self.alert("Couldn’t import the Photoshop file", format!("{}: {e}", path.display())),
+            }
+            return;
+        }
+        match self.gfx.engine.import_image(path, None) {
+            Ok(project) => {
+                let Some(doc) = self.doc_mut() else {
+                    let mut doc = Doc::new(name, None, project);
+                    doc.modified = true;
+                    self.add_doc(doc);
+                    return;
+                };
+                // `insert(_:centeredAt:)`: the image as a new layer at the top, centered.
+                let Some((layer, asset)) = project.manifest.layers.first().and_then(|l| project.images.get(&l.id).map(|a| (l.clone(), a.clone()))) else { return };
+                let (w, h) = (doc.project.manifest.width as f64, doc.project.manifest.height as f64);
+                let (iw, ih) = (asset.pixels.width() as f64, asset.pixels.height() as f64);
+                let mut record = crate::layer_ops::record(&name, comp_format::Transform::at((w / 2.0 - iw / 2.0).floor(), (h / 2.0 - ih / 2.0).floor(), iw, ih));
+                record.image_file = Some(format!("{}.png", record.id));
+                record.parent_id = doc.active_layer().and_then(|a| if a.is_group() { Some(a.id.clone()) } else { a.parent_id.clone() });
+                let _ = layer;
+                let id = record.id.clone();
+                let mut next = doc.project.clone();
+                next.manifest.layers.push(record);
+                next.images.insert(id.clone(), asset);
+                doc.commit("Import Images", next);
+                doc.active = Some(id);
+            }
+            Err(e) => {
+                let message = match e {
+                    engine::RenderError::Unsupported(what) => format!("The port can’t import this exactly yet: {what}."),
+                    engine::RenderError::Failed(e) => format!("{e:#}"),
+                };
+                self.alert("Couldn’t import the image", message);
+            }
+        }
+    }
+
+    /// `insertPhotoshop`: a new project from the file, or its layers in a folder named after it.
+    pub fn insert_psd(&mut self, name: &str, project: comp_format::Project, into_document: bool) {
+        let doc = if into_document { self.doc_mut() } else { None };
+        let Some(doc) = doc else {
+            let mut doc = Doc::new(name.to_string(), None, project);
+            doc.modified = true;
+            self.add_doc(doc);
+            return;
+        };
+        let mut folder = crate::layer_ops::record(name, comp_format::Transform::at(0.0, 0.0, doc.project.manifest.width as f64, doc.project.manifest.height as f64));
+        folder.is_group = Some(true);
+        folder.parent_id = doc.active_layer().and_then(|a| if a.is_group() { Some(a.id.clone()) } else { a.parent_id.clone() });
+        let folder_id = folder.id.clone();
+        let mut next = doc.project.clone();
+        next.manifest.layers.push(folder);
+        for mut l in project.manifest.layers {
+            if l.parent_id.is_none() {
+                l.parent_id = Some(folder_id.clone());
+            }
+            next.manifest.layers.push(l);
+        }
+        next.images.extend(project.images);
+        next.masks.extend(project.masks);
+        doc.commit("Import Photoshop File", next);
+        doc.active = Some(folder_id);
+    }
+
+    fn with_doc(&mut self, f: impl FnOnce(&mut Doc)) {
+        if let Some(d) = self.doc_mut() {
+            f(d);
         }
     }
 
@@ -306,11 +612,21 @@ impl App {
         if let Some(command) = menus::shortcut_command(ctx, &menus) {
             self.run(ctx, command);
         }
-        if ctx.egui_wants_keyboard_input() {
+        if ctx.egui_wants_keyboard_input() || self.sheet.is_some() {
             return;
         }
-        if self.tool == Tool::Move {
-            self.move_tool_keys(ctx);
+        crate::ui::selection::keys(self, ctx);
+        crate::ui::canvas_tools::keys(self, ctx);
+        // Delete: the selected pixels with a selection, otherwise the targeted mask or the layer.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete) || i.consume_key(egui::Modifiers::NONE, egui::Key::Backspace)) && self.idle() {
+            let command = if self.doc().is_some_and(|d| d.selection.is_some()) { Command::ClearSelectionPixels } else { Command::DeleteLayerOrMask };
+            self.run(ctx, command);
+        }
+        self.canvas_keys(ctx);
+        // Shift-U cycles the shape kind with the Shape tool.
+        if self.tool == Tool::Shape && ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, egui::Key::U)) {
+            use crate::tools::ShapeKind;
+            self.settings.shape = ShapeKind::ALL[(self.settings.shape.index() + 1) % ShapeKind::ALL.len()];
         }
         let tools: Vec<Tool> = Tool::RAIL.iter().copied().chain([Tool::Idle]).collect();
         for tool in tools {
@@ -334,11 +650,24 @@ impl App {
         }
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Tab)) {
             use crate::tools::*;
+            // `cycleToolMode`: the setting at the left of the tool's bar.
+            fn next<T: Copy + PartialEq>(all: &[T], v: T) -> T {
+                all[(all.iter().position(|x| *x == v).unwrap_or(0) + 1) % all.len()]
+            }
+            let s = &mut self.settings;
             match self.tool {
-                Tool::Wand => self.settings.wand = if self.settings.wand == WandMode::Wand { WandMode::Object } else { WandMode::Wand },
-                Tool::Shape => {
-                    self.settings.shape = ShapeKind::ALL[(self.settings.shape.index() + 1) % ShapeKind::ALL.len()];
+                Tool::Marquee => s.marquee = next(MarqueeKind::ALL, s.marquee),
+                Tool::Lasso => {
+                    s.lasso = next(LassoKind::ALL, s.lasso);
+                    self.polygon = None;
                 }
+                Tool::Wand => s.wand = next(WandMode::ALL, s.wand),
+                Tool::Shape => s.shape = next(ShapeKind::ALL, s.shape),
+                Tool::Brush => s.brush_mode = next(BrushMode::ALL, s.brush_mode),
+                Tool::Blur => s.smear_mode = next(SmearMode::ALL, s.smear_mode),
+                Tool::SpotHealing => s.healing = next(HealingType::ALL, s.healing),
+                Tool::CloneStamp => s.clone_sample = next(SampleLayers::ALL, s.clone_sample),
+                Tool::Gradient => s.gradient = next(GradientKind::ALL, s.gradient),
                 _ => {}
             }
         }
@@ -346,9 +675,10 @@ impl App {
 }
 
 impl App {
-    /// With the Move tool: digits set the active layer's opacity (1 = 10% … 0 = 100%) and the
-    /// arrows nudge it by a pixel, ten with Shift.
-    fn move_tool_keys(&mut self, ctx: &egui::Context) {
+    /// Digits set the opacity (1 = 10% … 0 = 100%): the brush's with a painting tool, the
+    /// gradient's with Gradient, otherwise the active layer's. With the Move tool the arrows nudge
+    /// the layer by a pixel, ten with Shift. Shift-minus and Shift-equals step the blend mode.
+    fn canvas_keys(&mut self, ctx: &egui::Context) {
         use egui::Key;
         let digits = [Key::Num0, Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9];
         let mut opacity = None;
@@ -366,11 +696,36 @@ impl App {
                 nudge += dir * 10.0;
             }
         }
+        if self.tool != Tool::Move {
+            nudge = egui::Vec2::ZERO;
+        }
+        if let Some(o) = opacity {
+            if self.tool.is_brush() {
+                self.tip_mut().opacity = o;
+                opacity = None;
+            } else if self.tool == Tool::Gradient {
+                self.settings.gradient_opacity = o;
+                opacity = None;
+            }
+        }
+        let blend_step = if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::Minus)) {
+            -1
+        } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::Equals) || i.consume_key(egui::Modifiers::SHIFT, Key::Plus)) {
+            1
+        } else {
+            0
+        };
         let Some(doc) = self.doc_mut() else { return };
         let Some(layer) = doc.active_layer() else { return };
-        let (id, group, adjustment) = (layer.id.clone(), layer.is_group(), layer.adjustment.is_some());
+        let (id, group, adjustment, blend) = (layer.id.clone(), layer.is_group(), layer.adjustment.is_some(), layer.blend_mode());
         if let Some(o) = opacity {
             doc.set_opacity(&id, o, false);
+        }
+        if blend_step != 0 && !group {
+            let all = comp_format::BlendMode::ALL;
+            let i = all.iter().position(|m| *m == blend).unwrap_or(0) as i64;
+            let mode = all[(i + blend_step).rem_euclid(all.len() as i64) as usize];
+            doc.set_blend_mode(&id, mode);
         }
         if nudge != egui::Vec2::ZERO && !group && !adjustment {
             doc.edit("Nudge", true, |m| {

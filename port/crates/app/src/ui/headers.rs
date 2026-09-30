@@ -54,8 +54,7 @@ fn percent_row(ui: &mut Ui, id: &str, title: &str, value: &mut f64, min: f64) {
 }
 
 /// `TransformInspector`: Auto Select, Show Controls, then X, Y, W, H, lock, Scale, angle,
-/// Sampling and the flips for the active layer. X and Y move the layer; the rest wait on the
-/// engine's transforms.
+/// Sampling and the flips for the active layer. A value being typed or dragged is one undo step.
 fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
     let inner = Rect::from_min_max(rect.min + vec2(18.0, 0.0), rect.max - vec2(18.0, 0.0));
     let doc_layer = app.doc().and_then(|d| {
@@ -63,15 +62,27 @@ fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
         if l.is_group() || l.adjustment.is_some() {
             return None;
         }
-        let pixels = d.project.images.get(&l.id).map(|a| a.pixels.width() as f64);
-        Some((l.id.clone(), l.transform, pixels))
+        let pixels = d.project.images.get(&l.id).map(|a| [a.pixels.width() as f64, a.pixels.height() as f64])?;
+        // A drag on the canvas shows its draft.
+        let t = match &app.gesture {
+            Some(crate::ui::canvas_tools::Gesture::Transform { layer, draft, .. }) if *layer == l.id => *draft,
+            _ => l.transform,
+        };
+        Some((l.id.clone(), t, Some(pixels)))
     });
     let enabled = doc_layer.is_some();
     let (mut x, mut y, mut wd, mut ht, mut scale, mut angle) = match &doc_layer {
-        Some((_, t, pixels)) => (t.origin[0], t.origin[1], t.size[0], t.size[1], pixels.map_or(100.0, |p| t.size[0] / p * 100.0), t.rotation),
+        Some((_, t, pixels)) => (t.origin[0], t.origin[1], t.size[0], t.size[1], pixels.map_or(100.0, |p| t.size[0] / p[0].max(1.0) * 100.0), t.rotation),
         None => (0.0, 0.0, 0.0, 0.0, 100.0, 0.0),
     };
-    let (x0, y0) = (x, y);
+    let (x0, y0, w0, h0, scale0, angle0) = (x, y, wd, ht, scale, angle);
+    let mut sampling = doc_layer.as_ref().map_or(Sampling::High, |(_, t, _)| match t.sampling {
+        comp_format::Sampling::Nearest => Sampling::Nearest,
+        comp_format::Sampling::Smooth => Sampling::Smooth,
+        comp_format::Sampling::High => Sampling::High,
+    });
+    let sampling0 = sampling;
+    let mut flip = None;
     w::row(ui, inner, 12.0, |ui| {
         w::title(ui, "Transform");
         w::checkbox(ui, &mut app.settings.auto_select, "Auto Select");
@@ -87,38 +98,76 @@ fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
         for (label, value) in [("W", &mut wd), ("H", &mut ht)] {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
-                caption_scrub(ui, label, value, 1.0..=30000.0, false);
-                w::number_field(ui, ("transform", label), value, 1.0..=30000.0, w::fmt_whole_or_2, 85.0, false, false);
+                caption_scrub(ui, label, value, 1.0..=30000.0, enabled);
+                w::number_field(ui, ("transform", label), value, 1.0..=30000.0, w::fmt_whole_or_2, 85.0, false, enabled);
             });
         }
-        lock_toggle(ui, &mut app.settings.lock_aspect, false);
+        lock_toggle(ui, &mut app.settings.lock_aspect, enabled);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
-            caption_scrub(ui, "Scale", &mut scale, 0.1..=30000.0, false);
-            w::number_field(ui, ("transform", "scale"), &mut scale, 0.1..=30000.0, w::fmt_whole_or_2, 110.0, false, false);
+            caption_scrub(ui, "Scale", &mut scale, 0.1..=30000.0, enabled);
+            w::number_field(ui, ("transform", "scale"), &mut scale, 0.1..=30000.0, w::fmt_whole_or_2, 110.0, false, enabled);
             w::unit(ui, "%");
         });
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
-            caption_scrub(ui, "°", &mut angle, -360.0..=360.0, false);
-            w::number_field(ui, ("transform", "angle"), &mut angle, -360.0..=360.0, w::fmt_whole_or_2, 75.0, false, false);
+            caption_scrub(ui, "°", &mut angle, -360.0..=360.0, enabled);
+            w::number_field(ui, ("transform", "angle"), &mut angle, -360.0..=360.0, w::fmt_whole_or_2, 75.0, false, enabled);
         });
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            w::labeled_popup(ui, "Sampling", &mut app.settings.transform_sampling, &[Sampling::ALL], Sampling::title, 170.0, false);
+            w::labeled_popup(ui, "Sampling", &mut sampling, &[Sampling::ALL], Sampling::title, 170.0, enabled);
         });
-        w::button(ui, "Flip H", 12.0, ButtonStyle::Bordered, false);
-        w::button(ui, "Flip V", 12.0, ButtonStyle::Bordered, false);
+        if w::button(ui, "Flip H", 12.0, ButtonStyle::Bordered, enabled).clicked() {
+            flip = Some(true);
+        }
+        if w::button(ui, "Flip V", 12.0, ButtonStyle::Bordered, enabled).clicked() {
+            flip = Some(false);
+        }
     });
-    if let Some((id, _, _)) = doc_layer {
+    app.settings.transform_sampling = sampling;
+    if let Some((id, t, pixels)) = doc_layer {
+        let pixels = pixels.unwrap_or([1.0, 1.0]);
+        let lock = app.settings.lock_aspect;
+        let mut next = t;
+        // Typed values are used as they are (only dragging rounds).
         if x != x0 || y != y0 {
-            let (nx, ny) = (x.round(), y.round());
+            next.origin = [x, y];
+        }
+        if wd != w0 || ht != h0 {
+            let c = crate::geometry::center(&t);
+            let (mut nw, mut nh) = (wd, ht);
+            if lock {
+                if wd != w0 {
+                    nh = wd * t.size[1] / t.size[0];
+                } else {
+                    nw = ht * t.size[0] / t.size[1];
+                }
+            }
+            next.size = [nw.max(1.0), nh.max(1.0)];
+            next.origin = [c[0] - next.size[0] / 2.0, c[1] - next.size[1] / 2.0];
+        }
+        if scale != scale0 {
+            next = crate::geometry::scaled_to_percent(&t, scale, pixels);
+        }
+        if angle != angle0 {
+            next.rotation = angle;
+        }
+        if sampling != sampling0 {
+            next.sampling = match sampling {
+                Sampling::Nearest => comp_format::Sampling::Nearest,
+                Sampling::Smooth => comp_format::Sampling::Smooth,
+                Sampling::High => comp_format::Sampling::High,
+            };
+        }
+        if let Some(h) = flip {
             if let Some(d) = app.doc_mut() {
-                d.edit("Move Layer", true, |m| {
-                    if let Some(l) = m.layers.iter_mut().find(|l| l.id == id) {
-                        l.transform.origin = [nx, ny];
-                    }
-                });
+                crate::layer_ops::flip_layer(d, h);
+            }
+        } else if next != t && crate::geometry::is_valid(&next) {
+            if let Some(d) = app.doc_mut() {
+                let project = crate::ui::canvas_tools::placed(&d.project, &id, next);
+                d.edit("Transform Layer", true, |m| *m = project.manifest);
             }
         } else if let Some(d) = app.doc_mut() {
             if !ui.ctx().egui_is_using_pointer() && !ui.ctx().egui_wants_keyboard_input() {
@@ -215,17 +264,34 @@ fn brush(app: &mut App, ui: &mut Ui) {
             w::number_field(ui, "smoothing", &mut s.smoothing, 0.0..=100.0, w::fmt_int, 42.0, false, true);
         });
     }
-    if matches!(tool, Tool::Brush | Tool::SpotHealing) {
+    let mask = app.doc().is_some_and(|d| d.mask_target && d.active_layer().is_some_and(|l| l.mask_file.is_some()));
+    let s = &mut app.settings;
+    if mask {
+        // On a mask the brush paints black or white.
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            w::labeled_popup(ui, "Paint", &mut s.mask_paint, &[MaskPaint::ALL], MaskPaint::title, 180.0, true);
+        });
+    } else if matches!(tool, Tool::Brush | Tool::SpotHealing) {
+        let mut open_picker = false;
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             w::label(ui, "Color");
-            w::swatch(ui, w::rgb(foreground), vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 });
+            open_picker = w::swatch(ui, w::rgb(foreground), vec2(34.0, 18.0), SwatchStyle { radius: 4.0, inner_white: 1.0, outer_black: 1.0 }).clicked();
         });
+        if open_picker {
+            crate::ui::dialogs::open_color_picker(app, false);
+        }
     }
     let _ = brush_mode;
-    if tool == Tool::CloneStamp {
+    let source = app.doc().is_some_and(|d| d.clone_source.is_some());
+    if tool == Tool::CloneStamp && !source {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             w::secondary(ui, "Option-click to set the source", 12.0);
+        });
+    } else if mask {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            w::secondary(ui, "Mask", 12.0);
         });
     }
 }
@@ -274,14 +340,31 @@ fn selection(app: &mut App, ui: &mut Ui) {
         w::checkbox(ui, &mut s.anti_alias, "Anti-alias");
     }
     w::vdivider(ui, 18.0);
-    // No selection exists until the selection tools land, so these stay disabled as on the Mac.
-    for (title, value, max, width) in [("Expand", &mut s.expand, 500.0, 40.0), ("Contract", &mut s.contract, 500.0, 40.0), ("Feather", &mut s.feather, 250.0, 48.0)] {
+    // Disabled without a selection, as on the Mac.
+    let has_selection = app.doc().is_some_and(|d| d.selection.is_some());
+    let s = &mut app.settings;
+    let mut chosen = None;
+    for (kind, (title, value, max, width)) in [("Expand", &mut s.expand, 500.0, 40.0), ("Contract", &mut s.contract, 500.0, 40.0), ("Feather", &mut s.feather, 250.0, 48.0)].into_iter().enumerate() {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = if title == "Feather" { 5.0 } else { 8.0 };
-            w::button(ui, title, 12.0, ButtonStyle::Bordered, false);
-            w::number_field(ui, ("amount", title), value, 1.0..=max, w::fmt_int, width, false, false);
+            if w::button(ui, title, 12.0, ButtonStyle::Bordered, has_selection).clicked() {
+                chosen = Some((kind as u8, *value));
+            }
+            w::number_field(ui, ("amount", title), value, 1.0..=max, w::fmt_int, width, false, has_selection);
             w::unit(ui, "px");
         });
+    }
+    let mut deselect = false;
+    if has_selection {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            deselect = w::button(ui, "Deselect", 12.0, ButtonStyle::Bordered, true).clicked();
+        });
+    }
+    if let Some((kind, amount)) = chosen {
+        crate::ui::selection::modify(app, kind, amount.round().max(1.0));
+    }
+    if deselect {
+        crate::ui::selection::command(app, crate::menus::Command::Deselect);
     }
 }
 
@@ -419,19 +502,45 @@ fn shape(app: &mut App, ui: &mut Ui) {
 
 /// `CropControls`.
 fn crop(app: &mut App, ui: &mut Ui) {
-    let size = app.doc().map(|d| (d.project.manifest.width, d.project.manifest.height));
+    let size = app.doc().and_then(|d| d.visible_crop()).map(|c| (c[2] as i64, c[3] as i64));
+    let pending = app.doc().is_some_and(|d| d.crop.is_some());
     w::title(ui, "Crop");
+    let before = app.settings.crop_ratio;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 6.0;
         w::labeled_popup(ui, "Ratio", &mut app.settings.crop_ratio, &[CropRatio::ALL], CropRatio::title, 170.0, true);
     });
+    // `changeCropRatio`: the frame takes the new ratio around its middle.
+    if app.settings.crop_ratio != before {
+        if let Some(ratio) = app.crop_ratio() {
+            if let Some(d) = app.doc_mut() {
+                if let Some(r) = d.visible_crop() {
+                    let height = r[2] / ratio;
+                    let next = crate::geometry::crop_snapped([r[0], r[1] + r[3] / 2.0 - height / 2.0, r[2], height]);
+                    if crate::geometry::crop_valid(next) {
+                        d.crop = Some(next);
+                    }
+                }
+            }
+        }
+    }
     if let Some((wd, ht)) = size {
         w::label(ui, &format!("{wd} × {ht} px"));
     }
+    let mut apply = false;
+    let mut cancel = false;
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-        w::button(ui, "Apply Crop", 12.0, ButtonStyle::Bordered, false);
-        w::button(ui, "Cancel", 12.0, ButtonStyle::Bordered, false);
+        apply = w::button(ui, "Apply Crop", 12.0, ButtonStyle::Bordered, pending).clicked();
+        cancel = w::button(ui, "Cancel", 12.0, ButtonStyle::Bordered, pending).clicked();
     });
+    if apply {
+        crate::ui::canvas_tools::apply_crop(app);
+    }
+    if cancel {
+        if let Some(d) = app.doc_mut() {
+            d.crop = None;
+        }
+    }
 }
 
 /// `NavigationToolHeader`: Pan, or Zoom with the zoom field.

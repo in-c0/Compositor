@@ -1,7 +1,10 @@
 //! The editor window: `ContentView.editorStack` and the toolbar above it.
 
+pub mod canvas_tools;
+pub mod dialogs;
 pub mod headers;
 pub mod layers;
+pub mod selection;
 pub mod sheets;
 
 use crate::app::App;
@@ -45,6 +48,7 @@ pub fn window(app: &mut App, ui: &mut Ui) {
     if let Some(c) = chosen {
         app.run(&ctx, c);
     }
+    dialogs::show(app, &ctx);
     dialogs(app, &ctx);
     // Title shows the project, with an edited mark, as `representedURL`/`isDocumentEdited` do.
     let title = match app.doc() {
@@ -348,6 +352,13 @@ fn palette(app: &mut App, ui: &mut Ui, p: &egui::Painter, origin: Pos2) {
     let fg = Rect::from_min_size(origin, vec2(24.0, 24.0));
     widgets::paint_swatch(p, bg, widgets::rgb(app.settings.background), style);
     widgets::paint_swatch(p, fg, widgets::rgb(app.settings.foreground), style);
+    // The background swatch sits under the foreground one, so it's registered first.
+    if ui.interact(bg, ui.id().with("background-swatch"), Sense::click()).on_hover_text("Background color").clicked() {
+        dialogs::open_color_picker(app, true);
+    }
+    if ui.interact(fg, ui.id().with("foreground-swatch"), Sense::click()).on_hover_text("Foreground color").clicked() {
+        dialogs::open_color_picker(app, false);
+    }
     let swap = Rect::from_min_size(origin + vec2(27.0, -3.0), vec2(12.0, 12.0));
     icons::paint_rotated(p, "arrow.left.and.right", swap.center(), 9.0, color::secondary(), -std::f32::consts::FRAC_PI_4);
     if ui.interact(swap, ui.id().with("swap"), Sense::click()).on_hover_text("Swap foreground and background (X)").clicked() {
@@ -487,10 +498,10 @@ fn canvas_view(app: &mut App, ui: &mut Ui, rect: Rect) {
     let tool = app.tool;
     let pixel_grid = app.pixel_grid;
     let gfx = app.gfx.clone();
+    app.canvas_rect = rect;
     let Some(doc) = app.doc_mut() else { return };
     let size = doc.size();
     doc.view.resize(rect.size(), ppp, size);
-    doc.refresh(&gfx);
 
     // Navigation: scroll pans, Ctrl-scroll or pinch zooms, Hand and Space drag, Zoom clicks.
     let response = ui.interact(rect, ui.id().with("canvas"), Sense::click_and_drag());
@@ -512,16 +523,14 @@ fn canvas_view(app: &mut App, ui: &mut Ui, rect: Rect) {
         doc.view.pan += response.drag_delta();
         doc.view.follows_fit = false;
     }
-    if tool == Tool::Zoom && response.clicked() && !space {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let out = ui.input(|i| i.modifiers.alt);
-            let target = doc.view.keyboard_zoom_target(if out { -1 } else { 1 });
-            doc.view.set_zoom(target, pos - rect.min, size);
-        }
-    }
     if panning || tool == Tool::Hand {
         ui.ctx().set_cursor_icon(if response.dragged() { egui::CursorIcon::Grabbing } else { egui::CursorIcon::Grab });
     }
+    // The tools' own presses and drags (the Zoom tool's clicks too), then the composite with any
+    // preview they asked for.
+    canvas_tools::interact(app, ui, &response, rect, panning);
+    let Some(doc) = app.doc_mut() else { return };
+    doc.refresh(&gfx);
 
     let doc_rect = doc.view.document_rect(size).translate(rect.min.to_vec2());
     let shadow = egui::epaint::Shadow { offset: [0, 3], blur: 14, spread: 0, color: theme::black_alpha(0.35) };
@@ -568,6 +577,8 @@ fn canvas_view(app: &mut App, ui: &mut Ui, rect: Rect) {
         }
     }
     p.rect_stroke(doc_rect, 0.0, Stroke::new(1.0 / ppp, white_alpha(0.13)), StrokeKind::Middle);
+    canvas_tools::overlay(app, ui, rect);
+    let Some(doc) = app.doc() else { return };
     if let Some(error) = &doc.render_error {
         let g = p.layout_no_wrap(error.clone(), theme::medium(12.0), Color32::WHITE);
         let badge = Rect::from_center_size(pos2(rect.center().x, rect.max.y - 14.0 - 13.0), vec2(g.size().x + 24.0, 26.0));

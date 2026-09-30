@@ -64,6 +64,11 @@ impl Tool {
         }
     }
 
+    /// Brush, Eraser, Spot Healing, Clone Stamp and the Smear tools (`isBrushTool`).
+    pub fn is_brush(self) -> bool {
+        matches!(self, Tool::Brush | Tool::SpotHealing | Tool::CloneStamp | Tool::Blur)
+    }
+
     pub fn key(self) -> eframe::egui::Key {
         use eframe::egui::Key;
         match self {
