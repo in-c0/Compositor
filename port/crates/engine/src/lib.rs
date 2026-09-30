@@ -69,6 +69,11 @@ impl Renderer {
     /// as strokes in one Mac session share the brush settings and Clone Stamp's source, and every
     /// op sees the selection the ops before it made.
     pub fn apply_ops(&self, project: &mut Project, ops: &[serde_json::Value]) -> Result<(), RenderError> {
+        self.apply_ops_with_selection(project, ops).map(|_| ())
+    }
+
+    /// [`Renderer::apply_ops`], returning the selection the ops leave (it isn't part of the project).
+    pub fn apply_ops_with_selection(&self, project: &mut Project, ops: &[serde_json::Value]) -> Result<Option<select::Selection>, RenderError> {
         let mut painting = paint::Session::default();
         let mut selection = None;
         for op in ops {
@@ -77,7 +82,7 @@ impl Renderer {
                 _ => self.apply_op_with_selection(project, &mut selection, op)?,
             }
         }
-        Ok(())
+        Ok(selection)
     }
 
     /// Applies one corpus operation (`filter`, `crop`, `canvasSize`, `imageSize`, `stroke`) to `project`.

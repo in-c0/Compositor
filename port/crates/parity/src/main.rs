@@ -324,14 +324,6 @@ fn build_session(
         "psd" | "psb" => renderer.import_psd(&input)?,
         _ => renderer.import_image(&input, case.spec.raw.as_ref())?,
     };
-<<<<<<< HEAD
-    renderer.apply_ops(&mut project, &case.spec.ops)?;
-    Ok(project)
-=======
-    let mut selection = None;
-    for op in &case.spec.ops {
-        renderer.apply_op_with_selection(&mut project, &mut selection, op)?;
-    }
+    let selection = renderer.apply_ops_with_selection(&mut project, &case.spec.ops)?;
     Ok((project, selection))
->>>>>>> f1863e6 (Make selections on the GPU the way the Mac does)
 }
