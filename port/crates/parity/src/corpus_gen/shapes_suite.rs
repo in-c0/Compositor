@@ -309,6 +309,31 @@ fn gradient_probes(w: &mut CaseWriter) -> Result<()> {
         d.blank("Layer 1", width as f64, height as f64, spec());
         w.write(F, case, label, d, vec![op])?;
     }
+    // How many pieces a ramp has, by its length and where its ends fall.
+    let spans: [(&str, f64, f64); 12] = [
+        ("probe-span-24", 0.0, 24.0), ("probe-span-32", 0.0, 32.0), ("probe-span-48", 0.0, 48.0), ("probe-span-56", 0.0, 56.0),
+        ("probe-span-72", 0.0, 72.0), ("probe-span-100", 0.0, 100.0), ("probe-span-160", 0.0, 160.0), ("probe-span-200", 0.0, 200.0),
+        ("probe-span-40-at-0", 0.0, 40.0), ("probe-span-40-at-8", 8.0, 48.0), ("probe-span-64-at-4", 4.0, 68.0), ("probe-span-64-at-half", 0.5, 64.5),
+    ];
+    for (case, from, to) in spans {
+        let width = (to.ceil() as u32).max(64).next_multiple_of(16);
+        let mut d = w.doc(F, case, width, 16);
+        d.blank("Layer 1", width as f64, 16.0, spec());
+        let label = format!("Probe: black to white from x = {from} to {to}");
+        w.write(F, case, &label, d, vec![colored([from, 0.0], [to, 0.0], [0.0; 3], [1.0; 3])])?;
+    }
+    // The dither's thresholds to 1/256: one color per layer, each channel a quarter of a 256th
+    // past 100 + k/256, for every k that isn't a multiple of 16.
+    let case = "probe-dither-fine";
+    let mut d = w.doc(F, case, 16, 16);
+    let mut ops = Vec::new();
+    let ks: Vec<u32> = (1..256).filter(|k| k % 16 != 0).collect();
+    for (i, chunk) in ks.chunks(3).enumerate() {
+        let id = d.blank(&format!("Layer {}", i + 1), 16.0, 16.0, spec());
+        let c: Vec<f64> = chunk.iter().map(|&k| (100.0 + (k as f64 + 0.25) / 256.0) / 255.0).collect();
+        ops.push(json!({ "op": "gradient", "layer": id, "from": [0, 0], "to": [16, 0], "foreground": c, "background": c, "style": "Foreground to Background" }));
+    }
+    w.write(F, case, "Probe: the dither's thresholds, one layer per three of them", d, ops)?;
     // The dither with the gradient's line turned: level, upright, slanted and radial.
     let c: Vec<f64> = [3.0, 8.0, 13.0].iter().map(|f| (100.0 + f / 16.0) / 255.0).collect();
     for (case, label, from, to, radial) in [
