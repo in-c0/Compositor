@@ -276,3 +276,34 @@ pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (
     }
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(v: f64) -> i64 {
+        fixed(v)
+    }
+
+    #[test]
+    fn low_rounds_the_phase_half_up_to_eighths() {
+        // A position 1/16 past a pixel center (u = i + 0.5 + phase) is the first eighth.
+        let t = low(at(3.5 + 1.0 / 16.0));
+        assert_eq!((t.heavy, t.light, t.shift), (3, 4, 4));
+        // Just short of it, the heavy pixel alone.
+        let t = low(at(3.5 + 1.0 / 16.0 - 1e-6));
+        assert_eq!((t.heavy, t.shift), (3, 0));
+        // Past the middle, the next pixel is heavy, and ties round toward it.
+        let t = low(at(3.5 + 15.0 / 16.0));
+        assert_eq!((t.heavy, t.shift), (4, 0));
+        let t = low(at(3.5 + 0.5));
+        assert_eq!((t.heavy, t.light, t.shift), (4, 3, 1));
+    }
+
+    #[test]
+    fn blend_shifts_the_light_pixel_in() {
+        assert_eq!(blend(255, 0, 3), 255 - 31);
+        assert_eq!(blend(0, 255, 1), 127);
+        assert_eq!(blend(40, 255, 0), 40);
+    }
+}
