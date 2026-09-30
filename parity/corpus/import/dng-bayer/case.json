@@ -1,5 +1,5 @@
 {
   "feature": "import",
   "input": "input.dng",
-  "label": "Bayer (RGGB) DNG, 12-bit, imported with the develop sheet's defaults (as shot)"
+  "label": "192 x 128 Bayer (RGGB) DNG, 12-bit, no preview, with the develop sheet's defaults (as shot)"
 }

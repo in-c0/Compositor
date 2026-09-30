@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Quality-100 JPEG of YCbCr noise, chroma constant over each subsampling cell"
+}

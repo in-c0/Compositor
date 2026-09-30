@@ -34,6 +34,11 @@ fn put(w: &mut CaseWriter, case: &str, label: &str, name: &str, bytes: &[u8]) ->
     w.write_file(FEATURE, case, label, name, bytes, vec![])
 }
 
+/// A RAW case that opens `other`'s input.dng with its own develop settings.
+fn shared(w: &mut CaseWriter, case: &str, label: &str, other: &str, raw: Value) -> Result<()> {
+    w.write_shared(FEATURE, case, label, other, "input.dng", raw)
+}
+
 fn put_raw(w: &mut CaseWriter, case: &str, label: &str, bytes: &[u8], raw: Value) -> Result<()> {
     w.write_file_with(FEATURE, case, label, "input.dng", bytes, raw)
 }
@@ -142,6 +147,7 @@ fn jpeg_cases(w: &mut CaseWriter) -> Result<()> {
     let p3 = files::icc_profile("Compositor test Display P3", files::DISPLAY_P3, Trc::Srgb, true);
     put(w, "jpeg-p3", "JPEG with an embedded Display P3 profile", "input.jpg",
         &jpeg(&photo, JpegColor::Rgb, JpegOptions { icc: Some(p3), ..Default::default() })?)?;
+    jpeg_probes(w)?;
     let cmyk: Vec<u8> = photo
         .chunks(3)
         .flat_map(|p| {
@@ -152,6 +158,48 @@ fn jpeg_cases(w: &mut CaseWriter) -> Result<()> {
         .collect();
     put(w, "jpeg-cmyk", "Adobe CMYK JPEG with no profile: converted from the system's generic CMYK", "input.jpg",
         &jpeg(&cmyk, JpegColor::Cmyk, JpegOptions::default())?)?;
+    Ok(())
+}
+
+/// Probes of Apple's JPEG decoder. The coefficient files pin down its inverse DCT (one basis
+/// function per block at four amplitudes, then random sparse blocks); the quality-100 files of
+/// per-pixel noise show its chroma upsampling and YCbCr conversion.
+fn jpeg_probes(w: &mut CaseWriter) -> Result<()> {
+    let mut basis = Vec::new();
+    for amplitude in [37i16, -61, 113, -150] {
+        for position in 0..64 {
+            let mut block = [0i16; 64];
+            block[position] = amplitude;
+            basis.push(block);
+        }
+    }
+    put(w, "jpeg-idct-basis", "Grayscale JPEG, all-ones quantization: each block holds one coefficient (every position, four amplitudes)", "input.jpg",
+        &files::jpeg_gray_coefficients(16, 16, &basis))?;
+    let random: Vec<[i16; 64]> = (0..256u32)
+        .map(|b| {
+            let mut block = [0i16; 64];
+            block[0] = ((hash(b * 31 + 7) % 801) as i32 - 400) as i16;
+            for k in 0..8u32 {
+                let h = hash(b * 977 + k * 13 + 1);
+                block[1 + (h % 63) as usize] = (((h >> 8) % 241) as i32 - 120) as i16;
+            }
+            block
+        })
+        .collect();
+    put(w, "jpeg-idct-random", "Grayscale JPEG, all-ones quantization: random sparse blocks", "input.jpg", &files::jpeg_gray_coefficients(16, 16, &random))?;
+    for (case, sampling, (fx, fy)) in [("jpeg-ycc-444", SamplingFactor::F_1_1, (1, 1)), ("jpeg-ycc-420", SamplingFactor::F_2_2, (2, 2)), ("jpeg-ycc-422", SamplingFactor::F_2_1, (2, 1))] {
+        let (width, height) = (64u32, 64u32);
+        let ycc: Vec<u8> = (0..height)
+            .flat_map(|y| {
+                (0..width).flat_map(move |x| {
+                    let cell = (y / fy) * width + x / fx;
+                    [(hash(y * width + x) >> 24) as u8, 40 + (hash(cell ^ 0xcb) >> 24) as u8 % 176, 40 + (hash(cell ^ 0xc7) >> 24) as u8 % 176]
+                })
+            })
+            .collect();
+        put(w, case, "Quality-100 JPEG of YCbCr noise, chroma constant over each subsampling cell", "input.jpg",
+            &files::jpeg(width, height, JpegColor::Ycbcr, &ycc, JpegOptions { quality: 100, sampling, ..Default::default() })?)?;
+    }
     Ok(())
 }
 
@@ -176,6 +224,8 @@ fn heic_cases(w: &mut CaseWriter) -> Result<()> {
     put(w, "heic-444", "HEIC, 8-bit 4:4:4 (x265), sRGB nclx", "input.heic", include_bytes!("fixtures/heic-444.heic"))?;
     put(w, "heic-rgba", "HEIC with an alpha plane", "input.heic", include_bytes!("fixtures/heic-rgba.heic"))?;
     put(w, "heic-odd-420", "HEIC, 4:2:0, odd width and height", "input.heic", include_bytes!("fixtures/heic-odd-420.heic"))?;
+    put(w, "heic-noise-420", "HEIC of per-pixel noise, 4:2:0, quality 100: chroma upsampling", "input.heic", include_bytes!("fixtures/heic-noise-420.heic"))?;
+    put(w, "heic-noise-444", "HEIC of per-pixel noise, 4:4:4, quality 100: YCbCr conversion", "input.heic", include_bytes!("fixtures/heic-noise-444.heic"))?;
     Ok(())
 }
 
@@ -252,7 +302,7 @@ fn scene(width: u32, height: u32, x: u32, y: u32) -> [f64; 3] {
     }
 }
 
-fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>) -> RawCapture {
+fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>, with_preview: bool) -> RawCapture {
     let srgb_to_xyz = files::rgb_to_xyz([[0.64, 0.33], [0.30, 0.60], [0.15, 0.06]], [0.3127 / 0.3290, 1.0, (1.0 - 0.3127 - 0.3290) / 0.3290]);
     let to_camera = files::mat_mul(&CAMERA_MATRIX, &srgb_to_xyz);
     let white = files::mul(&to_camera, [1.0, 1.0, 1.0]);
@@ -288,18 +338,29 @@ fn capture(width: u32, height: u32, cfa: Option<[u8; 4]>) -> RawCapture {
         white: white_level,
         color_matrix: CAMERA_MATRIX,
         as_shot_neutral: neutral,
-        preview: (pw, ph, preview),
+        preview: with_preview.then_some((pw, ph, preview)),
     }
 }
 
 fn raw_cases(w: &mut CaseWriter) -> Result<()> {
-    let bayer = files::dng(&capture(64, 48, Some([0, 1, 1, 2])));
-    let linear = files::dng(&capture(64, 48, None));
-    put_raw(w, "dng-bayer", "Bayer (RGGB) DNG, 12-bit, imported with the develop sheet's defaults (as shot)", &bayer, Value::Null)?;
-    put_raw(w, "dng-bayer-boost-0", "Bayer DNG with Boost 0: Apple's tone curve off", &bayer, json!({ "boost": 0 }))?;
-    put_raw(w, "dng-bayer-settings", "Bayer DNG with exposure +0.7, 4200 K, tint +12, boost 0.5", &bayer,
+    // At 64 x 48 with a preview in IFD 0, the Mac imports the 16 x 12 preview instead of
+    // developing the raw image; the bigger files and the ones without a preview show what it
+    // needs.
+    let small = files::dng(&capture(64, 48, Some([0, 1, 1, 2]), true));
+    put_raw(w, "dng-small-preview", "64 x 48 Bayer DNG with a 16 x 12 preview in IFD 0: the Mac imports the preview", &small, Value::Null)?;
+    shared(w, "dng-small-preview-settings", "The same file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-small-preview",
         json!({ "exposure": 0.7, "temperature": 4200, "tint": 12, "boost": 0.5 }))?;
-    put_raw(w, "dng-linear", "Linear (demosaiced) DNG, as shot", &linear, Value::Null)?;
-    put_raw(w, "dng-linear-boost-0", "Linear DNG with Boost 0", &linear, json!({ "boost": 0 }))?;
+    let small_bare = files::dng(&capture(64, 48, Some([0, 1, 1, 2]), false));
+    put_raw(w, "dng-small", "64 x 48 Bayer DNG with no preview", &small_bare, Value::Null)?;
+    let preview = files::dng(&capture(192, 128, Some([0, 1, 1, 2]), true));
+    put_raw(w, "dng-bayer-preview", "192 x 128 Bayer DNG with a 48 x 32 preview in IFD 0", &preview, Value::Null)?;
+    let bayer = files::dng(&capture(192, 128, Some([0, 1, 1, 2]), false));
+    put_raw(w, "dng-bayer", "192 x 128 Bayer (RGGB) DNG, 12-bit, no preview, with the develop sheet's defaults (as shot)", &bayer, Value::Null)?;
+    shared(w, "dng-bayer-boost-0", "The dng-bayer file with Boost 0: Apple's tone curve off", "dng-bayer", json!({ "boost": 0 }))?;
+    shared(w, "dng-bayer-settings", "The dng-bayer file with exposure +0.7, 4200 K, tint +12, boost 0.5", "dng-bayer",
+        json!({ "exposure": 0.7, "temperature": 4200, "tint": 12, "boost": 0.5 }))?;
+    let linear = files::dng(&capture(192, 128, None, false));
+    put_raw(w, "dng-linear", "192 x 128 linear (demosaiced) DNG, no preview, as shot", &linear, Value::Null)?;
+    shared(w, "dng-linear-boost-0", "The dng-linear file with Boost 0", "dng-linear", json!({ "boost": 0 }))?;
     Ok(())
 }

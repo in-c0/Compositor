@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.heic",
+  "label": "HEIC of per-pixel noise, 4:4:4, quality 100: YCbCr conversion"
+}

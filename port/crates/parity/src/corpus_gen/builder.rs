@@ -186,6 +186,17 @@ impl CaseWriter {
         result
     }
 
+    /// A case that opens another case's input (`../<other case>/<file>`) with its own `raw`
+    /// settings, so a large file is stored once.
+    pub fn write_shared(&mut self, feature: &str, case: &str, label: &str, other: &str, input_name: &str, raw: Value) -> Result<()> {
+        let dir = self.root.join(feature).join(case);
+        std::fs::create_dir_all(&dir)?;
+        self.extra = if raw.is_null() { Value::Null } else { serde_json::json!({ "raw": raw }) };
+        let result = self.write_spec(&dir, feature, label, &format!("../{other}/{input_name}"), vec![]);
+        self.extra = Value::Null;
+        result
+    }
+
     fn write_spec(&mut self, dir: &Path, feature: &str, label: &str, input: &str, ops: Vec<Value>) -> Result<()> {
         let mut spec = serde_json::json!({ "feature": feature, "label": label, "input": input });
         if !ops.is_empty() {

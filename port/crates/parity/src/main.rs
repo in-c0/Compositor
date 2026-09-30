@@ -305,7 +305,7 @@ fn build_project(renderer: &engine::Renderer, case: &cases::Case) -> Result<comp
     let mut project = match ext.as_str() {
         "comp" => comp_format::load(&input).map_err(engine::RenderError::Failed)?,
         "psd" | "psb" => renderer.import_psd(&input)?,
-        other => return Err(engine::RenderError::Failed(anyhow::anyhow!("unknown input type `{other}`"))),
+        _ => renderer.import_image(&input, case.spec.raw.as_ref())?,
     };
     for op in &case.spec.ops {
         renderer.apply_op(&mut project, op)?;

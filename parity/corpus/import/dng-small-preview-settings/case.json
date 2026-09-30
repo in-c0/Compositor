@@ -1,7 +1,7 @@
 {
   "feature": "import",
-  "input": "../dng-bayer/input.dng",
-  "label": "The dng-bayer file with exposure +0.7, 4200 K, tint +12, boost 0.5",
+  "input": "../dng-small-preview/input.dng",
+  "label": "The same file with exposure +0.7, 4200 K, tint +12, boost 0.5",
   "raw": {
     "boost": 0.5,
     "exposure": 0.7,

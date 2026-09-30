@@ -1,0 +1,5 @@
+{
+  "feature": "import",
+  "input": "input.jpg",
+  "label": "Grayscale JPEG, all-ones quantization: each block holds one coefficient (every position, four amplitudes)"
+}
