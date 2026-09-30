@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "1AF1F438-D55B-4D31-BE27-AED1B1BA3DDF",
+  "colorSpace" : "sRGB",
+  "documentID" : "7CBDA97A-139C-40B9-9974-F2940802A0B3",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "1AF1F438-D55B-4D31-BE27-AED1B1BA3DDF",
+      "imageFile" : "1AF1F438-D55B-4D31-BE27-AED1B1BA3DDF.png",
+      "isVisible" : true,
+      "name" : "Probe",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

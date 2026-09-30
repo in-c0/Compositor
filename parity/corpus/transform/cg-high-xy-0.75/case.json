@@ -1,0 +1,20 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Core Graphics High shrinking noise to 0.75",
+  "ops": [
+    {
+      "height": 48,
+      "layer": "03C12CA2-21DB-49BF-8ECD-139984952EF8",
+      "op": "probeDraw",
+      "quality": "high",
+      "rect": [
+        0.0,
+        0.0,
+        48.0,
+        48.0
+      ],
+      "width": 48
+    }
+  ]
+}

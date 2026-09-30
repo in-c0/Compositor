@@ -1,0 +1,20 @@
+{
+  "feature": "transform",
+  "input": "input.comp",
+  "label": "Core Graphics High shrinking across to 0.5, 0.25 pixels right",
+  "ops": [
+    {
+      "height": 32,
+      "layer": "435C05CC-5B86-4D78-949E-6CE1E595ECA1",
+      "op": "probeDraw",
+      "quality": "high",
+      "rect": [
+        0.25,
+        0.0,
+        64.0,
+        32.0
+      ],
+      "width": 65
+    }
+  ]
+}
