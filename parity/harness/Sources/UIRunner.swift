@@ -246,6 +246,6 @@ nonisolated struct UIInfo: Encodable {
                       scale: 1, appearance: "darkAqua", accentColor: accent,
                       appleAccentColor: UserDefaults.standard.object(forKey: "AppleAccentColor").map { "\($0)" },
                       toolDefaultsPinned: true, defaultsDomain: UIRunner.defaultsDomain,
-                      editorSize: [editorSize.width, editorSize.height], states: states)
+                      editorSize: [editorContentSize.width, editorContentSize.height], states: states)
     }
 }

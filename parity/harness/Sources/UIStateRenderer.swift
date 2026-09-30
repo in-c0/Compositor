@@ -27,7 +27,7 @@ nonisolated struct UIStateResult: Codable, Sendable {
 
 /// The editor window's content size: the Window scene's default size. The toolbar isn't part of it; it lives in the
 /// window's title bar, which isn't captured.
-let editorSize = CGSize(width: 1180, height: 780)
+let editorContentSize = CGSize(width: 1180, height: 780)
 /// ContentView's fixed bars: the tool header and its divider on top, the divider and status bar at the bottom, and
 /// the tool rail's width.
 let headerHeight = ToolHeaderStyle.height
@@ -37,7 +37,7 @@ let toolRailWidth: CGFloat = 56
 /// The Layers panel as the editor shows it by default (`layersPanelWidth`), at a fixed height.
 let layersPanelSize = CGSize(width: 252, height: 600)
 /// Camera Raw docks to the window's right edge at this width and the window's height.
-let cameraRawSize = CGSize(width: FloatingPanelController.dockedWidth, height: editorSize.height)
+let cameraRawSize = CGSize(width: FloatingPanelController.dockedWidth, height: editorContentSize.height)
 
 /// Renders one state in this process: opens its document, picks its tool, builds the view the way the app hosts it,
 /// and captures it.
@@ -83,14 +83,14 @@ struct UIStateRenderer {
         case "window":
             return try await editor(session)
         case "tool-header":
-            return try await editor(session, crop: CGRect(x: 0, y: 0, width: editorSize.width, height: headerHeight))
+            return try await editor(session, crop: CGRect(x: 0, y: 0, width: editorContentSize.width, height: headerHeight))
         case "tool-rail":
             let top = headerHeight + dividerThickness
             return try await editor(session, crop: CGRect(x: 0, y: top, width: toolRailWidth,
-                                                          height: editorSize.height - top - dividerThickness - statusBarHeight))
+                                                          height: editorContentSize.height - top - dividerThickness - statusBarHeight))
         case "status-bar":
-            return try await editor(session, crop: CGRect(x: 0, y: editorSize.height - statusBarHeight,
-                                                          width: editorSize.width, height: statusBarHeight))
+            return try await editor(session, crop: CGRect(x: 0, y: editorContentSize.height - statusBarHeight,
+                                                          width: editorContentSize.width, height: statusBarHeight))
         case "layers-panel":
             let stage = Stage(AnyView(LayersPanel(session: session, width: layersPanelSize.width).roundedControls()), size: layersPanelSize)
             defer { stage.close() }
@@ -107,7 +107,7 @@ struct UIStateRenderer {
     /// strip; it lives in the toolbar anyway). The tool rail, headers and status bar are private to ContentView, so
     /// those states are cropped from this.
     private func editor(_ session: EditorSession, crop: CGRect? = nil) async throws -> Snapshot {
-        let stage = Stage(AnyView(ContentView(session: session).roundedControls()), size: editorSize)
+        let stage = Stage(AnyView(ContentView(session: session).roundedControls()), size: editorContentSize)
         defer { stage.close() }
         await stage.show()
         // The canvas learns its size from layout; fit the document to it as opening a project does.

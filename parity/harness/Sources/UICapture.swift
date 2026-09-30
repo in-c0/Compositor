@@ -17,7 +17,7 @@ let offscreenOrigin = NSPoint(x: -20_000, y: -20_000)
 func settle(_ seconds: Double) async {
     let end = Date().addingTimeInterval(seconds)
     repeat {
-        RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        CFRunLoopRunInMode(.defaultMode, 0.01, true)
         try? await Task.sleep(for: .milliseconds(10))
     } while Date() < end
 }
