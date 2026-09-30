@@ -61,8 +61,39 @@ pub fn canvas_size(project: &Project, options: &CanvasSize) -> Result<Project, R
         // CanvasResizer doesn't carry layer effects over.
         layer.effects = None;
     }
-    if options.fill.is_some() && (options.width > old.width || options.height > old.height) {
-        return Err(RenderError::Unsupported("Canvas Size with a fill color".into()));
+    // A colored extension is a new bottom layer, the color everywhere but where the old canvas
+    // was, which stays transparent.
+    if let (Some(fill), true) = (options.fill, options.width > old.width || options.height > old.height) {
+        let color = fill.map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8);
+        let (w, h) = (options.width as u32, options.height as u32);
+        let hole = (offset[0] as i64, offset[1] as i64, old.width, old.height);
+        let pixels = image::RgbaImage::from_fn(w, h, |x, y| {
+            let (x, y) = (x as i64, y as i64);
+            let inside = x >= hole.0 && y >= hole.1 && x < hole.0 + hole.2 && y < hole.1 + hole.3;
+            if inside { image::Rgba([0, 0, 0, 0]) } else { image::Rgba([color[0], color[1], color[2], 255]) }
+        });
+        let id = uuid::Uuid::new_v4().to_string().to_ascii_uppercase();
+        result.manifest.layers.insert(0, comp_format::LayerRecord {
+            image_file: Some(format!("{id}.png")),
+            id: id.clone(),
+            name: "Canvas Extension".into(),
+            is_visible: true,
+            transform: comp_format::Transform::at(0.0, 0.0, w as f64, h as f64),
+            parent_id: None,
+            is_group: None,
+            opacity: None,
+            blend_mode: None,
+            mask_file: None,
+            mask_enabled: None,
+            mask_source_id: None,
+            adjustment: None,
+            mask_placement: None,
+            mask_linked: None,
+            shape: None,
+            effects: None,
+            text: None,
+        });
+        result.images.insert(id, comp_format::Asset::new(pixels));
     }
     Ok(apply_document_size(result))
 }

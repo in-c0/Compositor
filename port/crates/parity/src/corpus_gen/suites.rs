@@ -492,6 +492,8 @@ fn document(w: &mut CaseWriter) -> Result<()> {
         ("crop-past-edge", "Crop a rectangle that runs past the canvas", json!({ "op": "crop", "rect": [32, -8, 48, 48] })),
         ("canvas-grow", "Canvas Size 96x80, content moved (16, 8)", json!({ "op": "canvasSize", "width": 96, "height": 80, "contentOffset": [16, 8] })),
         ("canvas-shrink", "Canvas Size 48x48, content moved (-8, -8)", json!({ "op": "canvasSize", "width": 48, "height": 48, "contentOffset": [-8, -8] })),
+        ("canvas-fill", "Canvas Size 90x75 around the center, filled with a color", json!({ "op": "canvasSize", "width": 90, "height": 75, "anchor": 4, "fill": [0.2, 0.4, 0.6] })),
+        ("canvas-anchor-corner", "Canvas Size 80x70 anchored bottom right", json!({ "op": "canvasSize", "width": 80, "height": 70, "anchor": 8 })),
         ("image-up-high", "Image Size 128x128, High quality", json!({ "op": "imageSize", "width": 128, "height": 128, "sampling": "High quality" })),
         ("image-down-smooth", "Image Size 32x32, Smooth", json!({ "op": "imageSize", "width": 32, "height": 32, "sampling": "Smooth" })),
         ("image-odd-nearest", "Image Size 50x70, Nearest", json!({ "op": "imageSize", "width": 50, "height": 70, "sampling": "Nearest" })),

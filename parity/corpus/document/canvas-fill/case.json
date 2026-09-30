@@ -1,0 +1,18 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Canvas Size 90x75 around the center, filled with a color",
+  "ops": [
+    {
+      "anchor": 4,
+      "fill": [
+        0.2,
+        0.4,
+        0.6
+      ],
+      "height": 75,
+      "op": "canvasSize",
+      "width": 90
+    }
+  ]
+}

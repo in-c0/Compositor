@@ -1,0 +1,13 @@
+{
+  "feature": "document",
+  "input": "input.comp",
+  "label": "Canvas Size 80x70 anchored bottom right",
+  "ops": [
+    {
+      "anchor": 8,
+      "height": 70,
+      "op": "canvasSize",
+      "width": 80
+    }
+  ]
+}
