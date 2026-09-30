@@ -44,7 +44,11 @@ impl Gpu {
             compatible_surface: None,
             ..Default::default()
         }))
-        .context("no GPU adapter")?;
+        .context(if cfg!(windows) {
+            "no GPU adapter (on Windows, DX12 needs dxcompiler.dll and dxil.dll next to the executable: run port/tools/fetch-dxc.ps1)"
+        } else {
+            "no GPU adapter"
+        })?;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("compositor"),
             required_limits: adapter.limits(),

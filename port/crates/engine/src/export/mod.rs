@@ -63,14 +63,21 @@ fn exif(width: u32, height: u32, resolution: f64) -> Vec<u8> {
     b
 }
 
-/// A resolution as the rational ImageIO stores. Whole values are n/1; the rest are fitted once
-/// the references show ImageIO's choice (see the export cases).
+/// A resolution as the rational ImageIO stores: the exact fraction in lowest terms (96.5 ppi is
+/// 193/2). A resolution with no short exact fraction gets the nearest one with a denominator up
+/// to 65536.
 fn rational(value: f64) -> (u32, u32) {
-    if value.fract() == 0.0 {
-        return (value as u32, 1);
+    let mut den = 1u64;
+    while den < 65_536 && (value * den as f64).fract() != 0.0 {
+        den *= 2;
     }
-    let den = 1000u32;
-    ((value * den as f64).round() as u32, den)
+    let num = (value * den as f64).round() as u64;
+    let g = gcd(num, den);
+    ((num / g) as u32, (den / g) as u32)
+}
+
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 { a.max(1) } else { gcd(b, a % b) }
 }
 
 #[cfg(test)]
@@ -81,4 +88,55 @@ mod tests {
         let got: String = super::exif(64, 64, 72.0).iter().map(|b| format!("{b:02x}")).collect();
         assert_eq!(got, expected);
     }
+
+    #[test]
+    fn fractional_resolutions_are_reduced_fractions() {
+        assert_eq!(super::rational(96.5), (193, 2));
+        assert_eq!(super::rational(300.0), (300, 1));
+    }
+}
+
+mod apple_tables;
+
+/// File > Export JPEG as `ImageExporter.jpeg` writes it: the flattened image (already on its
+/// matte, opaque RGB) encoded with the quantization tables ImageIO uses at `quality`, 4:2:0 chroma
+/// below quality 1 and 4:4:4 at 1, with a JFIF header recording 72:72 as ImageIO does.
+///
+/// ImageIO's tables are known at each 0.01 step (measured by the export/jpeg-table-NNN probes); a
+/// quality between steps uses the nearest one. The encoder itself isn't Apple's, so pixels can
+/// differ slightly after decoding: see the export gaps in PARITY.md.
+pub fn jpeg(rgb: &[u8], width: u32, height: u32, quality: f64) -> Result<Vec<u8>> {
+    use jpeg_encoder::{ChromaSubsamplingMethod, ColorType, Encoder, QuantizationTableType, SamplingFactor};
+    let step = (quality.clamp(0.0, 1.0) * 100.0).round() as usize;
+    let tables = &apple_tables::STEPS[step];
+    let mut out = Vec::new();
+    let mut encoder = Encoder::new(&mut out, 100);
+    encoder.set_quantization_tables(
+        QuantizationTableType::Custom(Box::new(tables.luma)),
+        QuantizationTableType::Custom(Box::new(tables.chroma)),
+    );
+    encoder.set_sampling_factor(if tables.subsampled { SamplingFactor::F_2_2 } else { SamplingFactor::F_1_1 });
+    encoder.set_chroma_subsampling_method(ChromaSubsamplingMethod::Average);
+    encoder.encode(rgb, width as u16, height as u16, ColorType::Rgb)?;
+    Ok(out)
+}
+
+/// The rendered canvas (premultiplied) drawn over an opaque matte, as `ImageExporter.jpeg` does
+/// in its noneSkipLast context, and read back as RGB.
+pub fn flatten_on_matte(gpu: &crate::gpu::Gpu, canvas: &crate::gpu::GpuImage, matte: [f64; 3]) -> Result<Vec<u8>> {
+    let color = matte.map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8);
+    let pixel = [color[0], color[1], color[2], 255];
+    let solid: Vec<u8> = pixel.iter().copied().cycle().take((canvas.width * canvas.height * 4) as usize).collect();
+    let base = gpu.upload(canvas.width, canvas.height, &solid);
+    let draw = crate::blend::Draw {
+        pixels: canvas,
+        premultiplied: true,
+        offset: (0, 0),
+        mode: comp_format::BlendMode::Normal,
+        opacity: 1.0,
+        mask: None,
+        clip: None,
+    };
+    let flattened = gpu.download(&crate::blend::draw_upright(gpu, &base, &draw))?;
+    Ok(flattened.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect())
 }

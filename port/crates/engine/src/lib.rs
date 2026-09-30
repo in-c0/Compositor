@@ -85,8 +85,16 @@ impl Renderer {
     }
 
     /// File > Export JPEG: the flattened image on the matte, encoded at `options.quality`.
-    pub fn export_jpeg(&self, _project: &Project, _options: &serde_json::Value) -> Result<Vec<u8>, RenderError> {
-        Err(RenderError::Unsupported("JPEG export".into()))
+    pub fn export_jpeg(&self, project: &Project, options: &serde_json::Value) -> Result<Vec<u8>, RenderError> {
+        let quality = options.get("quality").and_then(|v| v.as_f64()).unwrap_or(0.85);
+        let matte = options
+            .get("matte")
+            .and_then(|v| v.as_array())
+            .and_then(|a| (a.len() == 3).then(|| [0, 1, 2].map(|i| a[i].as_f64().unwrap_or(1.0))))
+            .unwrap_or([1.0; 3]);
+        let canvas = composite::Compositor::new(&self.gpu, project).render()?;
+        let rgb = export::flatten_on_matte(&self.gpu, &canvas, matte)?;
+        Ok(export::jpeg(&rgb, canvas.width, canvas.height, quality)?)
     }
 
     /// Imports a Photoshop file as the Mac app's File > Open does.

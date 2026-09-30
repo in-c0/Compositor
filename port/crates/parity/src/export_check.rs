@@ -82,3 +82,43 @@ pub fn jpeg(id: &str, feature: &str, port_jpeg: &[u8], refs: &Path, out: &Path, 
     }
     r
 }
+
+/// Quantization tables (in file order) and the luma sampling factors from a baseline JPEG.
+fn jpeg_structure(bytes: &[u8]) -> Result<(Vec<Vec<u8>>, (u8, u8))> {
+    anyhow::ensure!(bytes.starts_with(&[0xFF, 0xD8]), "not a JPEG");
+    let mut tables = Vec::new();
+    let mut sampling = (0, 0);
+    let mut i = 2;
+    while i + 4 <= bytes.len() && bytes[i] == 0xFF {
+        let marker = bytes[i + 1];
+        let len = u16::from_be_bytes([bytes[i + 2], bytes[i + 3]]) as usize;
+        let body = bytes.get(i + 4..i + 2 + len).context("truncated segment")?;
+        match marker {
+            0xDB => tables.push(body.to_vec()),
+            0xC0..=0xC2 => sampling = (body[7] >> 4, body[7] & 15),
+            0xDA => break,
+            _ => {}
+        }
+        i += 2 + len;
+    }
+    Ok((tables, sampling))
+}
+
+/// The port's JPEG uses exactly the Mac's quantization tables and chroma subsampling.
+pub fn jpeg_tables(id: &str, feature: &str, port_jpeg: &[u8], refs: &Path) -> CaseResult {
+    let mut r = result(format!("{id}#jpeg-tables"), feature, format!("The JPEG export for {id} uses ImageIO's tables"));
+    let check = || -> Result<()> {
+        let (mac_tables, mac_sampling) = jpeg_structure(&std::fs::read(refs.join(format!("{id}.jpg")))?)?;
+        let (port_tables, port_sampling) = jpeg_structure(port_jpeg)?;
+        anyhow::ensure!(mac_sampling == port_sampling, "sampling differs: Mac {mac_sampling:?}, port {port_sampling:?}");
+        // Compare table contents regardless of how the segments are split.
+        let flat = |t: &[Vec<u8>]| -> Vec<u8> { t.iter().flatten().copied().collect() };
+        anyhow::ensure!(flat(&mac_tables) == flat(&port_tables), "quantization tables differ");
+        Ok(())
+    };
+    match check() {
+        Ok(()) => r.status = Status::Pass,
+        Err(e) => r.message = Some(format!("{e:#}")),
+    }
+    r
+}

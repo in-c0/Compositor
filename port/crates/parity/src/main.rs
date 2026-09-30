@@ -148,6 +148,7 @@ fn run(
                 }
                 if let Some(options) = &case.spec.jpeg {
                     if let Ok(jpeg) = renderer.export_jpeg(&project, options) {
+                        out.push(export_check::jpeg_tables(&case.id, &case.spec.feature, &jpeg, refs));
                         out.push(export_check::jpeg(&case.id, &case.spec.feature, &jpeg, refs, out_dir, &tolerances));
                     }
                 }
