@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range sampled at the corner (the 3 by 3 average reaches past the image)",
+  "ops": [
+    {
+      "fuzziness": 30,
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            63.5,
+            0.5
+          ]
+        }
+      ]
+    }
+  ]
+}

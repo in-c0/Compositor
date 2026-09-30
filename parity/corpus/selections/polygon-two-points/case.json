@@ -1,0 +1,24 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A Polygonal Lasso with two points deselects",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          5.0,
+          5.0
+        ],
+        [
+          50.0,
+          50.0
+        ]
+      ]
+    }
+  ]
+}

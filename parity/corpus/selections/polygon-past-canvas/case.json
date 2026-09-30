@@ -1,0 +1,33 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A Polygonal Lasso that leaves the canvas and comes back",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          -12.5,
+          8.0
+        ],
+        [
+          40.0,
+          -9.5
+        ],
+        [
+          75.25,
+          44.0
+        ],
+        [
+          20.0,
+          70.0
+        ],
+        [
+          30.0,
+          30.0
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand, then Expand 1 around the staircase outline",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        12.5,
+        3.5
+      ],
+      "tolerance": 0
+    },
+    {
+      "expand": 1,
+      "op": "modifySelection"
+    }
+  ]
+}

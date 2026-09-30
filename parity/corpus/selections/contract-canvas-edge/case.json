@@ -1,0 +1,14 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Contract Select All by 4, away from the canvas edges too",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "contract": 4,
+      "op": "modifySelection"
+    }
+  ]
+}

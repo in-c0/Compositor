@@ -1,0 +1,20 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Elliptical Marquee without anti-aliasing",
+  "ops": [
+    {
+      "antialias": false,
+      "from": [
+        8.0,
+        10.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    }
+  ]
+}

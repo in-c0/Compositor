@@ -1,0 +1,33 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A hard-edged ellipse added to an anti-aliased one",
+  "ops": [
+    {
+      "from": [
+        8.0,
+        10.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    },
+    {
+      "antialias": false,
+      "from": [
+        30.0,
+        2.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        62.0,
+        30.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Rectangular Marquee running past the canvas, clipped to it",
+  "ops": [
+    {
+      "from": [
+        -10.0,
+        -5.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        30.0,
+        80.0
+      ]
+    }
+  ]
+}

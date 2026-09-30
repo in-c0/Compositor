@@ -53,6 +53,8 @@ enum ParityOp {
     case imageSize(width: Int, height: Int, resolution: Double?, sampling: LayerSampling)
     /// A press, drag and release of a painting tool (see `StrokeOp`).
     case stroke(StrokeOp)
+    /// Making or changing the selection (SelectionOps.swift).
+    case selection(name: String, SelectionOp)
 
     var name: String {
         switch self {
@@ -61,6 +63,7 @@ enum ParityOp {
         case .crop: "crop"
         case .imageSize: "imageSize"
         case .stroke: "stroke"
+        case let .selection(name, _): name
         }
     }
 
@@ -76,6 +79,8 @@ enum ParityOp {
             try await session.parityImageSize(width: width, height: height, resolution: resolution, sampling: sampling)
         case let .stroke(stroke):
             try await session.parityStroke(stroke)
+        case let .selection(_, op):
+            try await op.apply(to: session)
         }
     }
 
@@ -128,8 +133,10 @@ enum ParityOp {
                                 sampling: try fields.optional("sampling") { try JSONValue.choice(LayerSampling.self, $0, $1) } ?? .high)
         case "stroke":
             result = .stroke(try StrokeOp.parse(fields, path: path))
+        case _ where SelectionOp.names.contains(op):
+            result = .selection(name: op, try SelectionOp.parse(op, fields, path: path))
         default:
-            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke")
+            throw HarnessError("\(path).op “\(op)” isn't one of filter, canvasSize, crop, imageSize, stroke, \(SelectionOp.names.joined(separator: ", "))")
         }
         try fields.rejectUnknown()
         return result

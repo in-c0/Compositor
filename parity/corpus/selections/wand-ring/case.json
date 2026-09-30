@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on a ring: an outline with a hole",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        32.0,
+        10.0
+      ],
+      "tolerance": 16
+    }
+  ]
+}

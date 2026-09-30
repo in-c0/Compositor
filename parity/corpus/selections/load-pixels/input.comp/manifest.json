@@ -1,0 +1,72 @@
+{
+  "activeLayerID" : "D970AB52-142A-4987-8849-EC90D5E6C768",
+  "colorSpace" : "sRGB",
+  "documentID" : "5BE83A63-83F7-49D0-A1C7-6ABDC8BADF82",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "B4CA5503-D541-405E-9A21-6D58B02CF69A",
+      "imageFile" : "B4CA5503-D541-405E-9A21-6D58B02CF69A.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "B4D33420-BE28-4E24-8220-D1FEB672299E",
+      "imageFile" : "B4D33420-BE28-4E24-8220-D1FEB672299E.png",
+      "isVisible" : true,
+      "name" : "Noise",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "D970AB52-142A-4987-8849-EC90D5E6C768",
+      "imageFile" : "D970AB52-142A-4987-8849-EC90D5E6C768.png",
+      "isVisible" : true,
+      "maskFile" : "D970AB52-142A-4987-8849-EC90D5E6C768.mask.png",
+      "name" : "Masked",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

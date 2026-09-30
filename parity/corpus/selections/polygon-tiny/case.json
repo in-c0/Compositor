@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A triangle smaller than one pixel",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          20.2,
+          20.2
+        ],
+        [
+          20.9,
+          20.4
+        ],
+        [
+          20.5,
+          20.8
+        ]
+      ]
+    }
+  ]
+}

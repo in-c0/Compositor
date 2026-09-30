@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "CA0AE6A5-2CD4-4107-938D-4BB19496E589",
+  "colorSpace" : "sRGB",
+  "documentID" : "83665B69-5851-441E-9D94-1122AE591494",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "CA0AE6A5-2CD4-4107-938D-4BB19496E589",
+      "imageFile" : "CA0AE6A5-2CD4-4107-938D-4BB19496E589.png",
+      "isVisible" : true,
+      "name" : "Checker",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

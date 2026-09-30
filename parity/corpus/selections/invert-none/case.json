@@ -1,0 +1,10 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Inverse without a selection does nothing",
+  "ops": [
+    {
+      "op": "invertSelection"
+    }
+  ]
+}

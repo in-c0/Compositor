@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Polygonal Lasso triangle with fractional corners",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          10.5,
+          5.25
+        ],
+        [
+          58.75,
+          30.5
+        ],
+        [
+          12.2,
+          59.9
+        ]
+      ]
+    }
+  ]
+}

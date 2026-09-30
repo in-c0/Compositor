@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Expand a small triangle by 20",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          28.0,
+          28.0
+        ],
+        [
+          36.5,
+          30.0
+        ],
+        [
+          30.0,
+          37.0
+        ]
+      ]
+    },
+    {
+      "expand": 20,
+      "op": "modifySelection"
+    }
+  ]
+}

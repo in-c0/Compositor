@@ -1,0 +1,25 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Inverse twice",
+  "ops": [
+    {
+      "from": [
+        8.0,
+        10.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        50.0
+      ]
+    },
+    {
+      "op": "invertSelection"
+    },
+    {
+      "op": "invertSelection"
+    }
+  ]
+}

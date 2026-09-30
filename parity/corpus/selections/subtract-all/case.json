@@ -1,0 +1,32 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Subtracting all of the selection leaves an empty selection",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "from": [
+        0.0,
+        0.0
+      ],
+      "mode": "Subtract",
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        64.0,
+        64.0
+      ]
+    }
+  ]
+}

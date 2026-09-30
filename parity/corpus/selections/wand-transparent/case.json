@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the transparent ground around a disc (alpha is matched too)",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        2.0,
+        2.0
+      ],
+      "tolerance": 40
+    }
+  ]
+}

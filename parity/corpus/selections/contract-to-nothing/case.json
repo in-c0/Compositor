@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Contract past the middle leaves an empty selection",
+  "ops": [
+    {
+      "from": [
+        20.0,
+        20.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        36.0,
+        30.0
+      ]
+    },
+    {
+      "contract": 6,
+      "op": "modifySelection"
+    }
+  ]
+}

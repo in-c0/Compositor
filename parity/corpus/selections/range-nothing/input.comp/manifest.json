@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "534382F9-C00B-4194-8423-09333092A371",
+  "colorSpace" : "sRGB",
+  "documentID" : "0537DCC1-5D98-476E-8F57-0910BE3AA118",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "534382F9-C00B-4194-8423-09333092A371",
+      "imageFile" : "534382F9-C00B-4194-8423-09333092A371.png",
+      "isVisible" : true,
+      "name" : "Disc",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

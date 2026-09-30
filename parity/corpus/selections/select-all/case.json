@@ -1,0 +1,10 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > All",
+  "ops": [
+    {
+      "op": "selectAll"
+    }
+  ]
+}

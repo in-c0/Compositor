@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand reading all layers",
+  "ops": [
+    {
+      "op": "wand",
+      "point": [
+        20.0,
+        20.0
+      ],
+      "sampleAllLayers": true,
+      "tolerance": 24
+    }
+  ]
+}

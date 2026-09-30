@@ -1,0 +1,26 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Color Range, a color taken away",
+  "ops": [
+    {
+      "fuzziness": 80,
+      "op": "colorRange",
+      "samples": [
+        {
+          "point": [
+            20,
+            20
+          ]
+        },
+        {
+          "mode": "Remove",
+          "point": [
+            24,
+            22
+          ]
+        }
+      ]
+    }
+  ]
+}

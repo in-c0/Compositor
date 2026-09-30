@@ -1,0 +1,36 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A feathered rectangle, then an ellipse added (the new selection is sharp again)",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "feather": 3,
+      "op": "modifySelection"
+    },
+    {
+      "from": [
+        30.0,
+        30.0
+      ],
+      "mode": "Add",
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        62.0,
+        62.0
+      ]
+    }
+  ]
+}

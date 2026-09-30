@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand on the photo, Tolerance 20, not contiguous",
+  "ops": [
+    {
+      "contiguous": false,
+      "op": "wand",
+      "point": [
+        40.0,
+        30.0
+      ],
+      "tolerance": 20
+    }
+  ]
+}

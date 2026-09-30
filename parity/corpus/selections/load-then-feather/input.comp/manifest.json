@@ -1,0 +1,72 @@
+{
+  "activeLayerID" : "35026632-6558-4EDE-88E5-DD0CAFC80515",
+  "colorSpace" : "sRGB",
+  "documentID" : "171A72C0-83BC-4467-BD28-6A7E182EF786",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "7887D2BA-784B-4691-AA44-3F4DB0738122",
+      "imageFile" : "7887D2BA-784B-4691-AA44-3F4DB0738122.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "0C2902CC-32E4-4C19-AB37-77CC6F6F6CDC",
+      "imageFile" : "0C2902CC-32E4-4C19-AB37-77CC6F6F6CDC.png",
+      "isVisible" : true,
+      "name" : "Noise",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    },
+    {
+      "id" : "35026632-6558-4EDE-88E5-DD0CAFC80515",
+      "imageFile" : "35026632-6558-4EDE-88E5-DD0CAFC80515.png",
+      "isVisible" : true,
+      "maskFile" : "35026632-6558-4EDE-88E5-DD0CAFC80515.mask.png",
+      "name" : "Masked",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

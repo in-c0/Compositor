@@ -1,0 +1,19 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Rectangular Marquee dragged up and to the left",
+  "ops": [
+    {
+      "from": [
+        50.0,
+        40.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        10.0,
+        12.0
+      ]
+    }
+  ]
+}

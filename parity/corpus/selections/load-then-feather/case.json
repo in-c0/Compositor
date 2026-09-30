@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A layer's pixels, then Feather 3",
+  "ops": [
+    {
+      "layer": "35026632-6558-4EDE-88E5-DD0CAFC80515",
+      "mask": false,
+      "op": "loadSelection"
+    },
+    {
+      "feather": 3,
+      "op": "modifySelection"
+    }
+  ]
+}

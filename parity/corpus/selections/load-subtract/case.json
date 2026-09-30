@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A mask's black areas subtracted from Select All",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "layer": "4F71C158-5557-41C7-97D3-ABD6CEFA5EEA",
+      "mask": true,
+      "mode": "Subtract",
+      "op": "loadSelection"
+    }
+  ]
+}

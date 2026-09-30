@@ -1,0 +1,12 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A mask's black areas as the selection",
+  "ops": [
+    {
+      "layer": "B21D3B8A-A19D-4277-BC01-B32D813355BE",
+      "mask": true,
+      "op": "loadSelection"
+    }
+  ]
+}

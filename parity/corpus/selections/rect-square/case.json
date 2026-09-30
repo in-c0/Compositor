@@ -1,0 +1,20 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Rectangular Marquee with Shift, a square",
+  "ops": [
+    {
+      "from": [
+        8.0,
+        8.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "square": true,
+      "to": [
+        40.0,
+        30.0
+      ]
+    }
+  ]
+}

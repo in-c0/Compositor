@@ -1,0 +1,22 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Deselect after a marquee",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "op": "deselect"
+    }
+  ]
+}

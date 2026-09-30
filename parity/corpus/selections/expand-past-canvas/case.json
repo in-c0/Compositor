@@ -1,0 +1,23 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Expand a rectangle near the edge by 10, clipped to the canvas",
+  "ops": [
+    {
+      "from": [
+        2.0,
+        40.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        30.0,
+        60.0
+      ]
+    },
+    {
+      "expand": 10,
+      "op": "modifySelection"
+    }
+  ]
+}

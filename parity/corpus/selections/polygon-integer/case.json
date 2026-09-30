@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "A Polygonal Lasso on whole pixels, with diagonal edges",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          8.0,
+          8.0
+        ],
+        [
+          56.0,
+          8.0
+        ],
+        [
+          40.0,
+          56.0
+        ],
+        [
+          8.0,
+          40.0
+        ]
+      ]
+    }
+  ]
+}

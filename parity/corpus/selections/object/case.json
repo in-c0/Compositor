@@ -1,0 +1,14 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection on a disc",
+  "ops": [
+    {
+      "op": "objectSelection",
+      "point": [
+        32,
+        32
+      ]
+    }
+  ]
+}

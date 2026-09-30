@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Magic Wand inside a disc, anti-aliasing off",
+  "ops": [
+    {
+      "antialias": false,
+      "op": "wand",
+      "point": [
+        32.0,
+        32.0
+      ],
+      "tolerance": 100
+    }
+  ]
+}
