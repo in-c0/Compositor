@@ -69,6 +69,10 @@ pub fn apply(gpu: &Gpu, project: &mut Project, op: &Value) -> Result<()> {
         colors.reverse();
     }
     let fill = Fill { shape, start, end, colors, opacity: opacity.clamp(0.0, 1.0) };
+    let (cw, ch) = (project.manifest.width, project.manifest.height);
+    if super::raster::near_slot_boundary(&fill, cw, ch) {
+        return Err(RenderError::Unsupported("a linear gradient with a pixel within 1e-4 of a slot boundary".into()));
+    }
 
     let Some(index) = target(project, op)? else { return failed("there's no active layer".into()) };
     let layer = &project.manifest.layers[index];

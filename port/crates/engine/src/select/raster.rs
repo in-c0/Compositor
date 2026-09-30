@@ -104,7 +104,7 @@ const STEPS: f64 = 16.0;
 /// edge is taken as straight between where it enters and leaves: at a pixel boundary across the
 /// major axis the drifted position, at one across the minor axis the true line's crossing, and
 /// the true end points.
-fn stepped(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
+pub(crate) fn stepped(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
     // Device space.
     let (mut p0, mut p1) = ([a[0], height - a[1]], [b[0], height - b[1]]);
     let (dx, dy) = (p1[0] - p0[0], p1[1] - p0[1]);

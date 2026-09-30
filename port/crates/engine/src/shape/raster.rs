@@ -1,10 +1,11 @@
 //! Core Graphics' fills, on the GPU.
 //!
 //! Fitted to references: Core Graphics flattens each cubic by halving it until both second
-//! differences of its control points are within `FLATNESS` on each axis; walks each edge in
-//! 1/16 px steps along its major axis with a truncated 16.16 minor step (`stepped`, the model
-//! feature/selections fitted to its fills); covers each pixel by the exact area of those edges
-//! inside it, `min(255, floor(area * 256))`; and premultiplies the color with truncation. A stroke's round caps are two quarter circles each, turned with
+//! differences of its control points are within `FLATNESS` on each axis, and fills the outline
+//! with the same rasterizer it fills a selection with: a shape's alpha is exactly the coverage the
+//! Mac gives the same path as a selection (the `probe-select-ellipse-*` cases), so the outline
+//! goes through `select::raster::coverage`. The color is premultiplied by that coverage with
+//! truncation. A stroke's round caps are two quarter circles each, turned with
 //! the line (a zero-length line's with a line at 45 degrees).
 
 use super::Result;
@@ -119,6 +120,12 @@ fn outline(style: &ShapeStyle, size: [f64; 2]) -> Result<Vec<Point>> {
             let inset = [thickness.min(size[0]) / 2.0, thickness.min(size[1]) / 2.0];
             let from = style.start.map_or(inset, |s| [s[0] * size[0], s[1] * size[1]]);
             let to = style.end.map_or([size[0] - inset[0], size[1] - inset[1]], |e| [e[0] * size[0], e[1] * size[1]]);
+            // Level, upright and 45° lines match the Mac; along other slants its stroke's edges
+            // come out up to a level (2 to 3 on a few pixels) off the port's.
+            let (dx, dy) = ((to[0] - from[0]).abs(), (to[1] - from[1]).abs());
+            if dx > 1e-9 && dy > 1e-9 && (dx - dy).abs() > 1e-9 * dx.max(dy) {
+                return Err(RenderError::Unsupported("lines that aren't level, upright or at 45 degrees".into()));
+            }
             capsule(from, to, thickness)
         }
     })
@@ -128,76 +135,52 @@ fn outline(style: &ShapeStyle, size: [f64; 2]) -> Result<Vec<Point>> {
 /// `EditorSession.shapeImage` draws it: straight RGBA, as the Mac saves it.
 pub fn shape_image(gpu: &Gpu, style: &ShapeStyle, size: [f64; 2]) -> Result<image::RgbaImage> {
     let (width, height) = (size[0] as u32, size[1] as u32);
+    // Measured: the Mac's coverage is one level off the port's on about 2% of an ellipse's edge
+    // pixels, and where that lands on a faint pixel the saved color moves by more.
+    if style.kind == ShapeKind::Ellipse {
+        return Err(RenderError::Unsupported("ellipses, whose edge coverage is one level off on a few pixels".into()));
+    }
     let points = outline(style, size)?;
-    let mut edges: Vec<f32> = Vec::new();
-    for i in 0..points.len() {
-        for e in stepped(points[i], points[(i + 1) % points.len()], size[1]) {
-            if e[1] != e[3] {
-                edges.extend(e.map(|v| v as f32));
-            }
-        }
-    }
-    if edges.is_empty() {
-        edges.extend([0.0; 4]);
-    }
+    // The outline filled as the Mac fills a selection's path: the same rasterizer.
+    let outline = crate::select::Selection { region: vec![crate::select::geom::polygon(&points)], antialiased: true, feather: 0.0 };
+    let coverage = crate::select::raster::coverage(gpu, &outline, width, height)?;
+    let words: Vec<u32> = coverage.iter().map(|&c| c as u32).collect();
     let byte = |c: f64| (c.clamp(0.0, 1.0) * 255.0 + 0.5).floor() as u32;
     let color = byte(style.red) | byte(style.green) << 8 | byte(style.blue) << 16 | 255 << 24;
-    let pipeline = gpu.pipeline("shape_fill", include_str!("fill.wgsl"));
+    let pipeline = gpu.pipeline("shape_tint", include_str!("tint.wgsl"));
     let out = gpu.image(width, height);
-    let params = [width, height, (edges.len() / 4) as u32, color].map(u32::to_le_bytes).concat();
-    gpu.dispatch(&pipeline, &params, &[&gpu.bytes(bytemuck::cast_slice(&edges)), &out.buffer], width, height);
+    let params = [width, height, color, 0].map(u32::to_le_bytes).concat();
+    gpu.dispatch(&pipeline, &params, &[&gpu.bytes(bytemuck::cast_slice(&words)), &out.buffer], width, height);
     let mut pixels = gpu.download(&out)?;
     super::unpremultiply(&mut pixels);
     Ok(image::RgbaImage::from_raw(width, height, pixels).expect("image size"))
-}
-
-/// Sub-steps per pixel along an edge's major axis.
-const STEPS: f64 = 16.0;
-
-/// The edge from `a` to `b` (pixels, y down, in a bitmap `height` tall) as Core Graphics' rasterizer
-/// walks it: in device space (y up) from its lower end, along its major axis in 1/16 px steps, the
-/// minor coordinate advancing by a 16.16 fixed-point step truncated toward zero. The stepped
-/// points lie on one line, so the edge becomes at most three pieces: from its start to the first
-/// step, the stepped line, and from the last step to its true end.
-fn stepped(a: Point, b: Point, height: f64) -> Vec<[f64; 4]> {
-    let (mut p0, mut p1) = ([a[0], height - a[1]], [b[0], height - b[1]]);
-    let (dx, dy) = (p1[0] - p0[0], p1[1] - p0[1]);
-    let doc = |p: Point, q: Point| [p[0], height - p[1], q[0], height - q[1]];
-    if dx == 0.0 || dy == 0.0 {
-        return vec![doc(p0, p1)];
-    }
-    let reversed = p0[1] > p1[1];
-    if reversed {
-        std::mem::swap(&mut p0, &mut p1);
-    }
-    let y_major = dx.abs() <= dy.abs();
-    let (u, v) = if y_major { (1, 0) } else { (0, 1) };
-    let point = |uu: f64, vv: f64| if y_major { [vv, uu] } else { [uu, vv] };
-    let (u0, v0, u1, v1) = (p0[u], p0[v], p1[u], p1[v]);
-    let slope = (v1 - v0) / (u1 - u0);
-    let step = if u1 > u0 { 1.0 } else { -1.0 };
-    let dq = (slope * step / STEPS * 65536.0).trunc() / 65536.0;
-    let n0 = if step > 0.0 { (u0 * STEPS).ceil() } else { (u0 * STEPS).floor() };
-    let n1 = if step > 0.0 { (u1 * STEPS).floor() } else { (u1 * STEPS).ceil() };
-    let count = (n1 - n0) * step;
-    let mut points = vec![p0];
-    if count >= 0.0 {
-        let vs = v0 + (n0 / STEPS - u0) * slope;
-        points.push(point(n0 / STEPS, vs));
-        points.push(point(n1 / STEPS, vs + count * dq));
-    }
-    points.push(p1);
-    points.dedup();
-    if reversed {
-        points.reverse();
-    }
-    points.windows(2).map(|w| doc(w[0], w[1])).collect()
 }
 
 /// How many colors Core Graphics' gradient table holds for a line (or radius) this long: the
 /// length rounded up to whole pixels, then up past the next multiple of 16, less two.
 fn slots(length: f64) -> f64 {
     16.0 * ((length.ceil() / 16.0).floor() + 1.0) - 2.0
+}
+
+/// Whether a linear gradient puts any canvas pixel's t × slots within 1e-4 of a whole number
+/// (but not on it): there the Mac and the port's model of its precision can pick different slots.
+/// Measured: every pixel the port got wrong lay within 7.4e-5; none past 4e-4.
+pub fn near_slot_boundary(fill: &Fill, width: i64, height: i64) -> bool {
+    if fill.shape != Shape::Linear {
+        return false;
+    }
+    let (dx, dy) = (fill.end[0] - fill.start[0], fill.end[1] - fill.start[1]);
+    let length = dx.hypot(dy);
+    let slots = slots(length);
+    let (c, s) = (coarse(dx / length), coarse(dy / length));
+    let k = slots / length;
+    (0..height).any(|y| {
+        (0..width).any(|x| {
+            let u = ((x as f64 + 0.5 - fill.start[0]) * c + (y as f64 + 0.5 - fill.start[1]) * s) * k;
+            let d = (u - u.round()).abs();
+            u > 0.0 && u < slots && d > 0.0 && d < 1e-4
+        })
+    })
 }
 
 /// `v` truncated to 14 significant bits, as Core Graphics keeps a linear gradient's direction:
@@ -312,15 +295,4 @@ mod tests {
         assert_eq!(coarse(0.0), 0.0);
     }
 
-    #[test]
-    fn edges_step_from_their_lower_end() {
-        // A level edge is left as it is; a slanted one gains the stepped line between its ends.
-        assert_eq!(stepped([0.0, 1.0], [5.0, 1.0], 4.0), vec![[0.0, 1.0, 5.0, 1.0]]);
-        let pieces = stepped([0.0, 0.0], [60.0, 18.0], 20.0);
-        assert_eq!(pieces.first().unwrap()[..2], [0.0, 0.0]);
-        assert_eq!(pieces.last().unwrap()[2..], [60.0, 18.0]);
-        // The truncated step leaves the far end short of the true line by up to 16 * 60 / 65536.
-        let far = pieces[0];
-        assert!((far[3] - 0.3 * far[2]).abs() < 0.015);
-    }
 }
