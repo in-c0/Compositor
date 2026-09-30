@@ -36,7 +36,8 @@ paths = ["port/crates/engine/src/transform/**"]
 gaps = [
     "`transform/rotate-45`: two pixels on the exact diagonal of a layer rotated 45 degrees take the other row as their heavy pixel on the Mac (a sample position exactly between two rows, which Core Graphics' own arithmetic puts a hair to one side). They differ by 1/255.",
     "High-quality interpolation shrinking a rotated image, and a layer's own mask on an image High shrinks, are pending: the `cg-*` probes measure Core Graphics' High only for upright draws of images (`transform/high.rs`).",
-    "Unlinked masks placed at a rotation (`transform/probe-high-rotate`), folder masks resampled over layers that are themselves transformed, and resampled masks on adjustment layers are pending: Core Graphics resamples a clip mask with the interpolation of whatever is drawn through it, measured so far only for layers drawn 1:1.",
+    "An unlinked mask placed at a rotation (`transform/probe-high-rotate`) is drawn through its rectangle's fills, which the port covers by exact area; 29 edge pixels come out 1 level off (within tolerance). The same fills on rotated masks through Image Size are recorded under `document`. Unlinked masks shrunk at a rotation are pending.",
+    "Folder masks resampled over layers that are themselves transformed, and resampled masks on adjustment layers, are pending: Core Graphics resamples a clip mask with the interpolation of whatever is drawn through it, measured so far only for layers drawn 1:1.",
     "An unlinked mask's background (white or black beyond its pixels) is read from the mask's own edge; the Mac reads a 96-pixel thumbnail, which only decides differently when the edge averages within a hair of half gray.",
 ]
 

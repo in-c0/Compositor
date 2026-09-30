@@ -234,8 +234,11 @@ fn apply(taps: &AxisTaps, at: impl Fn(i64) -> u32) -> u32 {
 /// with High into the `width` x `height` pixel grid of a layer at `layer`, what lies beyond it
 /// filled with its background. Errors name what isn't reproduced yet.
 pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (width, height): (u32, u32)) -> Result<GrayImage, String> {
-    if placement.rotation % 360.0 != 0.0 || layer.rotation % 360.0 != 0.0 {
-        return Err("unlinked masks placed at another rotation".into());
+    if layer.rotation % 360.0 != 0.0 {
+        return Err("unlinked masks over rotated layers".into());
+    }
+    if placement.rotation % 360.0 != 0.0 {
+        return rotated_mask(mask, placement, layer, (width, height));
     }
     let (mw, mh) = mask.dimensions();
     let covered = placement.size[0] / layer.size[0].max(1.0) * width as f64;
@@ -303,6 +306,38 @@ pub fn placed_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (
             };
             out.put_pixel(x as u32, y as u32, image::Luma([value as u8]));
         }
+    }
+    Ok(out)
+}
+
+/// `placed_mask` for a mask placed at a rotation of its own over an upright layer: the mask drawn
+/// into the layer's grid as a layer at `placement` would be, with Low (High neither shrinking nor
+/// enlarging it), its rectangle's own fills covering the pixels by area.
+fn rotated_mask(mask: &GrayImage, placement: &Transform, layer: &Transform, (width, height): (u32, u32)) -> Result<GrayImage, String> {
+    if layer.flip_x || layer.flip_y {
+        return Err("unlinked masks over flipped layers".into());
+    }
+    let (mw, mh) = mask.dimensions();
+    let scale = [width as f64 / layer.size[0], height as f64 / layer.size[1]];
+    // Shrinking a clip mask at a rotation, High's filter isn't measured.
+    if placement.size[0] * scale[0] < mw as f64 || placement.size[1] * scale[1] < mh as f64 {
+        return Err("unlinked masks shrunk at a rotation".into());
+    }
+    let grid = Placement::in_context(placement, scale, [-layer.origin[0] * scale[0], -layer.origin[1] * scale[1]]);
+    let rect = grid.rect(1.0, 1.0);
+    let samples = sample(mask, &grid, &rect, Filter::Low, true, (width, height));
+    let corners = grid.corners(&rect);
+    let bg = background(mask);
+    let mut out = GrayImage::new(width, height);
+    for (i, (value, covered)) in samples.into_iter().enumerate() {
+        let (x, y) = (i as u32 % width, i as u32 / width);
+        let area = super::resize::area_in_pixel(&corners, x as f64, y as f64);
+        let fill = ((area * 256.0).floor() as u32).min(255);
+        // `LayerMask.placed`: the background, black filled over the rectangle, then white through
+        // the mask clipped to it.
+        let under = (bg * (255 - fill) + 127) / 255;
+        let through = ((value * covered / 255) * fill + 127) / 255;
+        out.put_pixel(x, y, image::Luma([(under + ((255 - under) * through + 127) / 255) as u8]));
     }
     Ok(out)
 }

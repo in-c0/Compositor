@@ -145,7 +145,7 @@ fn draw_coverage(mask: &GrayImage, t: &Transform, scale: [f64; 2], offset: [f64;
 }
 
 /// The area of the convex quadrilateral `corners` inside the pixel at (`x`, `y`).
-fn area_in_pixel(corners: &[[f64; 2]; 4], x: f64, y: f64) -> f64 {
+pub(crate) fn area_in_pixel(corners: &[[f64; 2]; 4], x: f64, y: f64) -> f64 {
     let mut poly: Vec<[f64; 2]> = corners.to_vec();
     // Keep the side where `inside` holds of each of the pixel's four edges.
     let edges: [(usize, f64, bool); 4] = [(0, x, true), (0, x + 1.0, false), (1, y, true), (1, y + 1.0, false)];
