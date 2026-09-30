@@ -107,9 +107,8 @@ gaps = [
 [[feature]]
 key = "painting"
 name = "Painting and retouching tools"
-paths = ["port/crates/engine/src/paint/**"]
+paths = ["port/crates/engine/src/paint/**", "port/crates/engine/src/adjust/gaussian.rs"]
 gaps = [
-    "Blur tool strokes report as not supported. They paint Core Image's Gaussian blur of the layer, which `adjust/blur.rs` reproduces to within 2 levels on opaque pixels (blur-pixels: 21 of 4,096 pixels over 1/255), 1 level on masks (blur-mask) and up to 9 levels on nearly transparent pixels once unpremultiplied (blur-strength). `BLUR_IS_EXACT` in `paint/stroke.rs` turns them on once that blur is exact.",
     "Spot Healing's Create Texture mode seeds its grain with `UInt32.random` in `BrushStroke.heal()`, so neither the harness nor the port can reproduce it; the harness refuses it and the port reports it as not supported. Content-Aware and Proximity Match are exact.",
     "The tip's coverage comes from the Mac GPU's fast math. The port follows it (the nearest point on a segment is a fused multiply-add, the square root is x · rsqrt(x)), except where a hard tip's edge falls exactly half a level between two bytes and the GPU's own rsqrt decides: its √9 comes out just above 3, so a 6-pixel hard tip centered on a half-pixel line gives 127 where the port gives 128. Measured on the first heal-scratch probe, before its stroke moved off that line: 8 of 4,096 pixels, one level each.",
     "Painting a layer or mask that is rotated, flipped, scaled or off whole pixels, a solid placed mask, or a mask over 96 pixels wide (whose background the Mac reads from its thumbnail) reports as not supported.",

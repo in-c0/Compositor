@@ -20,10 +20,6 @@ pub struct Settings {
     pub healing_mode: i32,
 }
 
-/// Whether the port's Core Image Gaussian blur matches the Mac's to the byte. It doesn't yet
-/// (see `adjust/blur.rs`), so Blur strokes report as not supported.
-const BLUR_IS_EXACT: bool = false;
-
 /// `BrushStroke.tileSize`.
 const TILE: i64 = 256;
 
@@ -239,9 +235,6 @@ impl Stroke {
     /// Blur's sample (`blurSample`): the layer's pixels (or its mask) softened by Core Image's
     /// Gaussian blur, `radius` canvas pixels, with room around them for the blur to spread.
     pub fn set_blur(&mut self, gpu: &Gpu, radius: f64) -> Result<()> {
-        if !BLUR_IS_EXACT {
-            return unsupported("the Blur tool (Core Image's Gaussian blur isn't reproduced exactly yet)");
-        }
         let (sw, sh) = (self.source_rect.w, self.source_rect.h);
         let sigma = (0.5f64.max(radius).min(50.0)).min(sw.max(sh) / 2.0);
         let margin = (3.0 * sigma).ceil();
@@ -263,17 +256,31 @@ impl Stroke {
             .map(|(x, y)| context[((y - pad).clamp(0, h - 1) * w + (x - pad).clamp(0, w - 1)) as usize])
             .collect();
         let image = gpu.upload(pw as u32, ph as u32, bytemuck::cast_slice(&padded));
-        let soft = crate::adjust::gaussian::gaussian(gpu, &image, sigma).map_err(anyhow::Error::msg)?;
-        let soft: Vec<u32> = bytemuck::cast_slice(&gpu.download(&soft)?).to_vec();
-        let mask = self.mask;
-        let cropped: Vec<u32> = (0..h)
-            .flat_map(|y| (0..w).map(move |x| (x, y)))
-            .map(|(x, y)| {
-                let p = soft[((y + pad) * pw + x + pad) as usize];
-                if mask { p & 255 } else { p }
-            })
-            .collect();
-        self.sample = Some(self.lay(&cropped, w as u32, h as u32, [self.source_rect.x - margin, self.source_rect.y - margin]));
+        // `clonePiece`: each tile renders its own part of the blur, the tile with 2 pixels' margin,
+        // and Core Image lays its pyramid from that part, so the tiles are rendered one by one.
+        let placed = [self.source_rect.x - margin, self.source_rect.y - margin];
+        let mut cropped = vec![0u32; (w * h) as usize];
+        let columns = (self.width + TILE - 1) / TILE;
+        let rows = (self.height + TILE - 1) / TILE;
+        for key in 0..columns * rows {
+            let tile = self.tile_rect(key);
+            let (tx0, ty0) = ((tile.x - placed[0]) as i64, (tile.y - placed[1]) as i64);
+            let (tx1, ty1) = (tx0 + tile.w as i64, ty0 + tile.h as i64);
+            let (x0, y0) = ((tx0 - 2).max(0), (ty0 - 2).max(0));
+            let (x1, y1) = ((tx1 + 2).min(w), (ty1 + 2).min(h));
+            if x1 <= x0 || y1 <= y0 || tx1 <= 0 || ty1 <= 0 || tx0 >= w || ty0 >= h {
+                continue;
+            }
+            let region = [x0 + pad, y0 + pad, x1 - x0, y1 - y0];
+            let part = crate::adjust::gaussian::gaussian_region(gpu, &image, sigma, region).map_err(anyhow::Error::msg)?;
+            for y in ty0.max(0)..ty1.min(h) {
+                for x in tx0.max(0)..tx1.min(w) {
+                    let p = part[((y - y0) * (x1 - x0) + x - x0) as usize];
+                    cropped[(y * w + x) as usize] = if self.mask { p & 255 } else { p };
+                }
+            }
+        }
+        self.sample = Some(self.lay(&cropped, w as u32, h as u32, placed));
         Ok(())
     }
 
