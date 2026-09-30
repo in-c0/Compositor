@@ -56,3 +56,88 @@ fn round_trip(mac: &Path, out: &Path) -> Result<Option<String>> {
     let port_bytes = std::fs::read(out.join("manifest.json"))?;
     Ok((mac_bytes != port_bytes).then(|| "identical project; manifest bytes differ from the Mac's in formatting only".to_string()))
 }
+
+/// Compares the project the port made for a case (after its ops or PSD import) with the one the
+/// Mac saved, `refs/<id>.comp`: the manifests as the Mac writes them, with layer and document IDs
+/// replaced by their positions (new layers get random IDs on both sides), and every layer and mask
+/// pixel.
+pub fn check_structure(id: &str, feature: &str, port: &comp_format::Project, refs: &Path) -> Option<CaseResult> {
+    let mac = refs.join(format!("{id}.comp"));
+    if !mac.is_dir() {
+        return None;
+    }
+    let mut result = CaseResult {
+        id: format!("{id}#structure"),
+        feature: feature.into(),
+        label: format!("The project after {id} matches the one the Mac saved"),
+        status: Status::Fail,
+        tolerance: 0,
+        max_channel_diff: None,
+        differing_pixels: None,
+        total_pixels: None,
+        message: None,
+        heatmap: None,
+    };
+    match compare_projects(&engine::session::normalize(port), &mac) {
+        Ok(()) => result.status = Status::Pass,
+        Err(e) => result.message = Some(format!("{e:#}")),
+    }
+    Some(result)
+}
+
+fn canonical(project: &comp_format::Project) -> Result<serde_json::Value> {
+    let index: std::collections::HashMap<&str, usize> =
+        project.manifest.layers.iter().enumerate().map(|(i, l)| (l.id.as_str(), i)).collect();
+    let mut value = serde_json::to_value(&project.manifest)?;
+    value["documentID"] = serde_json::Value::Null;
+    let rename = |v: &mut serde_json::Value, suffix: &str| {
+        if let Some(s) = v.as_str() {
+            let key = s.trim_end_matches(suffix);
+            if let Some(i) = index.get(key) {
+                *v = serde_json::Value::String(format!("layer {i}{suffix}"));
+            }
+        }
+    };
+    rename(&mut value["activeLayerID"], "");
+    for layer in value["layers"].as_array_mut().into_iter().flatten() {
+        for key in ["id", "parentID", "maskSourceID"] {
+            rename(&mut layer[key], "");
+        }
+        rename(&mut layer["imageFile"], ".png");
+        rename(&mut layer["maskFile"], ".mask.png");
+    }
+    if let Some(guides) = value["guides"].as_array_mut() {
+        for g in guides {
+            g["id"] = serde_json::Value::Null;
+        }
+    }
+    Ok(value)
+}
+
+fn compare_projects(port: &comp_format::Project, mac_path: &Path) -> Result<()> {
+    let mac = comp_format::load(mac_path)?;
+    let (a, b) = (canonical(port)?, canonical(&mac)?);
+    if a != b {
+        let (pa, pb) = (serde_json::to_string_pretty(&a)?, serde_json::to_string_pretty(&b)?);
+        let first = pa.lines().zip(pb.lines()).enumerate().find(|(_, (x, y))| x != y);
+        anyhow::bail!(
+            "manifest differs{}",
+            first.map(|(n, (x, y))| format!(" at line {}: port `{}`, Mac `{}`", n + 1, x.trim(), y.trim())).unwrap_or_default()
+        );
+    }
+    for (i, (pl, ml)) in port.manifest.layers.iter().zip(&mac.manifest.layers).enumerate() {
+        let same_image = match (port.images.get(&pl.id), mac.images.get(&ml.id)) {
+            (Some(p), Some(m)) => p.pixels == m.pixels,
+            (None, None) => true,
+            _ => false,
+        };
+        anyhow::ensure!(same_image, "layer {i} ({}) pixels differ", pl.name);
+        let same_mask = match (port.masks.get(&pl.id), mac.masks.get(&ml.id)) {
+            (Some(p), Some(m)) => p.pixels == m.pixels,
+            (None, None) => true,
+            _ => false,
+        };
+        anyhow::ensure!(same_mask, "layer {i} ({}) mask differs", pl.name);
+    }
+    Ok(())
+}
