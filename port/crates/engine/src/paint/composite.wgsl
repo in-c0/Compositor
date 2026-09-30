@@ -3,13 +3,14 @@
 // (mode 0), the same with destination-out to erase (1), gray on a mask (2), the Clone Stamp or
 // Blur sample drawn through it (3), or copied through it for Smudge and Liquify (4).
 //
-// Core Graphics works in bytes here, and two ways, measured on the references. At full opacity
-// the fill is a lerp through the clip mask's coverage m, rounded down:
-//     (s·m + d·(255 − m)) / 255.
-// Below it, the source is premultiplied by the opacity byte A = round(opacity × 255) and rounded,
-// then source and alpha are each scaled by the coverage and rounded, and the backdrop is scaled
-// by what's left and rounded:
+// Core Graphics works in bytes here, and in several ways, measured on the references. At full
+// opacity the fill is a lerp through the clip mask's coverage m, (s·m + d·(255 − m)) / 255,
+// divided as `lerp255` does. Below it, the source is premultiplied by the opacity byte
+// A = round(opacity × 255) and rounded, then source and alpha are each scaled by the coverage
+// and rounded, and the backdrop is scaled by what's left and rounded:
 //     round(s·m / 255) + round(d·(255 − round(A·m / 255)) / 255).
+// Images (Clone Stamp) always take the second way, erasing scales the backdrop the same way,
+// and a gray mask rounds its own way (see mode 2).
 
 struct Params {
     width: u32,
@@ -28,9 +29,11 @@ struct Params {
 @group(0) @binding(4) var<storage, read> reaches: array<u32>;
 @group(0) @binding(5) var<storage, read_write> dest: array<u32>;
 
-// x / 255, rounded down, for x up to 255 × 255 × 2.
-fn floor255(x: vec4<u32>) -> vec4<u32> {
-    return x / vec4<u32>(255u);
+// x / 255 as Core Graphics' lerp divides: in 16-bit fixed point, (x · 257 + c) >> 16. Every
+// reference fits any c from 307 to 334; it rounds down except within about 0.005 of the next
+// whole number, where it goes up.
+fn lerp255(x: vec4<u32>) -> vec4<u32> {
+    return (x * 257u + vec4<u32>(320u)) >> vec4<u32>(16u);
 }
 
 fn round255(x: vec4<u32>) -> vec4<u32> {
@@ -41,7 +44,7 @@ fn round255(x: vec4<u32>) -> vec4<u32> {
 // through coverage `m`, onto `d`.
 fn over(s: vec4<u32>, alpha: u32, d: vec4<u32>, m: u32) -> vec4<u32> {
     if alpha == 255u {
-        return floor255(s * m + d * (255u - m));
+        return lerp255(s * m + d * (255u - m));
     }
     let a = (alpha * m + 127u) / 255u;
     return round255(s * m) + round255(d * (255u - a));
@@ -70,15 +73,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             dest[i] = pack(round255(unpack(d) * (255u - (alpha * m + 127u) / 255u)));
         }
         case 2u: {
-            // A mask is one gray channel, with no alpha. Below full opacity the lerp is rounded
-            // the other way, as if in 255 − gray (fitted on white over black; see the probes).
-            let gray = select(0u, 255u, params.color.x != 0u);
-            if alpha == 255u {
-                dest[i] = (gray * m + d * (255u - m)) / 255u;
-            } else {
-                let am = alpha * m;
-                dest[i] = 255u - ((255u - gray) * am + (255u - d) * (65025u - am)) / 65025u;
-            }
+            // A mask is one gray channel, with no alpha, and its own rounding: the coverage
+            // scaled by the opacity byte and rounded up, the paint likewise, the backdrop by
+            // what's left and rounded down, at any opacity.
+            let a = (alpha * m + 254u) / 255u;
+            let paint = select(0u, a, params.color.x != 0u);
+            dest[i] = paint + d * (255u - a) / 255u;
         }
         case 3u: {
             if reaches[i] == 0u {
@@ -99,7 +99,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 dest[i] = d;
                 return;
             }
-            dest[i] = pack(floor255(unpack(sample[i]) * m + unpack(d) * (255u - m)));
+            dest[i] = pack(lerp255(unpack(sample[i]) * m + unpack(d) * (255u - m)));
         }
     }
 }
