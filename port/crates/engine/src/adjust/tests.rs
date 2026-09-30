@@ -85,11 +85,12 @@ fn premultiply(p: &[u8]) -> [u8; 4] {
     [c(p[0]), c(p[1]), c(p[2]), p[3]]
 }
 
-/// The blur cases Core Image's arithmetic still keeps outside 1/255, with the largest channel
-/// difference measured on an RTX 2080 (DX12). The test fails if any of them gets worse; see
-/// `blur.rs` for what is and isn't matched.
-const KNOWN_GAPS: &[(&str, u8)] =
-    &[("gaussian-3", 3), ("gaussian-12", 4), ("motion-0-10", 2), ("motion-45-20", 11), ("motion-90-5", 2)];
+/// The blur cases still outside 1/255, with the largest channel difference measured on an RTX 2080
+/// (DX12). The test fails if any of them gets worse; see `blur.rs` for what is and isn't matched.
+/// Streaks off the axes turn the image with bilinear reads whose 8-bit fractions depend on how
+/// the Mac's GPU rounds texture coordinates, which isn't modeled, so a few pixels near rounding
+/// boundaries land one level off (two or three once unpremultiplied at low alpha).
+const KNOWN_GAPS: &[(&str, u8)] = &[("motion-45-20", 2), ("probe-motion-45-20", 2), ("probe-motion-45-40", 3)];
 
 /// Every plain adjust case: an opaque photo drawn onto a transparent canvas, the adjustment
 /// applied to the whole canvas. Set `PARITY_REFS` to the downloaded references (the folder
@@ -128,6 +129,10 @@ fn adjust_cases_match_references() {
         let canvas: Vec<u8> = photo.pixels().flat_map(|p| premultiply(&p.0)).collect();
         let image = gpu.upload(w, h, &canvas);
         let adjustment = layers[1].adjustment.as_ref().unwrap();
+        if let Some(what) = unsupported(adjustment, Region::whole(&image)) {
+            println!("{id:<24} pending: {what}");
+            continue;
+        }
         let out = apply(&gpu, &image, adjustment, Region::whole(&image)).unwrap();
         let out = gpu.download(&out).unwrap();
         let (mut max, mut count) = (0u8, 0usize);

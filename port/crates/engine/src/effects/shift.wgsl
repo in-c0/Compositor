@@ -14,7 +14,7 @@ struct Params {
 @group(0) @binding(2) var<storage, read_write> result: array<f32>;
 
 fn lerp(x: f32, y: f32, a: f32) -> f32 {
-    return fma(keep(y - x), a, x);
+    return mul_add(keep(y - x), a, x);
 }
 
 @compute @workgroup_size(8, 8)

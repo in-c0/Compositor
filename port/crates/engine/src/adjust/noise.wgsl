@@ -60,7 +60,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let angle = cos_rn(keep(6.2831853 * u2));
             n = keep(keep(keep(radius * angle) * params.spread) * (2.0 / 3.0));
         } else {
-            n = keep(fma(noise_unit(key), 2.0, -1.0) * params.spread);
+            n = keep(mul_add(noise_unit(key), 2.0, -1.0) * params.spread);
         }
         var value = keep(div(keep(f32(p[c]) * 255.0), alpha) + n);
         value = clamp(value, 0.0, 255.0);

@@ -1,0 +1,136 @@
+{
+  "activeLayerID" : "48E4C83C-D55B-4B3A-AEFB-4214B5BAABD5",
+  "colorSpace" : "sRGB",
+  "documentID" : "8B03D2E0-3033-4979-ADE3-BD974B65BE2D",
+  "format" : "com.compositor.project",
+  "height" : 128,
+  "layers" : [
+    {
+      "id" : "B50E33C6-A578-4CD6-A0BE-C212534E1E76",
+      "imageFile" : "B50E33C6-A578-4CD6-A0BE-C212534E1E76.png",
+      "isVisible" : true,
+      "name" : "Probe",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "adjustment" : {
+        "blurRadius" : 12,
+        "colorize" : false,
+        "curves" : {
+          "channel" : "RGB",
+          "channels" : [
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ],
+            [
+              {
+                "x" : 0,
+                "y" : 0
+              },
+              {
+                "x" : 255,
+                "y" : 255
+              }
+            ]
+          ]
+        },
+        "hue" : 0,
+        "kind" : "Gaussian Blur",
+        "levels" : {
+          "channel" : "RGB",
+          "ranges" : [
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            },
+            {
+              "black" : 0,
+              "gamma" : 1,
+              "outputBlack" : 0,
+              "outputWhite" : 255,
+              "white" : 255
+            }
+          ]
+        },
+        "lightness" : 0,
+        "saturation" : 0
+      },
+      "id" : "48E4C83C-D55B-4B3A-AEFB-4214B5BAABD5",
+      "isVisible" : true,
+      "name" : "Gaussian blur 12 over ramped lines and a step",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          128,
+          128
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 128
+}

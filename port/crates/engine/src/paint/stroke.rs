@@ -263,7 +263,7 @@ impl Stroke {
             .map(|(x, y)| context[((y - pad).clamp(0, h - 1) * w + (x - pad).clamp(0, w - 1)) as usize])
             .collect();
         let image = gpu.upload(pw as u32, ph as u32, bytemuck::cast_slice(&padded));
-        let soft = crate::adjust::blur::gaussian(gpu, &image, sigma);
+        let soft = crate::adjust::gaussian::gaussian(gpu, &image, sigma).map_err(anyhow::Error::msg)?;
         let soft: Vec<u32> = bytemuck::cast_slice(&gpu.download(&soft)?).to_vec();
         let mask = self.mask;
         let cropped: Vec<u32> = (0..h)

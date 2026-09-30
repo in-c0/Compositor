@@ -9,6 +9,7 @@
 //! `f64`, as the Swift code does, and uploaded.
 
 pub(crate) mod blur;
+pub(crate) mod gaussian;
 mod tables;
 
 use crate::gpu::{Gpu, GpuImage};
@@ -89,17 +90,35 @@ pub fn apply(gpu: &Gpu, image: &GpuImage, adjustment: &Adjustment, region: Regio
         AdjustmentKind::Invert => run.kernel("adjust.invert", include_str!("invert.wgsl"), &[], &[]),
         AdjustmentKind::BlackWhite => black_white(&run, adjustment),
         AdjustmentKind::ColorBalance => color_balance(&run, adjustment),
-        AdjustmentKind::GaussianBlur => {
-            // `FilterSettings.normalized` clamps the radius; `gaussianRadius` defaults to 10.
-            let radius = clamp(adjustment.blur_radius.unwrap_or(10.0), 0.1, 250.0, 1.0);
-            blur::gaussian(gpu, image, radius * region.scale)
-        }
+        AdjustmentKind::GaussianBlur => gaussian::gaussian(gpu, image, gaussian_radius(adjustment) * region.scale).map_err(anyhow::Error::msg)?,
         AdjustmentKind::MotionBlur => {
-            let angle = clamp(adjustment.motion_angle.unwrap_or(0.0), -90.0, 90.0, 0.0);
-            let distance = clamp(adjustment.motion_distance.unwrap_or(10.0), 1.0, 2000.0, 10.0);
-            blur::motion(gpu, image, distance * region.scale, angle)
+            let (distance, angle) = motion_settings(adjustment);
+            blur::motion(gpu, image, distance * region.scale, angle).map_err(anyhow::Error::msg)?
         }
     })
+}
+
+/// What `apply` can't reproduce exactly for these settings, if anything: the caller reports it
+/// as unsupported rather than drawing something close.
+pub fn unsupported(adjustment: &Adjustment, region: Region) -> Option<String> {
+    match adjustment.kind {
+        AdjustmentKind::GaussianBlur => gaussian::unsupported(gaussian_radius(adjustment) * region.scale),
+        AdjustmentKind::MotionBlur => blur::motion_unsupported(motion_settings(adjustment).0 * region.scale),
+        _ => None,
+    }
+}
+
+/// Gaussian Blur's radius (Core Image's σ), as `FilterSettings.normalized` clamps it;
+/// `gaussianRadius` defaults to 10.
+fn gaussian_radius(adjustment: &Adjustment) -> f64 {
+    clamp(adjustment.blur_radius.unwrap_or(10.0), 0.1, 250.0, 1.0)
+}
+
+/// Motion Blur's distance and angle, as `FilterSettings.normalized` clamps them.
+fn motion_settings(adjustment: &Adjustment) -> (f64, f64) {
+    let angle = clamp(adjustment.motion_angle.unwrap_or(0.0), -90.0, 90.0, 0.0);
+    let distance = clamp(adjustment.motion_distance.unwrap_or(10.0), 1.0, 2000.0, 10.0);
+    (distance, angle)
 }
 
 /// `FilterSettings.normalized`'s clamp: non-finite values fall back.

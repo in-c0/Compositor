@@ -212,7 +212,7 @@ fn effectively_visible(layers: &[LayerRecord], layer: &LayerRecord) -> bool {
 }
 
 /// The filter itself: `PixelFilter.run` on premultiplied pixels.
-fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuImage, inexact: bool) -> Result<GpuImage> {
+fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuImage, _inexact: bool) -> Result<GpuImage> {
     let region = Region::whole(image);
     let adjustment = |kind: AdjustmentKind| Adjustment::new(kind);
     Ok(match kind {
@@ -285,22 +285,34 @@ fn run(gpu: &Gpu, kind: FilterKind, s: &FilterSettings, seed: u32, image: &GpuIm
         FilterKind::Vignette => vignette(gpu, image, s),
         FilterKind::LensCorrection => lens(gpu, image, s.distortion / 100.0 * LENS_STRENGTH),
         FilterKind::Dither => dither::apply(gpu, image, &s.dither)?,
-        // Core Image's blurs, through `adjust::blur`, which doesn't match them exactly yet.
-        FilterKind::GaussianBlur | FilterKind::MotionBlur | FilterKind::BloomGlow | FilterKind::TonalContrast if !inexact => {
-            return unsupported("Core Image's Gaussian and motion blurs aren't exact yet (Gaussian Blur, Motion Blur, Bloom / Glow, Tonal Contrast)");
-        }
-        FilterKind::GaussianBlur => adjust::blur::gaussian(gpu, image, s.radius),
-        FilterKind::MotionBlur => adjust::blur::motion(gpu, image, s.distance, s.angle),
+        // Core Image's blurs (adjust::gaussian and adjust::blur), which report the parameters they
+        // can't reproduce yet.
+        FilterKind::GaussianBlur => match adjust::gaussian::gaussian(gpu, image, s.radius) {
+            Ok(blurred) => blurred,
+            Err(why) => return unsupported(&why),
+        },
+        FilterKind::MotionBlur => match adjust::blur::motion(gpu, image, s.distance, s.angle) {
+            Ok(blurred) => blurred,
+            Err(why) => return unsupported(&why),
+        },
         FilterKind::BloomGlow => {
-            // `CIBloom`: its Gaussian blur, then the composite in `bloom.wgsl`. Core Image keeps the
-            // blur in floats; `adjust::blur` rounds it to bytes first.
-            let blurred = adjust::blur::gaussian(gpu, image, s.bloom_radius);
+            // `CIBloom`: its Gaussian blur, kept in floats as Core Image keeps it, then the
+            // composite in `bloom.wgsl`. Rounding the blur to bytes first moves the faint edge of
+            // the glow, and with it the bounds the layer is trimmed to.
+            let blurred = match adjust::gaussian::gaussian_plane(gpu, image, s.bloom_radius) {
+                Ok(blurred) => blurred,
+                Err(why) => return unsupported(&why),
+            };
             let intensity = (s.bloom_amount / 50.0) as f32;
-            kernel(gpu, "filters.bloom", include_str!("bloom.wgsl"), image, &[intensity.to_bits()], &[&blurred.buffer])
+            let words = [intensity.to_bits(), blurred.stride, blurred.offset];
+            kernel(gpu, "filters.bloom", include_str!("bloom.wgsl"), image, &words, &[&blurred.buffer])
         }
         FilterKind::TonalContrast => {
             // The base is the layer blurred by Core Image and stored as bytes.
-            let base = adjust::blur::gaussian(gpu, image, s.tonal_radius);
+            let base = match adjust::gaussian::gaussian(gpu, image, s.tonal_radius) {
+                Ok(base) => base,
+                Err(why) => return unsupported(&why),
+            };
             let mut params = vec![0];
             for v in [s.tonal_shadows, s.tonal_midtones, s.tonal_highlights, s.tonal_amount / 50.0, 0.5 - 0.15, 0.85 - 0.5] {
                 params.extend(split(v).map(f32::to_bits));

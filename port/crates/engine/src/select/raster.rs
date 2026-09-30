@@ -11,12 +11,12 @@ pub fn coverage(gpu: &Gpu, selection: &Selection, width: u32, height: u32) -> Re
     if selection.feather <= 0.0 {
         return Ok(hard);
     }
-    Ok(feather(gpu, &hard, width, height, selection.feather / 2.0))
+    feather(gpu, &hard, width, height, selection.feather / 2.0)
 }
 
 /// `clampedToExtent().applyingGaussianBlur(sigma:)`, cropped back to the canvas: the edge pixels
 /// repeat outward, so the blur doesn't fade in from the canvas's edges.
-fn feather(gpu: &Gpu, hard: &[u8], width: u32, height: u32, sigma: f64) -> Vec<u8> {
+fn feather(gpu: &Gpu, hard: &[u8], width: u32, height: u32, sigma: f64) -> Result<Vec<u8>> {
     let pad = (3.0 * sigma).floor() as u32 + 1;
     let (pw, ph) = (width + 2 * pad, height + 2 * pad);
     let mut padded = Vec::with_capacity((pw * ph * 4) as usize);
@@ -29,15 +29,15 @@ fn feather(gpu: &Gpu, hard: &[u8], width: u32, height: u32, sigma: f64) -> Vec<u
         }
     }
     let image = gpu.upload(pw, ph, &padded);
-    let blurred = crate::adjust::blur::gaussian(gpu, &image, sigma);
-    let bytes = gpu.download(&blurred).expect("readback");
+    let blurred = crate::adjust::gaussian::gaussian(gpu, &image, sigma).map_err(crate::RenderError::Unsupported)?;
+    let bytes = gpu.download(&blurred)?;
     let mut out = Vec::with_capacity((width * height) as usize);
     for y in 0..height {
         for x in 0..width {
             out.push(bytes[(((y + pad) * pw + x + pad) * 4) as usize]);
         }
     }
-    out
+    Ok(out)
 }
 
 fn fill(gpu: &Gpu, selection: &Selection, antialias: bool, width: u32, height: u32) -> Result<Vec<u8>> {

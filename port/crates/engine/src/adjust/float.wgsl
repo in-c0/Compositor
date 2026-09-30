@@ -6,12 +6,62 @@
 // across a rounding boundary. So every kernel's `Params` starts with `guard: f32`, which the host
 // sets to +infinity: `min(x, params.guard)` returns `x` unchanged, but the compiler can't see
 // through it, so the rounding of `x` is kept. Division, square roots, logarithms and cosines are
-// rebuilt from exact pieces: `fma` (fused on Metal by definition, and measured fused on DX12 by
-// the `float_helpers_are_correctly_rounded` test) and double-single arithmetic.
+// rebuilt from exact pieces: a fused multiply-add and double-single arithmetic.
+//
+// `fma` is fused on Metal by definition and on DX12 hardware, but Microsoft's WARP (the software
+// adapter on CI's Windows runners) rounds the product first. `Gpu` measures which it is and sets
+// `FMA_FUSED`, and `mul_add` builds the fused result from an exact product where it's needed.
 
 // `x`, rounded on its own: no fusing or reassociating it with what uses it.
 fn keep(x: f32) -> f32 {
     return min(x, params.guard);
+}
+
+override FMA_FUSED: bool = true;
+
+// Veltkamp's split of `a` into two 12-bit halves, whose products are exact.
+fn split(a: f32) -> vec2<f32> {
+    let c = keep(4097.0 * a);
+    let hi = keep(c - keep(c - a));
+    return vec2<f32>(hi, keep(a - hi));
+}
+
+// a · b exactly, as a rounded product and its error, without `fma` (Dekker).
+fn exact_product(a: f32, b: f32) -> vec2<f32> {
+    let p = keep(a * b);
+    let sa = split(a);
+    let sb = split(b);
+    let e = keep(keep(keep(keep(sa.x * sb.x) - p) + keep(sa.x * sb.y)) + keep(sa.y * sb.x)) + keep(sa.y * sb.y);
+    return vec2<f32>(p, keep(e));
+}
+
+// a · b + c with one rounding, from the exact product.
+fn fma_exact(a: f32, b: f32, c: f32) -> f32 {
+    let p = exact_product(a, b);
+    let s = two_sum(p.x, c);
+    return keep(s.x + keep(s.y + p.y));
+}
+
+// `fma(a, b, c)` rounded once, on any adapter.
+fn mul_add(a: f32, b: f32, c: f32) -> f32 {
+    if (FMA_FUSED) {
+        return fma(a, b, c);
+    }
+    return fma_exact(a, b, c);
+}
+
+fn mul_add3(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>) -> vec3<f32> {
+    if (FMA_FUSED) {
+        return fma(a, b, c);
+    }
+    return vec3<f32>(fma_exact(a.x, b.x, c.x), fma_exact(a.y, b.y, c.y), fma_exact(a.z, b.z, c.z));
+}
+
+fn mul_add4(a: vec4<f32>, b: vec4<f32>, c: vec4<f32>) -> vec4<f32> {
+    if (FMA_FUSED) {
+        return fma(a, b, c);
+    }
+    return vec4<f32>(fma_exact(a.x, b.x, c.x), fma_exact(a.y, b.y, c.y), fma_exact(a.z, b.z, c.z), fma_exact(a.w, b.w, c.w));
 }
 
 // Whether clang contracted the C kernels' `a * b + c` into fused multiply-adds when it built
@@ -23,7 +73,7 @@ const CONTRACT: bool = true;
 // `fma(x, y, z * w)`.
 fn mad(a: f32, b: f32, c: f32) -> f32 {
     if (CONTRACT) {
-        return fma(a, b, c);
+        return mul_add(a, b, c);
     }
     return keep(a * b) + c;
 }
@@ -45,9 +95,9 @@ fn div(a: f32, b: f32) -> f32 {
         return 0.0;
     }
     for (var i = 0; i < 3; i++) {
-        let r = fma(-q, b, a);
+        let r = mul_add(-q, b, a);
         let next = select(down(q), up(q), r > 0.0);
-        let s = fma(-next, b, a);
+        let s = mul_add(-next, b, a);
         if (abs(s) < abs(r) || (abs(s) == abs(r) && (bitcast<u32>(next) & 1u) == 0u)) {
             q = next;
         } else {
@@ -64,9 +114,9 @@ fn root(x: f32) -> f32 {
         return 0.0;
     }
     for (var i = 0; i < 2; i++) {
-        let r = fma(-s, s, x);
+        let r = mul_add(-s, s, x);
         let next = select(down(s), up(s), r > 0.0);
-        let t = fma(-next, next, x);
+        let t = mul_add(-next, next, x);
         if (abs(t) < abs(r)) {
             s = next;
         } else {
@@ -98,6 +148,9 @@ fn fast_two_sum(a: f32, b: f32) -> vec2<f32> {
 }
 
 fn two_prod(a: f32, b: f32) -> vec2<f32> {
+    if (!FMA_FUSED) {
+        return exact_product(a, b);
+    }
     let p = keep(a * b);
     return vec2<f32>(p, keep(fma(a, b, -p)));
 }
