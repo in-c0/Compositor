@@ -162,10 +162,40 @@ final class UIRunner {
     }
 }
 
+/// Set once a child has written its result; exiting before then is logged with where it happened.
+nonisolated(unsafe) var childFinished = false
+
+/// The children's application delegate. Once a child handles events, nothing may quit it before it has written its
+/// result, and its command-line arguments, which AppKit offers to the app as files to open, are left alone.
+final class ChildApplicationDelegate: NSObject, NSApplicationDelegate {
+    static let shared = ChildApplicationDelegate()
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let event = NSAppleEventManager.shared().currentAppleEvent.map { "\($0)" } ?? "no Apple event"
+        standardError("ParityHarness: something asked this process to quit (\(event)); ignored")
+        return .terminateCancel
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        standardError("ParityHarness: ignored a request to open \(urls.map(\.path).joined(separator: ", "))")
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+}
+
 /// The child processes: one state, or the Layers panel's row menus.
 enum UIChild {
     /// What the app delegate does at launch, plus an active app so the capture windows can be key.
     static func prepareApplication() async {
+        NSApp.delegate = ChildApplicationDelegate.shared
+        atexit {
+            guard !childFinished else { return }
+            standardError("ParityHarness: exiting before the result was written, from:
+" + Thread.callStackSymbols.joined(separator: "
+"))
+        }
+        ProcessInfo.processInfo.disableSuddenTermination()
+        ProcessInfo.processInfo.disableAutomaticTermination("rendering a UI state")
         _ = NSApp.setActivationPolicy(.regular)
         // Always dark, as applicationWillFinishLaunching sets it.
         NSApp.appearance = NSAppearance(named: .darkAqua)
@@ -208,6 +238,7 @@ enum UIChild {
         }
         do {
             try JSONEncoder().encode(result).write(to: try resultURL(options))
+            childFinished = true
         } catch {
             standardError("ParityHarness: couldn't write the state's result: \(describe(error))")
         }
@@ -218,6 +249,7 @@ enum UIChild {
         let rows = await MenuDump.layerContextMenus(corpus: options.corpus)
         do {
             try JSONSerialization.data(withJSONObject: rows).write(to: try resultURL(options))
+            childFinished = true
         } catch {
             standardError("ParityHarness: couldn't write the menus: \(describe(error))")
         }
