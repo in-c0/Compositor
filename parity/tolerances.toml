@@ -8,3 +8,33 @@
 # cases = "type/*"
 # max_channel_diff = 3
 # reason = "Glyph edges come from a different rasterizer than Core Text; measured in PARITY.md."
+
+# Core Image runs Hard Mix, Color Burn, Color Dodge, Divide, Vivid Light and Soft Light on the
+# Mac's GPU. Where the exact result is a tie (for Hard Mix, backdrop + source = 1 exactly), the
+# answer depends on how Apple's GPU rounds a division, which no IEEE float order reproduces: in
+# the references it goes both ways for mathematically identical sums. Everything else in these
+# cases is held to 1/255. Measured on the hosted runner's Apple Paravirtual GPU; re-measure on
+# the self-hosted Mac.
+[[override]]
+cases = "blend/hard-mix-alpha-100"
+max_channel_diff = 1
+max_pixels_over = 1
+reason = "Hard Mix at an exact tie follows the Mac GPU's division rounding, which IEEE f32 can't reproduce: 1 of 4,096 pixels."
+
+[[override]]
+cases = "blend/hard-mix-alpha-60"
+max_channel_diff = 1
+max_pixels_over = 3
+reason = "Hard Mix at an exact tie follows the Mac GPU's division rounding, which IEEE f32 can't reproduce: 3 of 4,096 pixels."
+
+[[override]]
+cases = "blend/stack"
+max_channel_diff = 1
+max_pixels_over = 55
+reason = "A 30% Hard Mix layer over low-alpha source pixels makes exact ties common; at a tie the Mac GPU's division rounding decides, which IEEE f32 can't reproduce: 55 of 4,096 pixels, all Hard Mix."
+
+[[override]]
+cases = "blend/color-burn-alpha-60"
+max_channel_diff = 1
+max_pixels_over = 1
+reason = "One pixel where Core Image's GPU float arithmetic rounds a premultiplied Color Burn result the other way (off by 1 premultiplied, 2 after unpremultiplying): 1 of 4,096 pixels."

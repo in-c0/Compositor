@@ -108,7 +108,7 @@ fn separable(mode: u32, b: f32, s: f32, s_multiply: bool, b_multiply: bool) -> f
 // The W3C general formula, one rounding at the end. The terms that don't depend on the blend
 // are exact integers (premultiplied bytes times the other side's uncovered alpha); only the blend
 // itself is float, which keeps f32 close enough to the Mac's arithmetic to round the same way.
-fn composite_float(mode: u32, backdrop: vec4<u32>, source: vec4<u32>) -> vec4<u32> {
+fn composite_float(mode: u32, backdrop: vec4<u32>, source: vec4<u32>, full_opacity: bool) -> vec4<u32> {
     let ba = backdrop.w;
     let sa = source.w;
     var b = vec3<f32>(0.0);
@@ -129,8 +129,9 @@ fn composite_float(mode: u32, backdrop: vec4<u32>, source: vec4<u32>) -> vec4<u3
     let uncovered = source.xyz * (255u - ba) + backdrop.xyz * (255u - sa);
     let color = floor((vec3<f32>(uncovered) + f32(sa * ba) * mixed) / 255.0 + vec3<f32>(0.5));
     var alpha = (sa * 255u + ba * (255u - sa) + 127u) / 255u;
-    // Core Graphics' Hard Light keeps the whole backdrop alpha under a source alpha of 1/255.
-    if mode == HARD_LIGHT && sa == 1u {
+    // At full opacity, Core Graphics' Hard Light keeps the whole backdrop alpha under a source
+    // alpha of 1/255.
+    if mode == HARD_LIGHT && sa == 1u && full_opacity {
         alpha = ba + 1u;
     }
     return vec4<u32>(vec3<u32>(clamp(color, vec3<f32>(0.0), vec3<f32>(255.0))), min(alpha, 255u));
@@ -220,5 +221,5 @@ fn composite(mode: u32, backdrop: vec4<u32>, source: vec4<u32>, full_opacity: bo
     if mode >= HUE || (mode == MULTIPLY && full_opacity) {
         return composite_int(mode, backdrop, source);
     }
-    return composite_float(mode, backdrop, source);
+    return composite_float(mode, backdrop, source, full_opacity);
 }
