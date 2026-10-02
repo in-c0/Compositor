@@ -1,0 +1,29 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: teeth with one long edge the other way, whose steps truncate by 15/16, stepping along y, mirrored",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          4.0,
+          4.0
+        ],
+        [
+          23.666748046875,
+          4.0
+        ],
+        [
+          43.013671875,
+          52.0
+        ],
+        [
+          4.0,
+          52.0
+        ]
+      ]
+    }
+  ]
+}

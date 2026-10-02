@@ -210,6 +210,18 @@ fn probes(w: &mut CaseWriter) -> Result<()> {
     ];
     let ops = large.iter().enumerate().map(|(i, &(x, y, w, h))| ellipse([x, y], [x + w, y + h], c(i))).collect();
     w.write(F, "probe-ellipses-large", "Probe: larger circles and ellipses", ground(w, "probe-ellipses-large", N, N), ops)?;
+    // More sizes, for the fill's edge pixels: each ellipse on its own layer, overlapping freely.
+    for (case, first) in [("probe-ellipses-more", 2u32), ("probe-ellipses-more-2", 5)] {
+        let ops = (0..18u32)
+            .map(|i| {
+                let (w, h) = (first + (i * 7 + 3) % 23, first + (i * 11 + 5) % 19);
+                let (x, y) = ((i * 13) % (N - w) , (i * 17) % (N - h));
+                ellipse([x as f64, y as f64], [(x + w) as f64, (y + h) as f64], c(i as usize))
+            })
+            .collect();
+        w.write(F, case, "Probe: ellipses of many sizes", ground(w, case, N, N), ops)?;
+    }
+    vertex_probes(w)?;
     let lines: [([f64; 2], [f64; 2], f64); 14] = [
         ([4.0, 5.0], [40.0, 5.0], 1.0), ([4.0, 9.0], [40.0, 9.0], 2.0), ([4.0, 14.0], [40.0, 14.0], 3.0),
         ([44.0, 4.0], [44.0, 40.0], 1.0), ([50.0, 4.0], [50.0, 40.0], 4.0), ([4.0, 20.0], [30.0, 46.0], 1.0),
@@ -372,6 +384,27 @@ fn selection_probes(w: &mut CaseWriter) -> Result<()> {
         let op = json!({ "op": "marquee", "shape": "Ellipse", "from": [0, 0], "to": [width, height] });
         w.write(F, &case, &format!("Probe: a {width} by {height} ellipse selected with the Marquee"), d, vec![op])?;
     }
+    // The same ellipses as Polygonal Lasso outlines through the points the port flattens them to,
+    // in the path's own order, reversed, and starting a quarter round: if the Mac's coverage
+    // matches the Marquee's, the flattening is the same and only the fill is left to explain.
+    for (width, height) in [(2u32, 2u32), (6, 6), (10, 10), (13, 13), (25, 10), (32, 32)] {
+        let (wf, hf) = (width as f64, height as f64);
+        let points = engine::select::geom::flatten(&engine::select::geom::ellipse(0.0, 0.0, wf, hf));
+        let spaced = (0..points.len()).all(|i| {
+            let (a, b) = (points[i], points[(i + 1) % points.len()]);
+            (a[0] - b[0]).hypot(a[1] - b[1]) >= 0.25
+        });
+        assert!(spaced, "the Lasso would drop points of the {width}x{height} ellipse");
+        let quarter = points.len() / 4;
+        let reversed: Vec<[f64; 2]> = points.iter().rev().copied().collect();
+        let rotated: Vec<[f64; 2]> = points[quarter..].iter().chain(&points[..quarter]).copied().collect();
+        for (suffix, more, outline) in [("", "", points.clone()), ("-reversed", ", reversed", reversed), ("-rotated", ", starting a quarter round", rotated)] {
+            let case = format!("probe-flat-ellipse-{width}x{height}{suffix}");
+            let d = ground(w, &case, width, height);
+            let op = json!({ "op": "lasso", "kind": "Polygonal", "points": outline });
+            w.write(F, &case, &format!("Probe: a {width} by {height} ellipse's flattened points with the Polygonal Lasso{more}"), d, vec![op])?;
+        }
+    }
     Ok(())
 }
 
@@ -390,5 +423,68 @@ fn line_probes(w: &mut CaseWriter) -> Result<()> {
         (4.0, [10.0, 62.0], [62.0, 50.0]), (2.5, [30.0, 40.0], [31.0, 62.0])]
         .iter().map(|&(width, a, b)| line(a, b, width, white)).collect();
     w.write(F, "probe-lines-long", "Probe: long lines at shallow and steep slopes", ground(w, "probe-lines-long", N, N), long)?;
+    // Lines fanned out from two centers at slants other than the eighths of a turn, on 1/64 px
+    // ends (trigonometry differs in the last bits between platforms).
+    let q = |v: f64| (v * 64.0).round() / 64.0;
+    for (case, center, widths) in [("probe-lines-fan", [31.5, 32.25], [2.0, 3.0, 4.5, 6.0]), ("probe-lines-fan-thin", [32.3, 31.6], [1.25, 1.5, 2.5, 3.5])] {
+        let fan: Vec<Value> = (0..8)
+            .map(|i| {
+                let angle = (11.0 + 43.0 * i as f64).to_radians();
+                let (c, s) = (angle.cos(), angle.sin());
+                let a = [q(center[0] + 5.0 * c), q(center[1] + 5.0 * s)];
+                let b = [q(center[0] + 28.0 * c), q(center[1] + 28.0 * s)];
+                line(a, b, widths[i % 4], white)
+            })
+            .collect();
+        w.write(F, case, "Probe: lines fanned out at slants between the eighths of a turn", ground(w, case, N, N), fan)?;
+    }
+    Ok(())
+}
+
+/// Shapes whose outlines turn inside pixels at many angles and sub-pixel positions, with no path
+/// operation on the way (a selection's outline goes through one): the round caps of lines of
+/// many widths at fractional points and slants, and rounded rectangles with fractional radii.
+/// Each is on its own layer, so the saved project keeps every fill.
+fn vertex_probes(w: &mut CaseWriter) -> Result<()> {
+    let mut state: u64 = 0x2545_f491_4f6c_dd1d;
+    let mut random = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+    };
+    // Ends on a 1/64 px grid, as trigonometry differs in the last bits between platforms.
+    let q = |v: f64| (v * 64.0).round() / 64.0;
+    let c = |i: usize| COLORS[i % COLORS.len()];
+    // Wider lines round their caps with more, gentler corners; thin ones with few, sharp ones.
+    let widths: [[f64; 2]; 4] = [[2.0, 6.0], [5.0, 12.0], [10.0, 22.0], [18.0, 34.0]];
+    for (k, range) in widths.iter().enumerate() {
+        let case = format!("probe-caps-{k}");
+        let ops = (0..14)
+            .map(|i| {
+                let width = q(range[0] + (range[1] - range[0]) * random());
+                let length = 1.0 + 14.0 * random();
+                let angle = std::f64::consts::TAU * random();
+                let margin = width / 2.0 + 1.0;
+                let a = [q(margin + (64.0 - 2.0 * margin) * random()), q(margin + (64.0 - 2.0 * margin) * random())];
+                let b = [q((a[0] + length * angle.cos()).clamp(margin, 64.0 - margin)), q((a[1] + length * angle.sin()).clamp(margin, 64.0 - margin))];
+                line(a, b, width, c(i))
+            })
+            .collect();
+        w.write(F, &case, "Probe: lines with round caps of many widths, at fractional points", ground(w, &case, N, N), ops)?;
+    }
+    for k in 0..2 {
+        let case = format!("probe-rounded-{k}");
+        let ops = (0..16)
+            .map(|i| {
+                let (bw, bh) = ((4.0 + 26.0 * random()).floor(), (4.0 + 26.0 * random()).floor());
+                let (x, y) = ((random() * (64.0 - bw)).floor(), (random() * (64.0 - bh)).floor());
+                let radius = q(0.6 + (bw.min(bh) / 2.0 - 0.6) * random());
+                rect([x, y], [x + bw, y + bh], radius, c(i))
+            })
+            .collect();
+        w.write(F, &case, "Probe: rounded rectangles with fractional radii", ground(w, &case, N, N), ops)?;
+    }
     Ok(())
 }

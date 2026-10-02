@@ -1,0 +1,61 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: teeth with slopes 1/16 px steps take exactly, or truncate by 8/16 or 15/16 of a unit, mirrored",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          62.0,
+          60.0
+        ],
+        [
+          62.0,
+          20.25
+        ],
+        [
+          46.0,
+          24.9375
+        ],
+        [
+          46.0,
+          60.0
+        ],
+        [
+          42.0,
+          60.0
+        ],
+        [
+          42.0,
+          14.5
+        ],
+        [
+          26.0,
+          19.189453125
+        ],
+        [
+          26.0,
+          60.0
+        ],
+        [
+          22.0,
+          60.0
+        ],
+        [
+          22.0,
+          30.125
+        ],
+        [
+          6.0,
+          34.816162109375
+        ],
+        [
+          6.0,
+          60.0
+        ]
+      ]
+    }
+  ]
+}

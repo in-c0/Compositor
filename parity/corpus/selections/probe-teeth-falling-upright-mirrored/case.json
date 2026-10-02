@@ -1,0 +1,61 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Probe: teeth with the same slopes the other way, stepping along y, mirrored",
+  "ops": [
+    {
+      "kind": "Polygonal",
+      "op": "lasso",
+      "points": [
+        [
+          4.0,
+          2.0
+        ],
+        [
+          23.75,
+          2.0
+        ],
+        [
+          28.4375,
+          18.0
+        ],
+        [
+          4.0,
+          18.0
+        ],
+        [
+          4.0,
+          22.0
+        ],
+        [
+          29.5,
+          22.0
+        ],
+        [
+          34.189453125,
+          38.0
+        ],
+        [
+          4.0,
+          38.0
+        ],
+        [
+          4.0,
+          42.0
+        ],
+        [
+          13.875,
+          42.0
+        ],
+        [
+          18.566162109375,
+          58.0
+        ],
+        [
+          4.0,
+          58.0
+        ]
+      ]
+    }
+  ]
+}

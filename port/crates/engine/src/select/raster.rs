@@ -1,5 +1,10 @@
 //! Filling a selection's outline the way `DocumentSelection.coverage` does: Core Graphics fills
 //! the path with the winding rule into an 8-bit gray bitmap, anti-aliased or not.
+//!
+//! Anti-aliased, a pixel's coverage is the area of the outline in it, in 256ths, truncated, as
+//! Core Graphics sweeps each row from the left; the outline is each edge as `walked` lays it out
+//! (fitted to the cell-triangle, teeth, grid and zigzag probes). The Mac is still a level higher
+//! on a few pixels where two rising edges meet, which nothing here reproduces yet.
 
 use super::{Result, Selection};
 use crate::gpu::Gpu;
@@ -81,7 +86,8 @@ fn edges(selection: &Selection, antialias: bool, height: u32) -> Vec<[f32; 4]> {
         let points = if antialias { super::geom::flatten(contour) } else { super::geom::flatten_within(contour, super::geom::ALIASED_FLATNESS) };
         for i in 0..points.len() {
             let (a, b) = (points[i], points[(i + 1) % points.len()]);
-            for [x0, y0, x1, y1] in stepped(a, b, height as f64) {
+            let pieces = if antialias { walked(a, b, height as f64) } else { stepped(a, b, height as f64) };
+            for [x0, y0, x1, y1] in pieces {
                 if y0 != y1 {
                     out.push([x0 as f32, y0 as f32, x1 as f32, y1 as f32]);
                 }
@@ -96,6 +102,98 @@ fn edges(selection: &Selection, antialias: bool, height: u32) -> Vec<[f32; 4]> {
 
 /// Sub-steps per pixel along an edge's major axis.
 const STEPS: f64 = 16.0;
+
+/// Core Graphics keeps a path's points to 1/8192 px, dropping the rest (toward -infinity in device
+/// space).
+const GRID: f64 = 8192.0;
+
+/// One of an edge's two DDAs: the value of `b` where `a` = `m`, stepping `a` from the edge's lower
+/// end (`a0`, `b0`) toward (`a1`, `b1`) in 1/16 px, `b` advancing by a 16.16 step truncated toward
+/// zero, from the true value at the first step (kept to 16.16, truncated).
+fn dda(a0: f64, b0: f64, a1: f64, b1: f64, m: f64) -> f64 {
+    let slope = (b1 - b0) / (a1 - a0);
+    let step = if a1 > a0 { 1.0 } else { -1.0 };
+    let d = (slope * step / STEPS * 65536.0).trunc() / 65536.0;
+    let n0 = if step > 0.0 { (a0 * STEPS).ceil() } else { (a0 * STEPS).floor() };
+    let start = b0 + (n0 / STEPS - a0) * slope;
+    let k = ((m * STEPS - n0) * step).round();
+    start + k * d
+}
+
+/// An edge as the Mac's rasterizer fills it, fitted to its coverage, as the straight pieces it
+/// fills each pixel with. In device space (y up), with its ends kept to 1/8192 px:
+/// - where it crosses a row boundary, x comes from stepping y in 1/16 px from the edge's lower
+///   end, x advancing by a truncated 16.16 step (so it drifts from the true line);
+/// - where it crosses a column boundary, y comes from the same stepping along x;
+/// - it ends where the x stepping has drifted to at its upper end's height, not at the end
+///   itself (the next edge starts at its own true start, a level gap that covers nothing);
+/// - within a pixel it is straight between those points.
+pub(crate) fn walked(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
+    let snap = |v: f64| (v * GRID).floor() / GRID;
+    let doc = |p: [f64; 2], q: [f64; 2]| [p[0], height - p[1], q[0], height - q[1]];
+    if a[0] == b[0] && a[1] != b[1] {
+        // An upright edge keeps its x and ends to 1/8192 px outward: rising, its x rounds down,
+        // falling, up (the left and right sides of an outline running clockwise, as the path
+        // operations leave a selection's), and it reaches down and up to the steps past its ends.
+        let (y0, y1) = (height - a[1], height - b[1]);
+        let x = if y1 > y0 { snap(a[0]) } else { (a[0] * GRID).ceil() / GRID };
+        let (lo, hi) = (snap(y0.min(y1)), (y0.max(y1) * GRID).ceil() / GRID);
+        let (s, e) = if y1 > y0 { (lo, hi) } else { (hi, lo) };
+        return vec![doc([x, s], [x, e])];
+    }
+    let (p0, p1) = ([snap(a[0]), snap(height - a[1])], [snap(b[0]), snap(height - b[1])]);
+    let (dx, dy) = (p1[0] - p0[0], p1[1] - p0[1]);
+    if dx == 0.0 || dy == 0.0 {
+        return vec![doc(p0, p1)];
+    }
+    let (lo, hi) = if dy > 0.0 { (p0, p1) } else { (p1, p0) };
+    // The x stepping, from its first step at or above the lower end (its x kept to 16.16).
+    let slope = (hi[0] - lo[0]) / (hi[1] - lo[1]);
+    let d = (slope / STEPS * 65536.0).trunc() / 65536.0;
+    let n0 = (lo[1] * STEPS).ceil();
+    let start = ((lo[0] + (n0 / STEPS - lo[1]) * slope) * 65536.0).floor() / 65536.0;
+    let x_at_row = |m: f64| start + (m * STEPS - n0).round() * d;
+    // The upper end, where the x stepping has got to: its last step below the end, then the true
+    // slope for the rest.
+    let last = (hi[1] * STEPS).floor();
+    let end_x = if last < n0 { hi[0] } else { start + (last - n0) * d + (hi[1] - last / STEPS) * slope };
+    let (q0, q1) = if dy > 0.0 { (p0, [end_x, p1[1]]) } else { ([end_x, p0[1]], p1) };
+    // Row crossings in path order.
+    let mut rows = vec![q0];
+    let mut ms: Vec<f64> = Vec::new();
+    let mut m = p0[1].min(p1[1]).floor() + 1.0;
+    while m < p0[1].max(p1[1]) {
+        ms.push(m);
+        m += 1.0;
+    }
+    if dy < 0.0 {
+        ms.reverse();
+    }
+    rows.extend(ms.into_iter().map(|m| [x_at_row(m), m]));
+    rows.push(q1);
+    let mut out = Vec::new();
+    for w in rows.windows(2) {
+        let (s, e) = (w[0], w[1]);
+        let mut points = vec![s];
+        let (ylo, yhi) = (s[1].min(e[1]), s[1].max(e[1]));
+        let mut xs: Vec<f64> = Vec::new();
+        let mut m = s[0].min(e[0]).floor() + 1.0;
+        while m < s[0].max(e[0]) {
+            xs.push(m);
+            m += 1.0;
+        }
+        if e[0] < s[0] {
+            xs.reverse();
+        }
+        for m in xs {
+            points.push([m, dda(lo[0], lo[1], hi[0], hi[1], m).clamp(ylo, yhi)]);
+        }
+        points.push(e);
+        points.dedup();
+        out.extend(points.windows(2).map(|p| doc(p[0], p[1])));
+    }
+    out
+}
 
 /// An edge as the Mac's rasterizer walks it, fitted to its coverage, as the straight pieces it
 /// fills each pixel with. In device space (y up, the bitmap's own), an edge is stepped from its

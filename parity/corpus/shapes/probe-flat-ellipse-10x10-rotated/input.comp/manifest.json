@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "57B0A61F-E298-460E-B2C9-DD216337C482",
+  "colorSpace" : "sRGB",
+  "documentID" : "7EF14BE4-2460-4600-AD7E-CEB2C6EA9CAC",
+  "format" : "com.compositor.project",
+  "height" : 10,
+  "layers" : [
+    {
+      "id" : "57B0A61F-E298-460E-B2C9-DD216337C482",
+      "imageFile" : "57B0A61F-E298-460E-B2C9-DD216337C482.png",
+      "isVisible" : true,
+      "name" : "Ground",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          10,
+          10
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 10
+}
