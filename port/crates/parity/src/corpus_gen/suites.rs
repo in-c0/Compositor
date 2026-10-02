@@ -1296,6 +1296,9 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         ("probe-contract-ellipse", "Probe: an ellipse contracted by 2", vec![ellipse(), modify("contract", 2)]),
         ("probe-expand-small-ellipse", "Probe: a small ellipse expanded by 4", vec![marquee("Ellipse", [28.0, 28.0], [36.0, 34.0]), modify("expand", 4)]),
     ];
+    let fills = fill_probes();
+    let probes: Vec<(&str, &str, Vec<Value>)> =
+        probes.into_iter().chain(fills.iter().map(|(case, label, points)| (case.as_str(), label.as_str(), vec![polygon(points)]))).collect();
     for (case, label, ops) in probes {
         let mut d = w.doc(F, case, N, N);
         d.image("Photo", images::photo(N, N), spec());
@@ -1354,6 +1357,115 @@ fn selections(w: &mut CaseWriter) -> Result<()> {
         w.write(F, case, label, d, ops)?;
     }
     Ok(())
+}
+
+/// Probes for Core Graphics' antialiased fill, as Polygonal Lasso outlines on a 1/4096 grid
+/// (exact in its fixed point and in Float). Each piece is joined to the next along a level line,
+/// which covers nothing.
+///
+/// `probe-cell-tris-*`: tiny triangles inside single pixels, hung from a row boundary, whose
+/// areas fall just either side of a whole 256th: the arithmetic of one pixel's edges, with
+/// nothing crossing a pixel boundary.
+///
+/// `probe-teeth-*`: teeth standing on a level base, each with one slanted top edge, at slopes
+/// whose 1/16 px steps truncate by known fractions of the 16.16 unit (the 4096ths of the slope),
+/// both ways, from whole and fractional starts; each set mirrored, transposed (so the
+/// edges step along y) and both.
+fn fill_probes() -> Vec<(String, String, Vec<[f64; 2]>)> {
+    let grid = |v: f64| (v * 4096.0).round() / 4096.0;
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut random = move || {
+        // splitmix64
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut out = Vec::new();
+    for case in 0..4 {
+        let line = 32.0;
+        // The Lasso drops a point within 1/4 px of the last, so every step here is longer.
+        let mut points: Vec<[f64; 2]> = vec![[0.5, line]];
+        for below in [true, false] {
+            let mut row = Vec::new();
+            for column in 1..63 {
+                // A triangle on [a, b] of the line with its apex c, depth d into the row.
+                let (a, c, d) = (grid(0.13 + 0.32 * random()), grid(0.03 + 0.94 * random()), grid(0.26 + 0.7 * random()));
+                let mut level = (3.0 + 85.0 * random()).floor();
+                let nudge = (random() - 0.5) * 0.08;
+                let b = loop {
+                    let b = grid(a + 2.0 * (level + nudge) / 256.0 / d);
+                    if b <= 0.87 || level <= 1.0 {
+                        break b.min(0.87);
+                    }
+                    level = (level / 2.0).floor();
+                };
+                let x = column as f64;
+                let apex = if below { line + d } else { line - d };
+                row.push([[x + a, line], [x + c, apex], [x + b, line]]);
+            }
+            // Out along the line below it, back along it above.
+            if below {
+                points.extend(row.into_iter().flatten());
+                points.push([63.5, line]);
+            } else {
+                points.extend(row.into_iter().rev().flat_map(|t| [t[2], t[1], t[0]]));
+            }
+        }
+        out.push((format!("probe-cell-tris-{case}"), format!("Probe: 124 triangles inside single pixels ({})", case + 1), points));
+    }
+    // Triangles reaching through the next row boundary, and across the next column's.
+    for (case, label, deep) in [("probe-cell-tris-deep", "Probe: triangles hung through a row boundary", true), ("probe-cell-tris-wide", "Probe: triangles across a column boundary", false)] {
+        let line = 31.0;
+        let mut points: Vec<[f64; 2]> = vec![[0.5, line]];
+        let columns: Vec<usize> = if deep { (1..63).collect() } else { (1..62).step_by(2).collect() };
+        for column in columns {
+            let x = column as f64;
+            let (a, b, c, d) = if deep {
+                let a = grid(0.13 + 0.3 * random());
+                (a, grid(a + 0.1 + (0.84 - a) * random()), grid(0.03 + 0.94 * random()), grid(1.05 + 0.9 * random()))
+            } else {
+                (grid(0.15 + 0.7 * random()), grid(1.15 + 0.7 * random()), grid(0.05 + 1.9 * random()), grid(0.26 + 0.7 * random()))
+            };
+            points.extend([[x + a, line], [x + c, line + d], [x + b, line]]);
+        }
+        points.push([63.5, line]);
+        out.push((case.to_string(), label.to_string(), points));
+    }
+    // Teeth on y = 60: (left, width, top at the left, rise over the width in 256ths, its
+    // fraction in 16ths). A rise of n + k/16 256ths over 16 px is a slope of (n + k/16)/4096 a pixel.
+    type Tooth = (f64, f64, f64, f64, f64);
+    let sets: [(&str, &str, Vec<Tooth>); 6] = [
+        ("whole", "slopes 1/16 px steps take exactly, or truncate by 8/16 or 15/16 of a unit", vec![(2.0, 16.0, 20.25, 1200.0, 0.0), (22.0, 16.0, 14.5, 1200.0, 8.0), (42.0, 16.0, 30.125, 1200.0, 15.0)]),
+        ("falling", "the same slopes the other way", vec![(2.0, 16.0, 40.25, -1200.0, 0.0), (22.0, 16.0, 34.5, -1200.0, 8.0), (42.0, 16.0, 50.125, -1200.0, 15.0)]),
+        ("long", "one long edge whose steps truncate by 15/16", vec![(4.0, 48.0, 10.0 + 1.0 / 3.0, 1650.0, 15.0)]),
+        ("long-falling", "one long edge the other way, whose steps truncate by 15/16", vec![(4.0, 48.0, 40.0 + 1.0 / 3.0, -1650.0, 15.0)]),
+        ("offset", "edges from fractional starts, truncating by 1, 7 and 13 sixteenths", vec![(2.3, 16.0, 12.7, 700.0, 1.0), (22.55, 16.0, 30.1, -2900.0, 7.0), (42.9, 16.0, 18.45, 3500.0, 13.0)]),
+        ("steep", "near-diagonal edges", vec![(2.0, 16.0, 40.0, 3600.0, 15.0), (22.0, 16.0, 26.75, -3900.0, 9.0), (42.0, 16.0, 30.5, 4000.0, 3.0)]),
+    ];
+    for (name, label, teeth) in sets {
+        let mut points: Vec<[f64; 2]> = Vec::new();
+        for (left, width, top, rise, sixteenths) in teeth {
+            let (left, top) = (grid(left), grid(top));
+            let sign = if rise < 0.0 { -1.0 } else { 1.0 };
+            // Over 16 px; a wider tooth keeps the slope.
+            let dy = sign * (rise.abs() + sixteenths / 16.0) / 256.0 * width / 16.0;
+            points.extend([[left, 60.0], [left, top], [left + width, grid(top + dy)], [left + width, 60.0]]);
+        }
+        let mirror = |p: &[f64; 2]| [64.0 - p[0], p[1]];
+        let transpose = |p: &[f64; 2]| [p[1], p[0]];
+        let variants: [(&str, &str, Vec<[f64; 2]>); 4] = [
+            ("", "", points.clone()),
+            ("-mirrored", ", mirrored", points.iter().map(mirror).collect()),
+            ("-upright", ", stepping along y", points.iter().map(transpose).collect()),
+            ("-upright-mirrored", ", stepping along y, mirrored", points.iter().map(|p| mirror(&transpose(p))).collect()),
+        ];
+        for (suffix, more, points) in variants {
+            out.push((format!("probe-teeth-{name}{suffix}"), format!("Probe: teeth with {label}{more}"), points));
+        }
+    }
+    out
 }
 
 /// An anti-aliased disc of `color` centered at `center`, on transparent.

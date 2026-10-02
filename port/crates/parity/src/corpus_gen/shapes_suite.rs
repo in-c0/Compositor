@@ -390,5 +390,20 @@ fn line_probes(w: &mut CaseWriter) -> Result<()> {
         (4.0, [10.0, 62.0], [62.0, 50.0]), (2.5, [30.0, 40.0], [31.0, 62.0])]
         .iter().map(|&(width, a, b)| line(a, b, width, white)).collect();
     w.write(F, "probe-lines-long", "Probe: long lines at shallow and steep slopes", ground(w, "probe-lines-long", N, N), long)?;
+    // Lines fanned out from two centers at slants other than the eighths of a turn, on 1/64 px
+    // ends (trigonometry differs in the last bits between platforms).
+    let q = |v: f64| (v * 64.0).round() / 64.0;
+    for (case, center, widths) in [("probe-lines-fan", [31.5, 32.25], [2.0, 3.0, 4.5, 6.0]), ("probe-lines-fan-thin", [32.3, 31.6], [1.25, 1.5, 2.5, 3.5])] {
+        let fan: Vec<Value> = (0..8)
+            .map(|i| {
+                let angle = (11.0 + 43.0 * i as f64).to_radians();
+                let (c, s) = (angle.cos(), angle.sin());
+                let a = [q(center[0] + 5.0 * c), q(center[1] + 5.0 * s)];
+                let b = [q(center[0] + 28.0 * c), q(center[1] + 28.0 * s)];
+                line(a, b, widths[i % 4], white)
+            })
+            .collect();
+        w.write(F, case, "Probe: lines fanned out at slants between the eighths of a turn", ground(w, case, N, N), fan)?;
+    }
     Ok(())
 }
