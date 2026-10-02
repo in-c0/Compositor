@@ -1,5 +1,10 @@
 //! Filling a selection's outline the way `DocumentSelection.coverage` does: Core Graphics fills
 //! the path with the winding rule into an 8-bit gray bitmap, anti-aliased or not.
+//!
+//! Anti-aliased, a pixel's coverage is the area of the outline in it, in 256ths, truncated, as
+//! Core Graphics sweeps each row from the left; the outline is each edge as `walked` lays it out
+//! (fitted to the cell-triangle, teeth, grid and zigzag probes). The Mac is still a level higher
+//! on a few pixels where two rising edges meet, which nothing here reproduces yet.
 
 use super::{Result, Selection};
 use crate::gpu::Gpu;
@@ -125,9 +130,19 @@ fn dda(a0: f64, b0: f64, a1: f64, b1: f64, m: f64) -> f64 {
 /// - within a pixel it is straight between those points.
 pub(crate) fn walked(a: [f64; 2], b: [f64; 2], height: f64) -> Vec<[f64; 4]> {
     let snap = |v: f64| (v * GRID).floor() / GRID;
+    let doc = |p: [f64; 2], q: [f64; 2]| [p[0], height - p[1], q[0], height - q[1]];
+    if a[0] == b[0] && a[1] != b[1] {
+        // An upright edge keeps its x and ends to 1/8192 px outward: rising, its x rounds down,
+        // falling, up (the left and right sides of an outline running clockwise, as the path
+        // operations leave a selection's), and it reaches down and up to the steps past its ends.
+        let (y0, y1) = (height - a[1], height - b[1]);
+        let x = if y1 > y0 { snap(a[0]) } else { (a[0] * GRID).ceil() / GRID };
+        let (lo, hi) = (snap(y0.min(y1)), (y0.max(y1) * GRID).ceil() / GRID);
+        let (s, e) = if y1 > y0 { (lo, hi) } else { (hi, lo) };
+        return vec![doc([x, s], [x, e])];
+    }
     let (p0, p1) = ([snap(a[0]), snap(height - a[1])], [snap(b[0]), snap(height - b[1])]);
     let (dx, dy) = (p1[0] - p0[0], p1[1] - p0[1]);
-    let doc = |p: [f64; 2], q: [f64; 2]| [p[0], height - p[1], q[0], height - q[1]];
     if dx == 0.0 || dy == 0.0 {
         return vec![doc(p0, p1)];
     }

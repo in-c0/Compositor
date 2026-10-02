@@ -110,8 +110,9 @@ fn outline(style: &ShapeStyle, size: [f64; 2]) -> Result<Contour> {
             let inset = [thickness.min(size[0]) / 2.0, thickness.min(size[1]) / 2.0];
             let from = style.start.map_or(inset, |s| [s[0] * size[0], s[1] * size[1]]);
             let to = style.end.map_or([size[0] - inset[0], size[1] - inset[1]], |e| [e[0] * size[0], e[1] * size[1]]);
-            // Level, upright and 45° lines match the Mac; along other slants its stroke's edges
-            // come out up to a level (2 to 3 on a few pixels) off the port's.
+            // Level, upright and 45° lines match the Mac; along other slants the fill is still a
+            // level off on about 4% of the stroke's edge pixels (2 on a few at the ends of long
+            // shallow lines), so they are pending (features.toml, "shapes").
             let (dx, dy) = ((to[0] - from[0]).abs(), (to[1] - from[1]).abs());
             if dx > 1e-9 && dy > 1e-9 && (dx - dy).abs() > 1e-9 * dx.max(dy) {
                 return Err(RenderError::Unsupported("lines that aren't level, upright or at 45 degrees".into()));
@@ -125,8 +126,9 @@ fn outline(style: &ShapeStyle, size: [f64; 2]) -> Result<Contour> {
 /// `EditorSession.shapeImage` draws it: straight RGBA, as the Mac saves it.
 pub fn shape_image(gpu: &Gpu, style: &ShapeStyle, size: [f64; 2]) -> Result<image::RgbaImage> {
     let (width, height) = (size[0] as u32, size[1] as u32);
-    // Measured: the Mac's coverage is one level off the port's on about 2% of an ellipse's edge
-    // pixels, and where that lands on a faint pixel the saved color moves by more.
+    // Measured: the Mac's coverage is still one level off the port's on about 2% of an ellipse's
+    // edge pixels (where two rising edges meet on its left side, the Mac covers more), and where
+    // that lands on a faint pixel the saved color moves by more.
     if style.kind == ShapeKind::Ellipse {
         return Err(RenderError::Unsupported("ellipses, whose edge coverage is one level off on a few pixels".into()));
     }

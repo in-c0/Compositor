@@ -66,6 +66,16 @@ fn edge_area(e: vec4<f32>, x0: f32, y0: f32) -> f32 {
     return dir * sum;
 }
 
+// The signed height of the edge between rows y0 and y0 + 1.
+fn edge_cover(e: vec4<f32>, y0: f32) -> f32 {
+    let top = max(min(e.y, e.w) - y0, 0.0);
+    let bottom = min(max(e.y, e.w) - y0, 1.0);
+    if (bottom <= top) {
+        return 0.0;
+    }
+    return select(-1.0, 1.0, e.w > e.y) * (bottom - top);
+}
+
 // Without anti-aliasing, Core Graphics fills a pixel when, along one of 256 rows across it (the
 // first on its top edge), the outline takes in one of the 256 cells the row is cut into, from
 // the cell's left end to its right.
@@ -132,8 +142,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let first = offsets[id.y];
     let last = offsets[id.y + 1u];
     var area = 0.0;
+    // Accumulated from the left, as Core Graphics sweeps a row: each edge's height in the row
+    // less its part right of the pixel's left side. On a closed outline that is the same area;
+    // the fill's outlines are not quite closed (an edge's ends move by a 1/8192 px step).
     for (var i = first; i < last; i++) {
-        area += edge_area(edges[index[i]], f32(id.x), f32(id.y));
+        let e = edges[index[i]];
+        area += edge_cover(e, f32(id.y)) - edge_area(e, f32(id.x), f32(id.y));
     }
     // Core Graphics keeps coverage in 256ths, truncated, with a whole pixel held at 255. The
     // allowance absorbs float error on coverages that are exact in 256ths.
