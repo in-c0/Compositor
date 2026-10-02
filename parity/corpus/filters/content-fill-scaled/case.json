@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill on a layer drawn at twice its size",
+  "ops": [
+    {
+      "from": [
+        21.0,
+        19.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        37.0,
+        33.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "98201CB9-5208-4F39-907A-E91E625C43F3",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

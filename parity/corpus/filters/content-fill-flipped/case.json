@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill on a layer flipped horizontally",
+  "ops": [
+    {
+      "from": [
+        16.0,
+        22.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        30.0,
+        40.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "E52943B8-2AA7-4E8F-BA2F-E8CBFE295E73",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

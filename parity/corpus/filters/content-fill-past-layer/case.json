@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill over a selection taller than the layer, growing it",
+  "ops": [
+    {
+      "from": [
+        22.0,
+        6.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        40.0,
+        58.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "95D50EB8-72AE-4F0C-822A-2554495B9A4D",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

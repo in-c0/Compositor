@@ -1,0 +1,16 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill with everything selected has no source",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "44E71C68-E842-479E-BC9D-7261AB94A643",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

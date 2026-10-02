@@ -109,7 +109,7 @@ impl Renderer {
             return select::apply(&self.gpu, project, selection, op);
         }
         if name == "filter" {
-            return filters::apply(&self.gpu, project, op);
+            return filters::apply(&self.gpu, project, selection.as_ref(), op);
         }
         if name == "probeDraw" {
             return transform::high::probe_draw(&self.gpu, project, op);

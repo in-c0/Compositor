@@ -1,0 +1,29 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill on a layer drawn at half its size, feathered",
+  "ops": [
+    {
+      "from": [
+        21.0,
+        17.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        41.0,
+        39.0
+      ]
+    },
+    {
+      "feather": 2,
+      "op": "modifySelection"
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "1D7607AD-C4C8-4808-97B5-A84022047046",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

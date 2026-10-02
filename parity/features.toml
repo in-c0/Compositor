@@ -59,6 +59,8 @@ name = "Filters"
 paths = ["port/crates/engine/src/filters/**", "port/crates/engine/src/adjust/**", "port/crates/engine/src/ml/**", "port/crates/engine/src/transform/high.rs"]
 gaps = [
     "Dither's ASCII style draws the system's bold monospaced font with Core Text, which the port doesn't have; its scanline glow is a Core Image blur of a Core Image scale. Both are pending.",
+    "A filter inside a selection mixes back through the selection's coverage, which the port rasterizes within 1/255 of the Mac on anti-aliased and feathered edges (see Selections). Where a coverage byte is one level off, the pixel under it can be too: 1 pixel each on `content-fill-ellipse-feather` and `content-fill-translucent`, 1/255. Everything else in Content-Aware Fill (the fill itself, growing the layer, the blend, the selection drawn onto a flipped or rotated layer, or one shown at up to twice its size) matches exactly.",
+    "A selection drawn onto a layer shown at more than twice its size is pending. Core Graphics' clip then reaches further than the low-quality sampler that matches at 2× and below: on `content-fill-probe-third` (a layer at 3×) it marks one more layer column on each side, so the fill starts from a different hole and 520 of 4,096 pixels differ, by up to 138/255.",
 ]
 
 [[feature]]
@@ -154,7 +156,7 @@ gaps = [
 
 [[feature]]
 key = "ml"
-name = "Select Subject, Remove Background, Content-Aware Fill"
+name = "Select Subject and Remove Background"
 paths = ["port/crates/engine/src/ml/**"]
 gaps = [
     "Remove Background's subject mask comes from Apple's Vision (`VNGenerateForegroundInstanceMaskRequest`), which only runs on Apple's systems. The port stands in U²-Netp (Apache-2.0, 4.6 MB, run on the CPU through tract; `port/tools/fetch-models.sh` fetches it). Against Vision on `filters/remove-bg-basic` its mask has an IoU of 0.988 and a mean difference of 3.9/255 (Vision's edge is harder), which leaves 124 of 4,096 rendered pixels over 1/255, by up to 42. Advanced's refinement (the guided filter and matte contrast) is ported as the Swift does it and pulls both masks onto the same edges: on `filters/remove-bg-advanced` the IoU is 1.000, the mean difference 0.08/255, and the rendered pixels are within 3/255. Larger Apache/MIT models (IS-Net general-use, 176 MB; BiRefNet, about 220 MB) are the next step if real photographs show wider gaps.",

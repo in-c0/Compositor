@@ -1,0 +1,25 @@
+{
+  "feature": "filters",
+  "input": "input.comp",
+  "label": "Content-Aware Fill over an ellipse on a partly translucent layer",
+  "ops": [
+    {
+      "from": [
+        30.0,
+        18.0
+      ],
+      "op": "marquee",
+      "shape": "Ellipse",
+      "to": [
+        56.0,
+        44.0
+      ]
+    },
+    {
+      "kind": "Content-Aware Fill",
+      "layer": "50ED99D6-62BF-43DF-96E9-BE7B7B98F758",
+      "op": "filter",
+      "settings": {}
+    }
+  ]
+}

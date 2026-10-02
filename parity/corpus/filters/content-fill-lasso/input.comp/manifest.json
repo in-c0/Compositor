@@ -1,0 +1,31 @@
+{
+  "activeLayerID" : "70600FAA-AF2A-4573-9549-459261857413",
+  "colorSpace" : "sRGB",
+  "documentID" : "9714A842-A07A-4F26-B075-FC121627BC71",
+  "format" : "com.compositor.project",
+  "height" : 64,
+  "layers" : [
+    {
+      "id" : "70600FAA-AF2A-4573-9549-459261857413",
+      "imageFile" : "70600FAA-AF2A-4573-9549-459261857413.png",
+      "isVisible" : true,
+      "name" : "Photo",
+      "transform" : {
+        "flipX" : false,
+        "flipY" : false,
+        "origin" : [
+          0,
+          0
+        ],
+        "rotation" : 0,
+        "sampling" : "High quality",
+        "size" : [
+          64,
+          64
+        ]
+      }
+    }
+  ],
+  "version" : 11,
+  "width" : 64
+}

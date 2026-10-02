@@ -828,6 +828,130 @@ fn filters(w: &mut CaseWriter) -> Result<()> {
         let target = d.image("Photo", image, spec());
         w.write("filters", case, label, d, vec![json!({ "op": "filter", "layer": target, "kind": "Dither", "settings": settings })])?;
     }
+    content_fill(w)
+}
+
+/// Content-Aware Fill, which only runs on a selection: the selection ops make one first.
+fn content_fill(w: &mut CaseWriter) -> Result<()> {
+    const F: &str = "filters";
+    let marquee = |shape: &str, from: [f64; 2], to: [f64; 2]| json!({ "op": "marquee", "shape": shape, "from": from, "to": to });
+    let fill = |layer: &str| json!({ "op": "filter", "layer": layer, "kind": "Content-Aware Fill", "settings": {} });
+    // A picture with a textured half, so the fill has something to continue: the photo on the
+    // left, a checkerboard on the right.
+    let textured = || {
+        let mut img = images::photo(N, N);
+        let checker = images::checker(N, N, 6);
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            if x >= N / 2 {
+                *p = *checker.get_pixel(x, y);
+            }
+        }
+        img
+    };
+    let at = |x: f64, y: f64, w: u32, h: u32| LayerSpec { transform: Some(Transform::at(x, y, w as f64, h as f64)), ..spec() };
+
+    let mut d = w.doc(F, "content-fill-rect", N, N);
+    let id = d.image("Photo", textured(), spec());
+    w.write(F, "content-fill-rect", "Content-Aware Fill over a rectangular hole", d, vec![marquee("Rectangle", [22.0, 20.0], [42.0, 34.0]), fill(&id)])?;
+
+    let mut d = w.doc(F, "content-fill-ellipse-feather", N, N);
+    let id = d.image("Photo", textured(), spec());
+    w.write(F, "content-fill-ellipse-feather", "Content-Aware Fill over an ellipse feathered by 4", d, vec![
+        marquee("Ellipse", [18.0, 16.0], [46.0, 42.0]),
+        json!({ "op": "modifySelection", "feather": 4 }),
+        fill(&id),
+    ])?;
+
+    let mut d = w.doc(F, "content-fill-edge", N, N);
+    let id = d.image("Photo", textured(), spec());
+    w.write(F, "content-fill-edge", "Content-Aware Fill over a hole on the image's left edge", d, vec![marquee("Rectangle", [0.0, 30.0], [12.0, 52.0]), fill(&id)])?;
+
+    let mut d = w.doc(F, "content-fill-lasso", N, N);
+    let id = d.image("Photo", textured(), spec());
+    w.write(F, "content-fill-lasso", "Content-Aware Fill over a polygonal lasso, anti-aliased", d, vec![
+        json!({ "op": "lasso", "kind": "Polygonal", "points": [[26.5, 14.25], [50.0, 24.75], [44.5, 50.0], [21.25, 40.5]] }),
+        fill(&id),
+    ])?;
+
+    // Translucent pixels are neither copied nor matched; the ellipse's soft edge blends over them.
+    let mut translucent = textured();
+    for (x, y, p) in translucent.enumerate_pixels_mut() {
+        p[3] = if x >= 48 { 150 } else if y < 8 { 0 } else if x % 11 == 3 { 200 } else { 255 };
+    }
+    let mut d = w.doc(F, "content-fill-translucent", N, N);
+    let id = d.image("Translucent", translucent, spec());
+    w.write(F, "content-fill-translucent", "Content-Aware Fill over an ellipse on a partly translucent layer", d, vec![marquee("Ellipse", [30.0, 18.0], [56.0, 44.0]), fill(&id)])?;
+
+    // A selection reaching past the layer: the layer grows over it, and the fill extends the picture.
+    let mut d = w.doc(F, "content-fill-past-layer", N, N);
+    d.image("Ground", images::solid(N, N, [240, 240, 240, 255]), spec());
+    let id = d.image("Photo", images::photo(40, 32), at(12.0, 16.0, 40, 32));
+    w.write(F, "content-fill-past-layer", "Content-Aware Fill over a selection taller than the layer, growing it", d, vec![marquee("Rectangle", [22.0, 6.0], [40.0, 58.0]), fill(&id)])?;
+
+    // A selection wholly off the layer: nothing opaque touches it, so the fill starts from the scan.
+    let mut d = w.doc(F, "content-fill-off-layer", N, N);
+    let id = d.image("Photo", images::photo(32, 32), at(4.0, 4.0, 32, 32));
+    w.write(F, "content-fill-off-layer", "Content-Aware Fill over a selection off the layer, which grows to it", d, vec![marquee("Rectangle", [44.0, 40.0], [58.0, 56.0]), fill(&id)])?;
+
+    let mut d = w.doc(F, "content-fill-flipped", N, N);
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { flip_x: true, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
+    w.write(F, "content-fill-flipped", "Content-Aware Fill on a layer flipped horizontally", d, vec![marquee("Rectangle", [16.0, 22.0], [30.0, 40.0]), fill(&id)])?;
+
+    // Layers scaled or rotated: Core Graphics resamples the selection onto the layer's grid.
+    let mut d = w.doc(F, "content-fill-scaled", N, N);
+    let id = d.image("Photo", images::photo(32, 32), at(0.0, 0.0, N, N));
+    w.write(F, "content-fill-scaled", "Content-Aware Fill on a layer drawn at twice its size", d, vec![marquee("Rectangle", [21.0, 19.0], [37.0, 33.0]), fill(&id)])?;
+
+    let mut d = w.doc(F, "content-fill-rotated", N, N);
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: 30.0, ..Transform::at(0.0, 0.0, N as f64, N as f64) }), ..spec() });
+    w.write(F, "content-fill-rotated", "Content-Aware Fill on a layer rotated 30 degrees", d, vec![marquee("Rectangle", [22.0, 20.0], [40.0, 36.0]), fill(&id)])?;
+
+    // Probes of that resampling. On a half-pixel offset every layer pixel's center falls halfway
+    // between two canvas pixels; drawn at three times its size, on one; at half its size, between
+    // four.
+    let mut d = w.doc(F, "content-fill-probe-half-offset", N, N);
+    let id = d.image("Photo", textured(), at(0.5, -0.5, N, N));
+    w.write(F, "content-fill-probe-half-offset", "Content-Aware Fill on a layer placed half a pixel off the grid", d, vec![marquee("Ellipse", [14.0, 12.0], [44.0, 38.0]), fill(&id)])?;
+    let mut d = w.doc(F, "content-fill-probe-third", N, N);
+    let id = d.image("Photo", images::photo(21, 21), at(0.0, 0.0, 63, 63));
+    w.write(F, "content-fill-probe-third", "Content-Aware Fill on a layer drawn at three times its size", d, vec![marquee("Rectangle", [20.0, 22.0], [40.0, 41.0]), fill(&id)])?;
+    let mut d = w.doc(F, "content-fill-probe-half-size", N, N);
+    let mut big = images::photo(128, 128);
+    for (x, y, p) in big.enumerate_pixels_mut() {
+        if (x / 12 + y / 12) % 2 == 0 {
+            p[0] = p[0] / 2 + 100;
+        }
+    }
+    let id = d.image("Photo", big, at(0.0, 0.0, N, N));
+    w.write(F, "content-fill-probe-half-size", "Content-Aware Fill on a layer drawn at half its size, feathered", d, vec![
+        marquee("Rectangle", [21.0, 17.0], [41.0, 39.0]),
+        json!({ "op": "modifySelection", "feather": 2 }),
+        fill(&id),
+    ])?;
+    let mut d = w.doc(F, "content-fill-probe-rotated-ellipse", N, N);
+    let id = d.image("Photo", textured(), LayerSpec { transform: Some(Transform { rotation: -15.0, flip_y: true, ..Transform::at(2.0, 1.0, 64.0, 64.0) }), ..spec() });
+    w.write(F, "content-fill-probe-rotated-ellipse", "Content-Aware Fill on a layer rotated -15 degrees and flipped, through an ellipse", d, vec![
+        marquee("Ellipse", [18.0, 20.0], [44.0, 42.0]),
+        fill(&id),
+    ])?;
+
+    // Everything selected leaves nothing to copy from: the Mac reports it and changes nothing.
+    let mut d = w.doc(F, "content-fill-no-source", N, N);
+    let id = d.image("Photo", textured(), spec());
+    w.write(F, "content-fill-no-source", "Content-Aware Fill with everything selected has no source", d, vec![json!({ "op": "selectAll" }), fill(&id)])?;
+
+    // Probe: every filter mixes its result back through the selection (`PixelAdjust.blend`);
+    // Curves through a feathered ellipse shows that step on its own.
+    let mut d = w.doc(F, "content-fill-probe-blend", N, N);
+    let id = d.image("Photo", images::noise(N, N, 81, Alpha::Opaque), spec());
+    let curves = json!({ "curves": { "channel": "RGB", "channels": [
+        [{ "x": 0, "y": 255 }, { "x": 255, "y": 0 }], [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }],
+        [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }], [{ "x": 0, "y": 0 }, { "x": 255, "y": 255 }]] } });
+    w.write(F, "content-fill-probe-blend", "Curves inverting through an ellipse feathered by 6: how a filter mixes back through a selection", d, vec![
+        marquee("Ellipse", [10.0, 8.0], [54.0, 50.0]),
+        json!({ "op": "modifySelection", "feather": 6 }),
+        json!({ "op": "filter", "layer": id, "kind": "Curves", "settings": curves }),
+    ])?;
     Ok(())
 }
 

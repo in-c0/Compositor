@@ -57,14 +57,23 @@ fn filter_cases_match_the_mac_projects() {
         let Ok(want) = comp_format::load(&refs.join(format!("filters/{id}.comp"))) else { continue };
         let mut project = comp_format::load(&dir.join("input.comp")).unwrap();
         let mut outcome = Ok(());
+        let mut selection = None;
+        let mut layer = None;
         for op in spec["ops"].as_array().unwrap() {
-            outcome = outcome.and_then(|_| apply_measuring(&gpu, &mut project, op, measure));
+            outcome = outcome.and_then(|_| {
+                if op["op"] == "filter" {
+                    layer = op["layer"].as_str();
+                    apply_measuring(&gpu, &mut project, selection.as_ref(), op, measure)
+                } else {
+                    crate::select::apply(&gpu, &mut project, &mut selection, op)
+                }
+            });
         }
         if let Err(e) = outcome {
             println!("{id:<22} {e}");
             continue;
         }
-        let layer = spec["ops"][0]["layer"].as_str().unwrap();
+        let layer = layer.unwrap();
         let got_record = project.manifest.layers.iter().find(|l| l.id == layer).unwrap();
         let want_record = want.manifest.layers.iter().find(|l| l.id == layer).unwrap();
         let placed = got_record.transform == want_record.transform;
