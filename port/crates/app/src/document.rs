@@ -272,6 +272,20 @@ impl Doc {
         self.project.manifest.layers.iter().find(|l| l.id == id)
     }
 
+    /// Whether a layer shows: it and every folder above it visible.
+    pub fn effectively_visible(&self, id: &str) -> bool {
+        let mut next = Some(id.to_string());
+        for _ in 0..64 {
+            let Some(current) = next else { return true };
+            let Some(layer) = self.layer(&current) else { return false };
+            if !layer.is_visible {
+                return false;
+            }
+            next = layer.parent_id.clone();
+        }
+        true
+    }
+
     pub fn active_layer(&self) -> Option<&LayerRecord> {
         self.active.as_deref().and_then(|id| self.layer(id))
     }

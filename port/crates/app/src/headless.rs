@@ -31,10 +31,20 @@ pub(crate) struct State {
     pub(crate) layer: Option<usize>,
 }
 
-/// The editor's size in the window state: the default window less the Mac's compact toolbar,
-/// which lives in the title bar and isn't part of `ContentView`.
+/// The editor's size in the window state: `ContentView` at the window scene's default size, as the
+/// Mac harness hosts it (`editorContentSize`). The Mac's toolbar lives in the title bar, outside it.
 pub(crate) fn editor_size() -> egui::Vec2 {
-    vec2(metric::WINDOW[0], metric::WINDOW[1] - metric::MAC_TOOLBAR)
+    vec2(metric::WINDOW[0], metric::WINDOW[1])
+}
+
+/// What a state is flattened over where its views draw nothing. The Mac harness composites each
+/// capture over its window's background: the editor's own gray fills the editor, and a standalone
+/// panel or sheet shows `windowBackgroundColor`.
+fn background(view: &str) -> egui::Color32 {
+    match view {
+        "layers-panel" | "sheet" => theme::color::WINDOW_BACKGROUND,
+        _ => theme::color::EDITOR,
+    }
 }
 
 pub(crate) struct Offscreen {
@@ -59,11 +69,17 @@ impl Offscreen {
     /// Runs `draw` for a few passes (layout settles, fonts and textures load, animations finish),
     /// then paints the last one into a `size` image.
     fn render(&self, size: egui::Vec2, draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
-        self.render_with_events(size, &[], draw)
+        self.render_over(size, theme::color::EDITOR, &[], draw)
     }
 
     /// `render`, feeding each `(pass, event)` to its pass: tests click through the UI this way.
-    pub(crate) fn render_with_events(&self, size: egui::Vec2, events: &[(usize, egui::Event)], mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
+    #[cfg(test)]
+    pub(crate) fn render_with_events(&self, size: egui::Vec2, events: &[(usize, egui::Event)], draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
+        self.render_over(size, theme::color::EDITOR, events, draw)
+    }
+
+    /// `render` over `fill` instead of the editor's gray.
+    fn render_over(&self, size: egui::Vec2, fill: egui::Color32, events: &[(usize, egui::Event)], mut draw: impl FnMut(&mut egui::Ui, Rect)) -> Result<image::RgbaImage> {
         let (w, h) = (size.x.round() as u32, size.y.round() as u32);
         let mut output = None;
         for pass in 0..4 {
@@ -72,7 +88,7 @@ impl Offscreen {
             input.events = events.iter().filter(|(p, _)| *p == pass).map(|(_, e)| e.clone()).collect();
             let mut out = self.ctx.run_ui(input, |ui| {
                 let rect = Rect::from_min_size(pos2(0.0, 0.0), size);
-                ui.painter().rect_filled(rect, 0.0, theme::color::EDITOR);
+                ui.painter().rect_filled(rect, 0.0, fill);
                 draw(ui, rect);
             });
             let mut renderer = self.gfx.renderer.write();
@@ -177,12 +193,15 @@ pub fn render_ui(states: &Path, corpus: &Path, out: &Path) -> Result<()> {
     let states: States = toml::from_str(&text)?;
     let off = Offscreen::new()?;
     let mut info = Vec::new();
+    // The same fields the Mac harness writes to its ui-info.json (UIStateResult), plus `reason`
+    // for a pending state.
     for state in &states.state {
         let result = render_state(&off, state, corpus, out);
+        let notes: Vec<String> = state.layer.and_then(|i| layer_note(corpus, state, i)).into_iter().collect();
         let entry = match result {
-            Ok(Some(size)) => json!({ "id": state.id, "status": "ok", "size": [size.0, size.1] }),
-            Ok(None) => json!({ "id": state.id, "status": "pending", "reason": format!("the port has no `{}` sheet yet", state.sheet.as_deref().unwrap_or("?")) }),
-            Err(e) => json!({ "id": state.id, "status": "error", "reason": format!("{e:#}") }),
+            Ok(Some((w, h))) => json!({ "id": state.id, "status": "ok", "output": format!("{}.png", state.id), "width": w, "height": h, "backingScale": 1, "notes": notes }),
+            Ok(None) => json!({ "id": state.id, "status": "pending", "reason": format!("the port has no `{}` sheet yet", state.sheet.as_deref().unwrap_or("?")), "notes": notes }),
+            Err(e) => json!({ "id": state.id, "status": "error", "error": format!("{e:#}"), "notes": notes }),
         };
         println!("{:<28} {}", state.id, entry["status"].as_str().unwrap_or(""));
         info.push(entry);
@@ -202,28 +221,84 @@ pub fn render_ui(states: &Path, corpus: &Path, out: &Path) -> Result<()> {
         doc.release(&off.gfx);
     }
     save(&image, out, "port/window")?;
-    // Menus: at launch (no document) and with a document open and the Move tool.
-    let welcome = App::new(off.gfx.clone());
-    let mut document = App::new(off.gfx.clone());
-    document.docs.push(crate::document::Doc::open(&corpus.join("blend/stack/input.comp"))?);
-    document.current = Some(0);
-    let menus = json!({
-        "schema": "compositor-menus/1",
-        "platform": if cfg!(target_os = "macos") { "macos-port" } else { "windows" },
-        "states": [
-            { "id": "welcome", "document": null, "menus": menus::to_json(&menus::build(&welcome.menu_state())) },
-            {
-                "id": "document", "document": "blend/stack", "tool": "move",
-                "menus": menus::to_json(&menus::build(&document.menu_state())),
-                // Right-clicking the top row.
-                "layerContextMenu": menus::items_json(&menus::layer_context(&ui::layers::row_state(&crate::document::rows(&document.docs[0].project.manifest.layers, &Default::default())[0]))),
-            },
-        ],
-    });
     std::fs::create_dir_all(out)?;
-    std::fs::write(out.join("menus.json"), serde_json::to_string_pretty(&menus)?)?;
-    std::fs::write(out.join("ui-info.json"), serde_json::to_string_pretty(&json!({ "scale": 1, "states": info }))?)?;
+    std::fs::write(out.join("menus.json"), serde_json::to_string_pretty(&menus_json(&off, corpus)?)?)?;
+    let editor = editor_size();
+    let info = json!({
+        "platform": if cfg!(target_os = "macos") { "macos-port" } else { "windows" },
+        "adapter": off.gfx.gpu.adapter.get_info().name,
+        "scale": 1,
+        "editorSize": [editor.x, editor.y],
+        "states": info,
+    });
+    std::fs::write(out.join("ui-info.json"), serde_json::to_string_pretty(&info)?)?;
     Ok(())
+}
+
+/// "Layer 0 is “Photo”.", the note the Mac harness writes when a state selects a layer.
+fn layer_note(corpus: &Path, state: &State, index: usize) -> Option<String> {
+    let project = comp_format::load(&corpus.join(state.document.as_deref()?).join("input.comp")).ok()?;
+    Some(format!("Layer {index} is “{}”.", project.manifest.layers.get(index)?.name))
+}
+
+/// menus.json in the Mac harness's form (parity/harness/Sources/MenuDump.swift): `mainMenu`, the
+/// menu bar at launch with no document open, and `layerContextMenus`, the Layers list's menu for
+/// every row of the same documents the Mac right-clicks. Shortcuts are written the Mac's way,
+/// Ctrl as ⌘ (see `menus::items_json`).
+fn menus_json(off: &Offscreen, corpus: &Path) -> Result<serde_json::Value> {
+    let welcome = App::new(off.gfx.clone());
+    let mut rows = Vec::new();
+    for case in menus::CONTEXT_MENU_DOCUMENTS {
+        let mut doc = crate::document::Doc::open(&corpus.join(case).join("input.comp")).with_context(|| format!("opening {case}"))?;
+        let layers = doc.project.manifest.layers.clone();
+        for (row, r) in crate::document::rows(&layers, &Default::default()).iter().enumerate() {
+            // A right-click selects the row, then the menu is built for it, as in the app.
+            doc.active = Some(r.layer.id.clone());
+            let items = menus::layer_context(&ui::layers::row_state_in(&doc, r));
+            rows.push(json!({ "document": case, "row": row, "layer": r.layer.name, "items": menus::items_json(&items) }));
+        }
+    }
+    Ok(json!({
+        "mainMenu": menus::to_json(&menus::build(&welcome.menu_state())),
+        "mainMenuCapture": {
+            "platform": if cfg!(target_os = "macos") { "macos-port" } else { "windows" },
+            "shortcuts": "Ctrl is written as command (⌘), Alt as option (⌥), Shift as shift (⇧); `windowsShortcut` is what the Windows menu shows",
+        },
+        "layerContextMenus": rows,
+    }))
+}
+
+/// Opens the live sheet a state names as the app opens it (the menu command, the swatch, the
+/// effects menu); false for a sheet only `ui::sheets` draws, or one the port doesn't have.
+fn open_live_sheet(app: &mut App, sheet: &str) -> bool {
+    use ui::dialogs::{self, Sheet};
+    const FILTERS: [&str; 15] = [
+        "Gaussian Blur", "Motion Blur", "Add Noise", "Vignette", "Bloom / Glow", "Dither", "Tonal Contrast", "Lens Correction",
+        "Remove Background", "Curves", "Exposure", "Gradient Map", "Grain", "Black & White", "Color Balance",
+    ];
+    match sheet {
+        "canvas-size" => dialogs::open_canvas_size(app),
+        "image-size" => dialogs::open_image_size(app),
+        "trim" => app.sheet = Some(Sheet::Trim(Default::default())),
+        "export-jpeg" => dialogs::open_export_jpeg(app),
+        "levels" => dialogs::open_filter(app, "Levels"),
+        "hue-saturation" => dialogs::open_filter(app, "Hue/Saturation"),
+        "color-range" => ui::selection::open_color_range(app),
+        "color-picker" => dialogs::open_color_picker(app, false),
+        "keyboard-shortcuts" => app.sheet = Some(Sheet::Shortcuts(String::new())),
+        // Double-clicking the selected layer's first effect.
+        "layer-effects" => {
+            let first = app.doc().and_then(|d| d.active_layer()).and_then(|l| crate::document::effect_rows(l).first().map(|(kind, _)| *kind));
+            if let Some(kind) = first {
+                dialogs::open_effect(app, kind);
+            }
+        }
+        _ => match sheet.strip_prefix("filter:").and_then(|k| FILTERS.iter().find(|f| **f == k)) {
+            Some(kind) => dialogs::open_filter(app, kind),
+            None => return false,
+        },
+    }
+    app.sheet.is_some()
 }
 
 fn save(image: &image::RgbaImage, out: &Path, id: &str) -> Result<()> {
@@ -239,29 +314,45 @@ fn render_state(off: &Offscreen, state: &State, corpus: &Path, out: &Path) -> Re
     let editor = editor_size();
     let image = match state.view.as_str() {
         "window" => off.render(editor, |ui, rect| ui::editor(&mut app, ui, rect))?,
-        // Cropped from the whole editor, as the Mac harness does: the rail and status bar depend on
-        // the window around them (the canvas's zoom, the tool's hint).
-        "tool-rail" | "status-bar" => {
+        // Cropped from the whole editor, as the Mac harness does: the rail, header and status bar
+        // depend on the window around them (the canvas's zoom, the tool's hint).
+        "tool-rail" | "status-bar" | "tool-header" => {
             let whole = off.render(editor, |ui, rect| ui::editor(&mut app, ui, rect))?;
-            let (x, y, w, h) = if state.view == "tool-rail" {
-                let top = metric::TOOL_HEADER as u32 + 1;
-                (0, top, metric::RAIL as u32, editor.y as u32 - top - metric::STATUS as u32 - 1)
-            } else {
-                (0, (editor.y - metric::STATUS) as u32, editor.x as u32, metric::STATUS as u32)
+            let top = metric::TOOL_HEADER as u32 + 1;
+            let (x, y, w, h) = match state.view.as_str() {
+                "tool-rail" => (0, top, metric::RAIL as u32, editor.y as u32 - top - metric::STATUS as u32 - 1),
+                "status-bar" => (0, (editor.y - metric::STATUS) as u32, editor.x as u32, metric::STATUS as u32),
+                _ => (0, 0, editor.x as u32, metric::TOOL_HEADER as u32),
             };
             image::imageops::crop_imm(&whole, x, y, w, h).to_image()
         }
-        "tool-header" => off.render(vec2(editor.x, metric::TOOL_HEADER), |ui, rect| ui::headers::tool_header(&mut app, ui, rect))?,
-        "layers-panel" => off.render(vec2(metric::LAYERS_DEFAULT, 600.0), |ui, rect| ui::layers::panel(&mut app, ui, rect))?,
+        "layers-panel" => off.render_over(vec2(metric::LAYERS_DEFAULT, 600.0), background("layers-panel"), &[], |ui, rect| ui::layers::panel(&mut app, ui, rect))?,
+        "sheet" if open_live_sheet(&mut app, state.sheet.as_deref().unwrap_or("")) => {
+            // The live sheet, drawn alone at the origin: once to learn its size, then at that size.
+            let capture = |ui: &mut egui::Ui, app: &mut App| {
+                let ctx = ui.ctx().clone();
+                ctx.data_mut(|d| d.insert_temp(egui::Id::new(ui::dialogs::CAPTURE), pos2(0.0, 0.0)));
+                ui::dialogs::show(app, &ctx);
+            };
+            off.render_over(vec2(1400.0, 1600.0), background("sheet"), &[], |ui, _| capture(ui, &mut app))?;
+            let size: egui::Vec2 = off.ctx.data(|d| d.get_temp(egui::Id::new(ui::dialogs::CAPTURED_SIZE))).context("the sheet didn't draw")?;
+            let image = off.render_over(vec2(size.x.round(), size.y.ceil()), background("sheet"), &[], |ui, _| capture(ui, &mut app))?;
+            off.ctx.data_mut(|d| {
+                d.remove::<egui::Pos2>(egui::Id::new(ui::dialogs::CAPTURE));
+                d.remove::<egui::Vec2>(egui::Id::new(ui::dialogs::CAPTURED_SIZE));
+            });
+            app.sheet = None;
+            image
+        }
         "sheet" => {
             let sheet = state.sheet.as_deref().unwrap_or("");
             let Some(width) = ui::sheets::width(sheet) else { return Ok(None) };
             // The sheet's natural height: lay it out once in a tall frame, then render at that size.
             let mut sheet_state = ui::sheets::SheetState::new(&app);
             let mut height = 0.0f32;
-            off.render(vec2(width, 1600.0), |ui, rect| height = ui::sheets::draw(&mut app, &mut sheet_state, ui, rect, sheet))?;
+            off.render_over(vec2(width, 1600.0), background("sheet"), &[], |ui, rect| height = ui::sheets::draw(&mut app, &mut sheet_state, ui, rect, sheet))?;
             let mut sheet_state = ui::sheets::SheetState::new(&app);
-            off.render(vec2(width, height.ceil()), |ui, rect| {
+            off.render_over(vec2(width, height.ceil()), background("sheet"), &[], |ui, rect| {
                 ui::sheets::draw(&mut app, &mut sheet_state, ui, rect, sheet);
             })?
         }
@@ -323,9 +414,24 @@ mod tests {
         let app = App::new(off.gfx.clone());
         let menus = menus::build(&app.menu_state());
         let titles: Vec<&str> = menus.iter().map(|m| m.title).collect();
-        assert_eq!(titles, ["File", "Edit", "Select", "Image", "Filter", "Layer", "View", "Window", "Help"]);
+        assert_eq!(titles, ["File", "Edit", "View", "Select", "Image", "Filter", "Layer", "Window", "Help"]);
         let file: Vec<String> = menus[0].items.iter().filter(|i| !i.system).map(|i| if i.separator { "-".into() } else { i.title.clone() }).collect();
-        assert_eq!(file, ["New Canvas…", "Open Project…", "Open Recent", "Import Images…", "Save", "Save As…", "-", "Export PNG…", "Export JPEG…", "-", "Close Project", "-"]);
+        assert_eq!(file, ["New Canvas…", "Open Project…", "Open Recent", "Import Images…", "-", "Save", "Save As…", "-", "Export PNG…", "Export JPEG…", "-", "Close Project"]);
+    }
+
+    #[test]
+    fn menus_json_takes_the_mac_harness_form() {
+        let off = Offscreen::new().unwrap();
+        let menus = menus_json(&off, &corpus()).unwrap();
+        let bar: Vec<&str> = menus["mainMenu"].as_array().unwrap().iter().map(|m| m["title"].as_str().unwrap()).collect();
+        assert_eq!(bar, ["File", "Edit", "View", "Select", "Image", "Filter", "Layer", "Window", "Help"]);
+        let save_as = &menus["mainMenu"][0]["items"].as_array().unwrap().iter().find(|i| i["title"] == "Save As…").unwrap();
+        assert_eq!((save_as["key"].as_str(), save_as["shortcut"].as_str()), (Some("s"), Some("⇧⌘S")));
+        assert_eq!(save_as["modifiers"], serde_json::json!(["shift", "command"]));
+        let rows = menus["layerContextMenus"].as_array().unwrap();
+        // blend/stack's five rows, the top one first, as the Mac right-clicks them.
+        assert_eq!(rows.iter().filter(|r| r["document"] == "blend/stack").count(), 5);
+        assert_eq!((rows[0]["row"].as_u64(), rows[0]["layer"].as_str()), (Some(0), Some("Hidden")));
     }
 
     #[test]

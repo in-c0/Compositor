@@ -507,6 +507,8 @@ Move/Hand/Zoom/Crop/Type/Shape/Eyedropper/Gradient/Brush-family/Selection header
 
 Shortcuts are the defaults from `ShortcutDefinition.all`; users can remap them (stored in UserDefaults `keyboardShortcuts.v1`). Items marked (system) come from AppKit/SwiftUI and are not declared in code; verify them on the Mac.
 
+The Mac's menu bar, as the parity harness dumps it (`menus.json` in the references' `ui/`), runs Compositor, File, Edit, View, Select, Image, Filter, Layer, Window, Help: SwiftUI puts the View menu after Edit, although the sections below list it last. The dump also shows separators this table leaves out: after Import Images…, after Redo, and before Clear Menu in Open Recent, even when the list is empty.
+
 ### 3.1 Compositor (app menu)
 | Item | Shortcut |
 |---|---|
@@ -733,7 +735,7 @@ let png = rep.representation(using: .png, properties: [:])
 
 | View | Type / file | Instantiate | Render | Needs window | Live-state hazards |
 |---|---|---|---|---|---|
-| Whole editor | `ContentView` (`ContentView.swift`) | `ContentView(session: s)` (delegate nil); frame 1180×(780 − toolbar) | NSHostingView | yes | toolbar lives in the window title bar, not the content view (see §4.4); canvas as below |
+| Whole editor | `ContentView` (`ContentView.swift`) | `ContentView(session: s)` (delegate nil); frame 1180 × 780, the scene's default size, as the harness hosts it | NSHostingView | yes | toolbar lives in the window title bar, not the content view (see §4.4); canvas as below |
 | Workspace + tabs | `ProjectWorkspaceView` | needs `CompositorApplicationDelegate()` (Sparkle) | NSHostingView | yes | tab strip only appears inside the real toolbar |
 | Tab strip | `ProjectTabStrip` | `ProjectTabStrip(workspace: ProjectWorkspace())`, add tabs with `addTab(reuseEmpty: false)`; frame (828, 34) | NSHostingView | no (but has `TitleBarDragView`) | 0.1 s Timer polling the drag pasteboard; reorder animation |
 | Tool rail | private `toolRail` in ContentView | not accessible directly: crop from the whole-editor render (x 0…56 below the header) or copy into the harness | NSHostingView | yes (IndicatorlessScrollView) | none |

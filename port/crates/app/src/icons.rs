@@ -94,15 +94,83 @@ pub fn phosphor(symbol: &str) -> Option<(&'static str, bool)> {
 /// glyphs fill more of their em square, so they are drawn a little smaller to match optically.
 pub fn paint(painter: &Painter, icon: Icon, center: Pos2, size: f32, color: Color32) {
     match icon {
+        Icon::Symbol("rectangle.dashed") => rectangle_dashed(painter, center, size, color),
+        Icon::Symbol("square.on.circle") => square_on_circle(painter, center, size, color),
         Icon::Symbol(name) => {
             let Some((glyph, fill)) = phosphor(name) else { return };
             let family = FontFamily::Name(if fill { theme::ICONS_FILL } else { theme::ICONS }.into());
-            painter.text(center, egui::Align2::CENTER_CENTER, glyph, FontId::new(size * 1.12, family), color);
+            painter.text(center, egui::Align2::CENTER_CENTER, glyph, FontId::new(size * optical_scale(name), family), color);
         }
         Icon::GradientTool => gradient_tool(painter, Rect::from_center_size(center, vec2(18.0, 18.0)), color),
         Icon::CloneStampTool => clone_stamp_tool(painter, Rect::from_center_size(center, vec2(18.0, 18.0)), color),
         Icon::PolygonalLassoTool => polygonal_lasso_tool(painter, Rect::from_center_size(center, vec2(18.0, 18.0)), color),
         Icon::ObjectSelectionTool => object_selection_tool(painter, Rect::from_center_size(center, vec2(18.0, 18.0)), color),
+    }
+}
+
+/// The points of a rounded rectangle's outline, clockwise from the top edge's start.
+fn rounded_outline(rect: Rect, radius: f32) -> Vec<Pos2> {
+    let mut points = Vec::new();
+    let corners = [
+        (pos2(rect.max.x - radius, rect.min.y + radius), -90.0f32),
+        (pos2(rect.max.x - radius, rect.max.y - radius), 0.0),
+        (pos2(rect.min.x + radius, rect.max.y - radius), 90.0),
+        (pos2(rect.min.x + radius, rect.min.y + radius), 180.0),
+    ];
+    points.push(pos2(rect.min.x + radius, rect.min.y));
+    for (c, start) in corners {
+        for k in 0..=6 {
+            let a = (start + 15.0 * k as f32).to_radians();
+            points.push(c + vec2(a.cos(), a.sin()) * radius);
+        }
+    }
+    points.push(pos2(rect.min.x + radius, rect.min.y));
+    points
+}
+
+/// SF Symbols' `rectangle.dashed`, drawn: a wide dashed rounded rectangle, as the Marquee tool
+/// shows it (20 × 15 at 17 points with its stroke, measured). Phosphor's selection glyph is square.
+fn rectangle_dashed(painter: &Painter, center: Pos2, size: f32, color: Color32) {
+    let k = size / 17.0;
+    let rect = Rect::from_center_size(center, vec2(17.5, 12.5) * k);
+    painter.extend(Shape::dashed_line(&rounded_outline(rect, 3.0 * k), Stroke::new(1.5 * k, color), 3.4 * k, 1.6 * k));
+}
+
+/// SF Symbols' `square.on.circle`, drawn: a circle behind a rounded square at its lower right,
+/// as the Shape tool shows it. Phosphor's shapes glyph is a different picture.
+fn square_on_circle(painter: &Painter, center: Pos2, size: f32, color: Color32) {
+    let k = size / 17.0;
+    let stroke = Stroke::new(1.5 * k, color);
+    let square = Rect::from_center_size(center + vec2(2.0, 2.5) * k, vec2(11.5, 11.0) * k);
+    painter.add(Shape::closed_line(rounded_outline(square, 3.0 * k), stroke));
+    // The circle's arc, left out where the square covers it.
+    let (c, r) = (center + vec2(-2.5, -1.5) * k, 6.0 * k);
+    let hidden = square.expand(0.75 * k);
+    let mut run: Vec<Pos2> = Vec::new();
+    for i in 0..=96 {
+        let a = i as f32 / 96.0 * std::f32::consts::TAU;
+        let q = c + vec2(a.cos(), a.sin()) * r;
+        if hidden.contains(q) {
+            if run.len() > 1 {
+                painter.add(Shape::line(std::mem::take(&mut run), stroke));
+            }
+            run.clear();
+        } else {
+            run.push(q);
+        }
+    }
+    if run.len() > 1 {
+        painter.add(Shape::line(run, stroke));
+    }
+}
+
+/// How much larger than the SF Symbol's point size a Phosphor glyph is drawn to look the same
+/// size: 1.12 in general; SF Symbols' eye is much wider than Phosphor's (18 against 14 points
+/// wide at 13 points, measured in the Layers panel), so the eyes are drawn larger.
+fn optical_scale(symbol: &str) -> f32 {
+    match symbol {
+        "eye" | "eye.slash" | "eye.fill" => 1.12 * 1.3,
+        _ => 1.12,
     }
 }
 

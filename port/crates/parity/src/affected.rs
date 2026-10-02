@@ -32,7 +32,11 @@ pub fn affected(base: &str, features: &FeatureList, corpus: &Path) -> Result<Vec
         let mut claimed = false;
         for f in &features.features {
             if f.paths.iter().any(|p| glob::Pattern::new(p).is_ok_and(|g| g.matches(file))) {
-                globs.insert(format!("{}/*", f.key));
+                // A feature without corpus cases (the UI) has nothing to re-run here; the workflow
+                // decides on the UI comparison itself.
+                if corpus.join(&f.key).is_dir() {
+                    globs.insert(format!("{}/*", f.key));
+                }
                 claimed = true;
             }
         }

@@ -19,8 +19,9 @@ const BLEND_GROUPS: [&[BlendMode]; 6] = [
 ];
 
 pub const HEADER: f32 = 18.0 * 2.0 + 15.0;
-pub const APPEARANCE: f32 = 12.0 + 22.0 + 8.0 + 22.0 + 12.0;
-pub const FOOTER: f32 = 44.0;
+pub const APPEARANCE: f32 = 12.0 + 24.0 + 8.0 + 24.0 + 12.0;
+/// 4 points of padding, then each button's 12-point hit area around a 17-point symbol.
+pub const FOOTER: f32 = 4.0 + 12.0 + 17.0 + 12.0 + 4.0;
 
 pub fn panel(app: &mut App, ui: &mut Ui, rect: Rect) {
     let p = ui.painter().with_clip_rect(rect);
@@ -50,14 +51,14 @@ fn appearance_controls(app: &mut App, ui: &mut Ui, rect: Rect) {
     let active = app.doc().and_then(|d| d.active_layer()).map(|l| (l.id.clone(), l.blend_mode(), l.opacity()));
     let enabled = active.is_some();
     let (mut mode, opacity) = active.as_ref().map_or((BlendMode::Normal, 1.0), |(_, m, o)| (*m, *o));
-    let row1 = Rect::from_min_size(inner.min, vec2(inner.width(), 22.0));
+    let row1 = Rect::from_min_size(inner.min, vec2(inner.width(), metric::CONTROL_HEIGHT));
     let mut changed_mode = false;
     w::row(ui, row1, 8.0, |ui| {
         w::text(ui, "Blend", theme::regular(10.0), color::label());
         let width = w::fill_width(ui, 0.0, 0);
         changed_mode = w::popup(ui, "blend-mode", &mut mode, &BLEND_GROUPS, BlendMode::name, Some(width), enabled);
     });
-    let row2 = Rect::from_min_size(pos2(inner.min.x, row1.max.y + 8.0), vec2(inner.width(), 22.0));
+    let row2 = Rect::from_min_size(pos2(inner.min.x, row1.max.y + 8.0), vec2(inner.width(), metric::CONTROL_HEIGHT));
     let mut pct = (opacity * 100.0).round();
     let mut dragging = false;
     let mut committed = false;
@@ -108,7 +109,11 @@ fn footer_bar(app: &mut App, ui: &mut Ui, rect: Rect) {
     let p = ui.painter().with_clip_rect(rect);
     let has_doc = app.doc().is_some();
     let active = app.doc().and_then(|d| d.active_layer()).cloned();
-    let c = if has_doc { color::secondary() } else { color::secondary().gamma_multiply(0.5) };
+    // The Mac's colors: the plain buttons in the secondary color (half that when disabled), the
+    // effects and adjustment menus in the label color (tertiary when disabled); the mask menu
+    // stays enabled without a document.
+    let button = |enabled: bool| if enabled { color::secondary() } else { color::secondary().gamma_multiply(0.5) };
+    let menu_color = if has_doc { color::label() } else { color::tertiary() };
     let mut x = rect.min.x + 8.0;
     let cy = rect.center().y;
     let mut chosen = None;
@@ -122,6 +127,7 @@ fn footer_bar(app: &mut App, ui: &mut Ui, rect: Rect) {
     ] {
         let width = 32.0 + if menu { 10.0 } else { 0.0 };
         let hit = Rect::from_min_size(pos2(x, rect.min.y + 4.0), vec2(width, rect.height() - 8.0));
+        let c = if menu { menu_color } else { button(has_doc || symbol == "rectangle.inset.filled") };
         icons::paint(&p, Icon::Symbol(symbol), pos2(x + 16.0, cy), 13.0, c);
         if menu {
             icons::paint(&p, Icon::Symbol("chevron.down"), pos2(x + 30.0, cy + 1.0), 7.0, c);
@@ -154,7 +160,7 @@ fn footer_bar(app: &mut App, ui: &mut Ui, rect: Rect) {
         x += width;
     }
     let trash = Rect::from_center_size(pos2(rect.max.x - 8.0 - 16.0, cy), vec2(32.0, rect.height() - 8.0));
-    icons::paint(&p, Icon::Symbol("trash"), trash.center(), 13.0, c);
+    icons::paint(&p, Icon::Symbol("trash"), trash.center(), 13.0, button(has_doc));
     if ui.interact(trash, ui.id().with("footer-trash"), if has_doc { Sense::click() } else { Sense::hover() }).on_hover_text("Delete selected layer mask or layer").clicked() && active.is_some() {
         chosen = Some(Command::DeleteLayerOrMask);
     }
@@ -289,6 +295,7 @@ pub fn row_state(row: &document::Row) -> crate::menus::RowState {
         can_clip: !l.is_group(),
         in_folder: l.parent_id.is_some(),
         can_merge: true,
+        linkable: l.adjustment.is_none() && !l.is_group(),
     }
 }
 
@@ -297,6 +304,10 @@ pub fn row_state_in(doc: &Doc, row: &document::Row) -> crate::menus::RowState {
     let mut state = row_state(row);
     let id = &row.layer.id;
     state.can_clip = crate::layer_ops::can_toggle_clipping(doc, id);
+    // Merge Down needs a layer below in the same folder, as the Mac's menu checks.
+    if doc.active.as_deref() == Some(id.as_str()) {
+        state.can_merge = crate::layer_ops::merge_title(doc).is_some();
+    }
     state.mask_target = doc.mask_target && doc.active.as_deref() == Some(id.as_str());
     state
 }
@@ -323,7 +334,8 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
         base.rect_filled(rect, 0.0, if focused { color::ACCENT } else { color::UNEMPHASIZED_SELECTION });
     }
     let mut p = base.clone();
-    if row.hidden_by_parent {
+    // `alphaValue = visible ? 1 : 0.35`: a hidden layer's row, or one in a hidden folder, fades.
+    if row.hidden_by_parent || !layer.is_visible {
         p.set_opacity(0.35);
     }
     // The cell sits in the row, one point below its top (half the intercell spacing).
@@ -333,7 +345,7 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
     let label = color::label();
     // Eye.
     let eye = Rect::from_min_size(pos2(left + 8.0, cy - 16.0), vec2(20.0, 32.0));
-    icons::paint(&p, Icon::Symbol(if layer.is_visible { "eye" } else { "eye.slash" }), eye.center(), 13.0, label);
+    icons::paint(&p, Icon::Symbol(if layer.is_visible { "eye" } else { "eye.slash" }), eye.center(), 13.0, color::secondary());
     if ui.interact(eye, ui.id().with(("eye", &layer.id)), Sense::click()).clicked() {
         actions.push(Action::ToggleVisible(layer.id.clone()));
     }
@@ -360,10 +372,11 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
     let thumb = match icon {
         Some((symbol, size)) => {
             let r = Rect::from_center_size(slot.center(), vec2(36.0, 36.0));
+            // Template images in the thumbnail button, which tints them secondary.
             if matches!(layer.adjustment.as_ref().map(|a| a.kind), Some(comp_format::AdjustmentKind::Curves)) {
-                icons::paint_rotated(&p, symbol, r.center(), size, label, std::f32::consts::FRAC_PI_2);
+                icons::paint_rotated(&p, symbol, r.center(), size, color::secondary(), std::f32::consts::FRAC_PI_2);
             } else {
-                icons::paint(&p, Icon::Symbol(symbol), r.center(), size, label);
+                icons::paint(&p, Icon::Symbol(symbol), r.center(), size, color::secondary());
             }
             r
         }
@@ -396,7 +409,8 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
             p.text(r.center(), egui::Align2::CENTER_CENTER, "╱", theme::medium(32.0), color::RED);
         }
         if linkable && layer.mask_linked() {
-            icons::paint_rotated(&p, "link", pos2(mask_slot.min.x - 6.5, cy), 10.0, color::secondary(), std::f32::consts::FRAC_PI_4);
+            // The Mac turns the diagonal link symbol 45° counterclockwise, upright.
+            icons::paint_rotated(&p, "link", pos2(mask_slot.min.x - 6.5, cy), 10.0, color::secondary(), -std::f32::consts::FRAC_PI_4);
         }
     }
     // Name and detail.
@@ -404,19 +418,23 @@ fn draw_row(ui: &mut Ui, doc: &Doc, row: &document::Row, rect: Rect, focused: bo
     let text_clip = Rect::from_min_max(pos2(name_x, top), pos2(rect.max.x - 8.0, top + 52.0));
     let tp = p.with_clip_rect(text_clip.intersect(p.clip_rect()));
     let name = if layer.mask_source_id.is_some() { format!("↳ {}", layer.name) } else { layer.name.clone() };
-    let name_color = if selected && focused { Color32::WHITE } else { label };
+    // The name is `textColor` (white); the detail line `labelColor`.
+    let name_color = Color32::WHITE;
+    // Baselines where the Mac's fall: the name's 23 points below the cell's top, the detail's
+    // 38 points.
     let g = tp.layout_no_wrap(name, theme::regular(13.0), name_color);
-    let name_h = g.size().y;
-    tp.galley(pos2(name_x, top + 9.0), g, name_color);
+    w::paint_line(&tp, g, pos2(name_x, top + 23.0 - w::ascent(13.0)), 13.0, name_color);
     let detail = detail_line(doc, layer);
-    let detail_color = if selected && focused { white_alpha(0.75) } else { color::secondary() };
-    tp.text(pos2(name_x, top + 9.0 + name_h + 3.0), egui::Align2::LEFT_TOP, detail, theme::regular(10.0), detail_color);
+    let detail_color = if selected && focused { white_alpha(0.75) } else { label };
+    let g = tp.layout_no_wrap(detail, theme::regular(10.0), detail_color);
+    w::paint_line(&tp, g, pos2(name_x, top + 38.0 - w::ascent(10.0)), 10.0, detail_color);
     // Effect sub-rows.
     for (i, (kind, enabled)) in document::effect_rows(layer).into_iter().enumerate() {
         let y = top + 52.0 + 24.0 * i as f32;
         let eye = Rect::from_min_size(pos2(left + 38.0 + indent, y + 1.0), vec2(20.0, 22.0));
-        icons::paint(&p, Icon::Symbol(if enabled { "eye" } else { "eye.slash" }), eye.center(), 11.0, color::secondary());
-        p.text(pos2(eye.max.x + 8.0, y + 12.0), egui::Align2::LEFT_CENTER, kind, theme::regular(11.0), if enabled { label } else { color::secondary() });
+        // The eye is a button's symbol at the default 13 points.
+        icons::paint(&p, Icon::Symbol(if enabled { "eye" } else { "eye.slash" }), eye.center(), 13.0, color::secondary());
+        w::paint_centered(&p, kind, theme::regular(11.0), if enabled { label } else { color::secondary() }, eye.max.x + 8.0, y + 12.0);
     }
     // Row edge: one device pixel at the cell's bottom.
     let hair = 1.0 / ui.ctx().pixels_per_point();

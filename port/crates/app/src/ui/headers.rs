@@ -6,31 +6,48 @@ use crate::icons::Icon;
 use crate::theme::{self, color, white_alpha};
 use crate::tools::*;
 use crate::widgets::{self as w, ButtonStyle, SwatchStyle};
-use eframe::egui::{self, Align, CornerRadius, Layout, Rect, Sense, Ui, vec2};
+use eframe::egui::{self, Align, CornerRadius, Layout, Rect, Sense, Ui, pos2, vec2};
 
 pub fn tool_header(app: &mut App, ui: &mut Ui, rect: Rect) {
     let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(rect));
     ui.style_mut().text_styles.insert(egui::TextStyle::Button, theme::regular(12.0));
     let ui = &mut ui;
-    let pad = theme::metric::HEADER_PADDING;
-    let inner = rect.shrink2(vec2(pad, 0.0));
+    let key = std::mem::discriminant(&app.tool);
     match app.tool {
         Tool::Move => transform(app, ui, rect),
-        Tool::Brush | Tool::SpotHealing | Tool::CloneStamp | Tool::Blur => w::row(ui, inner, 12.0, |ui| brush(app, ui)),
-        Tool::Marquee | Tool::Lasso | Tool::Wand => w::row(ui, inner, 12.0, |ui| selection(app, ui)),
-        Tool::Gradient => w::row(ui, inner, 12.0, |ui| gradient(app, ui)),
-        Tool::Type => w::row(ui, inner, 12.0, |ui| type_tool(app, ui)),
-        Tool::Shape => w::row(ui, inner, 12.0, |ui| shape(app, ui)),
-        Tool::Crop => w::row(ui, inner, 14.0, |ui| crop(app, ui)),
-        Tool::Hand | Tool::Zoom => w::row(ui, inner, 12.0, |ui| navigation(app, ui)),
-        Tool::Eyedropper => w::row(ui, inner, 16.0, |ui| {
+        Tool::Brush | Tool::SpotHealing | Tool::CloneStamp | Tool::Blur => bar(ui, rect, 12.0, key, |ui| brush(app, ui)),
+        Tool::Marquee | Tool::Lasso | Tool::Wand => bar(ui, rect, 12.0, key, |ui| selection(app, ui)),
+        Tool::Gradient => bar(ui, rect, 12.0, key, |ui| gradient(app, ui)),
+        Tool::Type => bar(ui, rect, 12.0, key, |ui| type_tool(app, ui)),
+        Tool::Shape => bar(ui, rect, 12.0, key, |ui| shape(app, ui)),
+        Tool::Crop => bar(ui, rect, 14.0, key, |ui| crop(app, ui)),
+        Tool::Hand | Tool::Zoom => bar(ui, rect, 12.0, key, |ui| navigation(app, ui)),
+        Tool::Eyedropper => bar(ui, rect, 16.0, key, |ui| {
             w::title(ui, "Eyedropper");
             w::checkbox(ui, &mut app.settings.sample_ring, "Sample Ring");
         }),
-        Tool::Idle => w::row(ui, inner, 16.0, |ui| {
+        Tool::Idle => bar(ui, rect, 16.0, key, |ui| {
             w::title(ui, "Select a tool");
         }),
     }
+}
+
+/// A header's HStack inside its 18-point padding. When its controls are wider than the bar,
+/// SwiftUI centers the stack, so it overflows at both ends and the window clips it; the width
+/// comes from the previous frame. (SwiftUI also squeezes some labels first, which isn't copied.)
+fn bar(ui: &mut Ui, rect: Rect, spacing: f32, key: impl std::hash::Hash + std::fmt::Debug, content: impl FnOnce(&mut Ui)) {
+    let pad = theme::metric::HEADER_PADDING;
+    let inner = rect.shrink2(vec2(pad, 0.0));
+    let id = ui.id().with(("header-width", key));
+    let last: f32 = ui.data(|d| d.get_temp(id)).unwrap_or(0.0);
+    let overflow = (last - inner.width()).max(0.0);
+    let row = Rect::from_min_max(inner.min - vec2(overflow / 2.0, 0.0), inner.max + vec2(overflow / 2.0, 0.0));
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(row).layout(Layout::left_to_right(Align::Center)));
+    child.spacing_mut().item_spacing = vec2(spacing, 0.0);
+    child.set_clip_rect(rect.intersect(ui.clip_rect()));
+    content(&mut child);
+    let used = child.min_rect().width();
+    ui.data_mut(|d| d.insert_temp(id, used));
 }
 
 /// A caption-sized, secondary scrub label, as the Transform fields use.
@@ -54,12 +71,14 @@ fn percent_row(ui: &mut Ui, id: &str, title: &str, value: &mut f64, min: f64) {
 }
 
 /// `TransformInspector`: Auto Select, Show Controls, then X, Y, W, H, lock, Scale, angle,
-/// Sampling and the flips for the active layer. A value being typed or dragged is one undo step.
+/// Sampling and the flips for the active layer in a horizontal ScrollView, and the Cancel and
+/// Apply buttons, which keep their place while hidden. A value being typed or dragged is one
+/// undo step.
 fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
-    let inner = Rect::from_min_max(rect.min + vec2(18.0, 0.0), rect.max - vec2(18.0, 0.0));
+    // `canTransform`: an active pixel layer that is visible, its folders too.
     let doc_layer = app.doc().and_then(|d| {
         let l = d.active_layer()?;
-        if l.is_group() || l.adjustment.is_some() {
+        if l.is_group() || l.adjustment.is_some() || !d.effectively_visible(&l.id) {
             return None;
         }
         let pixels = d.project.images.get(&l.id).map(|a| [a.pixels.width() as f64, a.pixels.height() as f64])?;
@@ -71,9 +90,13 @@ fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
         Some((l.id.clone(), t, Some(pixels)))
     });
     let enabled = doc_layer.is_some();
+    // With nothing to transform the fields show the active layer's box, or a unit box.
     let (mut x, mut y, mut wd, mut ht, mut scale, mut angle) = match &doc_layer {
         Some((_, t, pixels)) => (t.origin[0], t.origin[1], t.size[0], t.size[1], pixels.map_or(100.0, |p| t.size[0] / p[0].max(1.0) * 100.0), t.rotation),
-        None => (0.0, 0.0, 0.0, 0.0, 100.0, 0.0),
+        None => match app.doc().and_then(|d| d.active_layer()) {
+            Some(l) => (l.transform.origin[0], l.transform.origin[1], l.transform.size[0], l.transform.size[1], 100.0, l.transform.rotation),
+            None => (0.0, 0.0, 1.0, 1.0, 100.0, 0.0),
+        },
     };
     let (x0, y0, w0, h0, scale0, angle0) = (x, y, wd, ht, scale, angle);
     let mut sampling = doc_layer.as_ref().map_or(Sampling::High, |(_, t, _)| match t.sampling {
@@ -83,36 +106,56 @@ fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
     });
     let sampling0 = sampling;
     let mut flip = None;
-    w::row(ui, inner, 12.0, |ui| {
+    // The Cancel and Apply buttons at the trailing end, transparent until an edit waits on them.
+    let font = theme::regular(12.0);
+    let buttons: f32 = ["Cancel", "Apply"].iter().map(|t| ui.painter().layout_no_wrap(t.to_string(), font.clone(), color::label()).size().x.ceil() + 26.0).sum::<f32>() + 12.0;
+    let bar = rect.with_max_x(rect.max.x - 18.0);
+    let mut scroll_start = 0.0;
+    w::row(ui, bar.with_min_x(bar.min.x + 18.0), 12.0, |ui| {
         w::title(ui, "Transform");
         w::checkbox(ui, &mut app.settings.auto_select, "Auto Select");
         w::checkbox(ui, &mut app.settings.show_controls, "Show Controls");
-        ui.add_space(18.0);
-        for (label, value, range) in [("X", &mut x, -30000.0..=30000.0), ("Y", &mut y, -30000.0..=30000.0)] {
+        scroll_start = ui.cursor().min.x;
+    });
+    let scroll = Rect::from_min_max(pos2(scroll_start, rect.min.y), pos2(bar.max.x - buttons - 12.0, rect.max.y));
+    // The ScrollView's content: an HStack 12 apart with 18 points of padding, clipped.
+    let caption = |ui: &mut Ui, s: &str, value: &mut f64, range: std::ops::RangeInclusive<f64>| {
+        caption_scrub(ui, s, value, range, enabled);
+    };
+    w::row(ui, scroll.shrink2(vec2(18.0, 0.0)).with_max_x(rect.max.x + 400.0), 12.0, |ui| {
+        ui.set_clip_rect(scroll.intersect(rect));
+        for (label, value, range) in [
+            ("X", &mut x, -30000.0..=30000.0),
+            ("Y", &mut y, -30000.0..=30000.0),
+            ("W", &mut wd, 1.0..=30000.0),
+            ("H", &mut ht, 1.0..=30000.0),
+        ] {
+            // `.frame(width: 85)` around HStack(spacing: 4) { label, field }.
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 8.0;
-                caption_scrub(ui, label, value, range.clone(), enabled);
-                w::number_field(ui, ("transform", label), value, range, w::fmt_whole_or_2, 85.0, false, enabled);
-            });
-        }
-        for (label, value) in [("W", &mut wd), ("H", &mut ht)] {
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 8.0;
-                caption_scrub(ui, label, value, 1.0..=30000.0, enabled);
-                w::number_field(ui, ("transform", label), value, 1.0..=30000.0, w::fmt_whole_or_2, 85.0, false, enabled);
+                ui.spacing_mut().item_spacing.x = 4.0;
+                let start = ui.cursor().min.x;
+                caption(ui, label, value, range.clone());
+                let field = 85.0 - (ui.cursor().min.x - start);
+                w::number_field(ui, ("transform", label), value, range, w::fmt_whole_or_2, field, false, enabled);
             });
         }
         lock_toggle(ui, &mut app.settings.lock_aspect, enabled);
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
-            caption_scrub(ui, "Scale", &mut scale, 0.1..=30000.0, enabled);
-            w::number_field(ui, ("transform", "scale"), &mut scale, 0.1..=30000.0, w::fmt_whole_or_2, 110.0, false, enabled);
-            w::unit(ui, "%");
+            // 110 points for the caption, the field and its caption-sized unit.
+            ui.spacing_mut().item_spacing.x = 4.0;
+            let start = ui.cursor().min.x;
+            caption(ui, "Scale", &mut scale, 0.1..=30000.0);
+            let percent = ui.painter().layout_no_wrap("%".into(), theme::regular(10.0), color::secondary()).size().x.ceil();
+            let field = 110.0 - (ui.cursor().min.x - start) - 4.0 - percent;
+            w::number_field(ui, ("transform", "scale"), &mut scale, 0.1..=30000.0, w::fmt_whole_or_2, field, false, enabled);
+            w::text(ui, "%", theme::regular(10.0), color::secondary());
         });
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
-            caption_scrub(ui, "°", &mut angle, -360.0..=360.0, enabled);
-            w::number_field(ui, ("transform", "angle"), &mut angle, -360.0..=360.0, w::fmt_whole_or_2, 75.0, false, enabled);
+            ui.spacing_mut().item_spacing.x = 4.0;
+            let start = ui.cursor().min.x;
+            caption(ui, "°", &mut angle, -360.0..=360.0);
+            let field = 75.0 - (ui.cursor().min.x - start);
+            w::number_field(ui, ("transform", "angle"), &mut angle, -360.0..=360.0, w::fmt_whole_or_2, field, false, enabled);
         });
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
@@ -177,16 +220,18 @@ fn transform(app: &mut App, ui: &mut Ui, rect: Rect) {
     }
 }
 
-/// The lock-aspect toggle: a `.button`-style toggle showing the `link` symbol.
+/// The lock-aspect toggle, a `.button`-style toggle showing the `link` symbol: an accent
+/// capsule when on, measured 41 × 24 on the Mac.
 fn lock_toggle(ui: &mut Ui, on: &mut bool, enabled: bool) {
-    let (rect, response) = ui.allocate_exact_size(vec2(30.0, theme::metric::CONTROL_HEIGHT), if enabled { Sense::click() } else { Sense::hover() });
+    let (rect, response) = ui.allocate_exact_size(vec2(41.0, theme::metric::CONTROL_HEIGHT), if enabled { Sense::click() } else { Sense::hover() });
     if response.clicked() {
         *on = !*on;
     }
-    let dim = if enabled { 1.0 } else { 0.4 };
-    let fill = if *on { white_alpha(0.28) } else { color::control() };
-    ui.painter().rect_filled(rect, CornerRadius::same(11), fill.gamma_multiply(dim));
-    crate::icons::paint(ui.painter(), Icon::Symbol("link"), rect.center(), 12.0, color::label().gamma_multiply(dim));
+    let dim = if enabled { 1.0 } else { 0.44 };
+    let fill = if *on { color::ACCENT } else { color::control() };
+    ui.painter().rect_filled(rect, CornerRadius::same(12), fill.gamma_multiply(dim));
+    let symbol = if *on { egui::Color32::WHITE } else { color::label() };
+    crate::icons::paint(ui.painter(), Icon::Symbol("link"), rect.center(), 12.0, symbol.gamma_multiply(if enabled { 1.0 } else { 0.55 }));
 }
 
 fn tip_mut(app: &mut App) -> &mut Tip {
@@ -230,23 +275,23 @@ fn brush(app: &mut App, ui: &mut Ui) {
     let foreground = s.foreground;
     let tip = tip_mut(app);
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.spacing_mut().item_spacing.x = 12.0;
         scrub(ui, "Size", &mut tip.size, 1.0, 1.0..=2000.0);
         w::number_field(ui, "brush-size", &mut tip.size, 1.0..=2000.0, w::fmt_int, 48.0, false, true);
         w::unit(ui, "px");
     });
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.spacing_mut().item_spacing.x = 12.0;
         percent_row(ui, "brush-hardness", "Hardness", &mut tip.hardness, 0.0);
     });
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.spacing_mut().item_spacing.x = 12.0;
         percent_row(ui, "brush-opacity", if tool == Tool::Blur { "Strength" } else { "Opacity" }, &mut tip.opacity, 0.01);
     });
     let s = &mut app.settings;
     if tool == Tool::Blur && smear_mode == SmearMode::Blur {
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
+            ui.spacing_mut().item_spacing.x = 12.0;
             scrub(ui, "Radius", &mut s.smear_radius, 0.1, 0.5..=50.0);
             let mut slider = s.smear_radius.min(20.0);
             if w::slider(ui, &mut slider, 0.5..=20.0, 100.0, true).changed() {
@@ -258,7 +303,7 @@ fn brush(app: &mut App, ui: &mut Ui) {
     }
     if tool == Tool::Brush {
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
+            ui.spacing_mut().item_spacing.x = 12.0;
             scrub(ui, "Smoothing", &mut s.smoothing, 1.0, 0.0..=100.0);
             w::slider(ui, &mut s.smoothing, 0.0..=100.0, 100.0, true);
             w::number_field(ui, "smoothing", &mut s.smoothing, 0.0..=100.0, w::fmt_int, 42.0, false, true);
@@ -346,11 +391,13 @@ fn selection(app: &mut App, ui: &mut Ui) {
     let mut chosen = None;
     for (kind, (title, value, max, width)) in [("Expand", &mut s.expand, 500.0, 40.0), ("Contract", &mut s.contract, 500.0, 40.0), ("Feather", &mut s.feather, 250.0, 48.0)].into_iter().enumerate() {
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = if title == "Feather" { 5.0 } else { 8.0 };
+            ui.spacing_mut().item_spacing.x = 5.0;
             if w::button(ui, title, 12.0, ButtonStyle::Bordered, has_selection).clicked() {
                 chosen = Some((kind as u8, *value));
             }
-            w::number_field(ui, ("amount", title), value, 1.0..=max, w::fmt_int, width, false, has_selection);
+            // Right-aligned. Expand and Contract disable their whole group without a selection;
+            // Feather only its button.
+            w::number_field(ui, ("amount", title), value, 1.0..=max, w::fmt_int, width, true, has_selection || title == "Feather");
             w::unit(ui, "px");
         });
     }
@@ -403,7 +450,7 @@ fn gradient(app: &mut App, ui: &mut Ui) {
     w::popup(ui, "gradient-colors", &mut s.gradient_colors, &[GradientColors::ALL], GradientColors::title, None, true);
     w::checkbox(ui, &mut s.gradient_reverse, "Reverse");
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.spacing_mut().item_spacing.x = 12.0;
         percent_row(ui, "gradient-opacity", "Opacity", &mut s.gradient_opacity, 0.0);
     });
 }
@@ -419,13 +466,13 @@ fn type_tool(app: &mut App, ui: &mut Ui) {
         let mut font = 0usize;
         w::popup(ui, "font", &mut font, &[&[0usize]], |_| "Helvetica", Some(210.0), true);
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
+            ui.spacing_mut().item_spacing.x = 10.0;
             w::number_field(ui, "font-size", &mut s.font_size, 1.0..=2000.0, w::fmt_int, 52.0, false, true);
             w::unit(ui, "px");
         });
         w::swatch(ui, w::rgb(s.text_color), vec2(36.0, 18.0), SwatchStyle { radius: 3.0, inner_white: 0.0, outer_black: 0.5 });
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.spacing_mut().item_spacing.x = 2.0;
             for (align, symbol) in [(Alignment::Left, "text.alignleft"), (Alignment::Center, "text.aligncenter"), (Alignment::Right, "text.alignright")] {
                 let (rect, response) = ui.allocate_exact_size(vec2(30.0, 26.0), Sense::click());
                 if s.alignment == align {
@@ -438,12 +485,12 @@ fn type_tool(app: &mut App, ui: &mut Ui) {
             }
         });
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
+            ui.spacing_mut().item_spacing.x = 10.0;
             scrub(ui, "Tracking", &mut s.tracking, 1.0, -100.0..=1000.0);
             w::number_field(ui, "tracking", &mut s.tracking, -100.0..=1000.0, w::fmt_int, 45.0, false, true);
         });
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
+            ui.spacing_mut().item_spacing.x = 10.0;
             scrub(ui, "Leading", &mut s.leading, 1.0, 0.0..=5000.0);
             if s.leading == 0.0 {
                 let mut text = String::new();

@@ -606,8 +606,7 @@ pub fn welcome(app: &mut App, ui: &mut Ui, rect: Rect) {
     let p = ui.painter().clone();
     let mut y = inner.min.y;
     // Title and the preset menu.
-    let title = p.layout_no_wrap("New canvas".into(), theme::semibold(17.0), color::label());
-    p.galley(pos2(inner.min.x, y + 14.0 - title.size().y / 2.0), title, color::label());
+    widgets::paint_centered(&p, "New canvas", theme::semibold(17.0), color::label(), inner.min.x, y + 14.0);
     let dots = Rect::from_min_size(pos2(inner.max.x - 28.0, y), vec2(28.0, 28.0));
     for i in 0..3 {
         p.circle_filled(pos2(dots.max.x - 1.25, dots.center().y + (i as f32 - 1.0) * 5.0), 1.25, color::label());
@@ -640,13 +639,14 @@ pub fn welcome(app: &mut App, ui: &mut Ui, rect: Rect) {
     let block_w = (inner.width() - times) / 2.0;
     let field = |ui: &mut Ui, x: f32, label: &str, value: &mut String, id: &str| {
         let g = p.layout_no_wrap(label.into(), theme::medium(12.0), color::label());
-        p.galley(pos2(x, y), g, color::label());
+        widgets::paint_line(&p, g, pos2(x, y), 12.0, color::label());
         let bx = Rect::from_min_size(pos2(x, y + 15.0 + 8.0), vec2(block_w, 40.0));
         p.rect_filled(bx, 7.0, white_alpha(0.05));
         let px = p.layout_no_wrap("px".into(), theme::regular(13.0), color::secondary());
         let pxw = px.size().x;
-        p.galley(pos2(bx.max.x - 12.0 - pxw, bx.center().y - px.size().y / 2.0), px, color::secondary());
-        let edit = egui::TextEdit::singleline(value).id(ui.make_persistent_id(id)).frame(egui::Frame::NONE).font(theme::regular(13.0)).margin(egui::Margin::ZERO).vertical_align(egui::Align::Center);
+        widgets::center_line(&p, px, bx.max.x - 12.0 - pxw, bx.center().y, color::secondary());
+        // A plain TextField draws its text in `textColor`, full white.
+        let edit = egui::TextEdit::singleline(value).id(ui.make_persistent_id(id)).frame(egui::Frame::NONE).font(theme::regular(13.0)).text_color(Color32::WHITE).margin(egui::Margin::ZERO).vertical_align(egui::Align::Center);
         ui.put(Rect::from_min_max(pos2(bx.min.x + 12.0, bx.min.y + 8.0), pos2(bx.max.x - 12.0 - pxw - 8.0, bx.max.y - 8.0)), edit)
     };
     let mut w = std::mem::take(&mut app.form.width);
@@ -661,7 +661,7 @@ pub fn welcome(app: &mut App, ui: &mut Ui, rect: Rect) {
     let valid = app.form_valid();
     let (note, note_color) = if valid { ("Transparent canvas · sRGB", color::secondary()) } else { ("Enter whole numbers from 1 to 30,000 pixels.", color::ORANGE) };
     let g = p.layout_no_wrap(note.into(), theme::regular(12.0), note_color);
-    p.galley(pos2(inner.min.x, y), g, note_color);
+    widgets::paint_line(&p, g, pos2(inner.min.x, y), 12.0, note_color);
     y += 15.0 + 24.0;
     let buttons = Rect::from_min_size(pos2(inner.min.x, y), vec2(inner.width(), 24.0));
     let submitted = (enter_w.lost_focus() || enter_h.lost_focus()) && ui.input(|i| i.key_pressed(egui::Key::Enter));
