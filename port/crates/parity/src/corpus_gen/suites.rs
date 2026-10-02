@@ -1566,6 +1566,40 @@ fn fill_probes() -> Vec<(String, String, Vec<[f64; 2]>)> {
         out.push((format!("probe-kinks-{case}"), format!("Probe: teeth whose left sides turn {kind} inside every pixel"), points));
         out.push((format!("probe-kinks-{case}-mirrored"), format!("Probe: teeth whose right sides turn {kind} inside every pixel"), mirrored));
     }
+    // Teeth whose sides are chains of straight edges with a corner on every row boundary, then
+    // the same chains moved up a fraction of a pixel: onto a sub-row (1/16 px) boundary, and off
+    // any boundary. With a corner inside each pixel as well (the kinks above, moved off the
+    // rows), they tell whether corners sitting exactly on a row boundary fill differently.
+    for (case, label, lift, kinked) in [
+        ("probe-chain-rows", "corners on every row boundary", 0.0, false),
+        ("probe-chain-subrows", "corners 0.3125 px above every row boundary", 0.3125, false),
+        ("probe-chain-off", "corners 0.30005 px above every row boundary", 1229.0 / 4096.0, false),
+        ("probe-chain-off-kinked", "corners 0.30005 px above every row boundary and a corner inside every pixel", 1229.0 / 4096.0, true),
+    ] {
+        let mut points: Vec<[f64; 2]> = Vec::new();
+        for tooth in 0..15 {
+            let column = 2.0 + 4.0 * tooth as f64;
+            let edge: Vec<f64> = (0..=40).map(|_| grid(0.5 + 0.5 * (random() - 0.5))).collect();
+            points.push([column + edge[40], if tooth == 0 { 60.0 } else { 44.0 + lift }]);
+            for r in (5..=44).rev() {
+                let (below, above) = (edge[r - 4], edge[r - 5]);
+                if r < 44 || tooth == 0 {
+                    points.push([column + below, r as f64 + lift]);
+                }
+                if kinked {
+                    let f = grid(0.27 + 0.46 * random());
+                    let vertex = grid((below * f + above * (1.0 - f) + 0.25 * (random() - 0.5)).clamp(0.05, 0.95));
+                    points.push([column + vertex, r as f64 + lift - f]);
+                }
+            }
+            points.push([column + edge[0], 4.0 + lift]);
+            points.push([column + 2.0, 4.0 + lift]);
+            points.push([column + 2.0, if tooth == 14 { 60.0 } else { 44.0 + lift }]);
+        }
+        let mirrored: Vec<[f64; 2]> = points.iter().map(|p| [64.0 - p[0], p[1]]).collect();
+        out.push((case.to_string(), format!("Probe: teeth whose left sides have {label}"), points));
+        out.push((format!("{case}-mirrored"), format!("Probe: teeth whose right sides have {label}"), mirrored));
+    }
     out
 }
 
