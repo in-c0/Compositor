@@ -210,6 +210,17 @@ fn probes(w: &mut CaseWriter) -> Result<()> {
     ];
     let ops = large.iter().enumerate().map(|(i, &(x, y, w, h))| ellipse([x, y], [x + w, y + h], c(i))).collect();
     w.write(F, "probe-ellipses-large", "Probe: larger circles and ellipses", ground(w, "probe-ellipses-large", N, N), ops)?;
+    // More sizes, for the fill's edge pixels: each ellipse on its own layer, overlapping freely.
+    for (case, first) in [("probe-ellipses-more", 2u32), ("probe-ellipses-more-2", 5)] {
+        let ops = (0..18u32)
+            .map(|i| {
+                let (w, h) = (first + (i * 7 + 3) % 23, first + (i * 11 + 5) % 19);
+                let (x, y) = ((i * 13) % (N - w) , (i * 17) % (N - h));
+                ellipse([x as f64, y as f64], [(x + w) as f64, (y + h) as f64], c(i as usize))
+            })
+            .collect();
+        w.write(F, case, "Probe: ellipses of many sizes", ground(w, case, N, N), ops)?;
+    }
     let lines: [([f64; 2], [f64; 2], f64); 14] = [
         ([4.0, 5.0], [40.0, 5.0], 1.0), ([4.0, 9.0], [40.0, 9.0], 2.0), ([4.0, 14.0], [40.0, 14.0], 3.0),
         ([44.0, 4.0], [44.0, 40.0], 1.0), ([50.0, 4.0], [50.0, 40.0], 4.0), ([4.0, 20.0], [30.0, 46.0], 1.0),
@@ -371,6 +382,27 @@ fn selection_probes(w: &mut CaseWriter) -> Result<()> {
         let d = ground(w, &case, width, height);
         let op = json!({ "op": "marquee", "shape": "Ellipse", "from": [0, 0], "to": [width, height] });
         w.write(F, &case, &format!("Probe: a {width} by {height} ellipse selected with the Marquee"), d, vec![op])?;
+    }
+    // The same ellipses as Polygonal Lasso outlines through the points the port flattens them to,
+    // in the path's own order, reversed, and starting a quarter round: if the Mac's coverage
+    // matches the Marquee's, the flattening is the same and only the fill is left to explain.
+    for (width, height) in [(2u32, 2u32), (6, 6), (10, 10), (13, 13), (25, 10), (32, 32)] {
+        let (wf, hf) = (width as f64, height as f64);
+        let points = engine::select::geom::flatten(&engine::select::geom::ellipse(0.0, 0.0, wf, hf));
+        let spaced = (0..points.len()).all(|i| {
+            let (a, b) = (points[i], points[(i + 1) % points.len()]);
+            (a[0] - b[0]).hypot(a[1] - b[1]) >= 0.25
+        });
+        assert!(spaced, "the Lasso would drop points of the {width}x{height} ellipse");
+        let quarter = points.len() / 4;
+        let reversed: Vec<[f64; 2]> = points.iter().rev().copied().collect();
+        let rotated: Vec<[f64; 2]> = points[quarter..].iter().chain(&points[..quarter]).copied().collect();
+        for (suffix, more, outline) in [("", "", points.clone()), ("-reversed", ", reversed", reversed), ("-rotated", ", starting a quarter round", rotated)] {
+            let case = format!("probe-flat-ellipse-{width}x{height}{suffix}");
+            let d = ground(w, &case, width, height);
+            let op = json!({ "op": "lasso", "kind": "Polygonal", "points": outline });
+            w.write(F, &case, &format!("Probe: a {width} by {height} ellipse's flattened points with the Polygonal Lasso{more}"), d, vec![op])?;
+        }
     }
     Ok(())
 }

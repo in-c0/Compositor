@@ -1433,6 +1433,27 @@ fn fill_probes() -> Vec<(String, String, Vec<[f64; 2]>)> {
         points.push([63.5, line]);
         out.push((case.to_string(), label.to_string(), points));
     }
+    // Combs whose teeth's edges sit at odd 16384ths of a pixel, a 64th of a 256th either side of
+    // a whole 256th of coverage (and halfway): they show whether the fill keeps positions finer
+    // than 1/8192 px, and which way it drops the rest.
+    for (case, label, horizontal) in [("probe-grid-x", "Probe: vertical edges at odd 16384ths of a pixel", false), ("probe-grid-y", "Probe: level edges at odd 16384ths of a pixel", true)] {
+        let offsets = [1.0, 63.0, 33.0, 31.0];
+        let fraction = |i: usize, side: usize| (64.0 * ((3 + 7 * i + 13 * side) % 60 + 2) as f64 + offsets[(i + side) % 4]) / 16384.0;
+        let mut points: Vec<[f64; 2]> = vec![[fraction(0, 0), 60.0]];
+        for i in 0..31 {
+            let (left, right) = (2.0 * i as f64 + fraction(i, 0), 2.0 * i as f64 + 1.0 + fraction(i, 1));
+            if i > 0 {
+                points.push([left, 44.0]);
+            }
+            points.push([left, 4.0]);
+            points.push([right, 4.0]);
+            points.push([right, if i == 30 { 60.0 } else { 44.0 }]);
+        }
+        if horizontal {
+            points = points.iter().map(|p| [p[1], p[0]]).collect();
+        }
+        out.push((case.to_string(), label.to_string(), points));
+    }
     // Teeth on y = 60: (left, width, top at the left, rise over the width in 256ths, its
     // fraction in 16ths). A rise of n + k/16 256ths over 16 px is a slope of (n + k/16)/4096 a pixel.
     type Tooth = (f64, f64, f64, f64, f64);
