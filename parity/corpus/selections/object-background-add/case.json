@@ -1,0 +1,27 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection adding the background leaves the selection as it was",
+  "ops": [
+    {
+      "from": [
+        10.0,
+        12.0
+      ],
+      "op": "marquee",
+      "shape": "Rectangle",
+      "to": [
+        50.0,
+        40.0
+      ]
+    },
+    {
+      "mode": "Add",
+      "op": "objectSelection",
+      "point": [
+        56.0,
+        8.0
+      ]
+    }
+  ]
+}

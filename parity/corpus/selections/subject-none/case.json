@@ -1,0 +1,10 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Subject on a flat gray finds no subject",
+  "ops": [
+    {
+      "op": "selectSubject"
+    }
+  ]
+}

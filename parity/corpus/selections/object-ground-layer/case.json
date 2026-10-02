@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection reading only the photo, clicked where the disc is drawn over it",
+  "ops": [
+    {
+      "layer": "8A3E82C0-6659-401E-A589-BE7B4DDF9454",
+      "op": "objectSelection",
+      "point": [
+        32.0,
+        32.0
+      ],
+      "sampleAllLayers": false
+    }
+  ]
+}

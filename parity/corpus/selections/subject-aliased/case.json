@@ -1,0 +1,11 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Subject with Anti-alias off",
+  "ops": [
+    {
+      "antialias": false,
+      "op": "selectSubject"
+    }
+  ]
+}

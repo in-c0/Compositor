@@ -1,0 +1,16 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection reading only the active layer (the right disc on transparent)",
+  "ops": [
+    {
+      "layer": "6EE0199F-5A1D-4CD1-97E6-637A4BDEC074",
+      "op": "objectSelection",
+      "point": [
+        46.0,
+        44.0
+      ],
+      "sampleAllLayers": false
+    }
+  ]
+}

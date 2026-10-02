@@ -1,0 +1,15 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Object Selection with Edge 3: eroded 3 px",
+  "ops": [
+    {
+      "edge": 3,
+      "op": "objectSelection",
+      "point": [
+        32.0,
+        32.0
+      ]
+    }
+  ]
+}

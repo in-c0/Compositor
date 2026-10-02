@@ -1,0 +1,14 @@
+{
+  "feature": "selections",
+  "input": "input.comp",
+  "label": "Select > Subject taken from Select All: the background",
+  "ops": [
+    {
+      "op": "selectAll"
+    },
+    {
+      "mode": "Subtract",
+      "op": "selectSubject"
+    }
+  ]
+}

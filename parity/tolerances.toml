@@ -100,6 +100,100 @@ max_channel_diff = 3
 structure_max_channel_diff = 6
 reason = "Vision's subject mask can't be reproduced off Apple's systems; after Advanced's guided refinement U²-Netp's mask lands within 3/255 (14 of 4,096 pixels over 1/255). The mask itself: 50 of 2,304 pixels over 1/255, by up to 6."
 
+# Select > Subject and Object Selection: the mask comes from Apple's Vision on the Mac and from
+# U²-Netp in the port (see the `ml` gap in features.toml), and everything after it is the Mac's
+# arithmetic. The gaps are in the selection's coverage (#selection); the flattened image and the
+# project don't change. Measured the same on Windows (RTX 2080 and WARP) and on the Mac runner.
+[[override]]
+cases = "selections/subject-disc#selection"
+max_channel_diff = 1
+max_pixels_over = 16
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: U²-Netp's subject is Vision's disc give or take a pixel at the edge: 16 of 4,096 selection pixels differ (IoU 0.990)."
+
+[[override]]
+cases = "selections/subject-aliased#selection"
+max_channel_diff = 1
+max_pixels_over = 16
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same 16 edge pixels as subject-disc, with Anti-alias off (IoU 0.990)."
+
+[[override]]
+cases = "selections/subject-subtract#selection"
+max_channel_diff = 1
+max_pixels_over = 16
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same 16 edge pixels as subject-disc, taken from Select All."
+
+[[override]]
+cases = "selections/subject-two#selection"
+max_channel_diff = 1
+max_pixels_over = 30
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: both discs are the subject in both, but their edges differ by a pixel in places: 30 of 4,096 selection pixels (IoU 0.969)."
+
+[[override]]
+cases = "selections/subject-add#selection"
+max_channel_diff = 1
+max_pixels_over = 30
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same 30 edge pixels as subject-two, added to a rectangle."
+
+[[override]]
+cases = "selections/object-two-left#selection"
+max_channel_diff = 1
+max_pixels_over = 2
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same disc on both; what's left is 2 pixels by up to 13/255 at one vertex of the smoothed outline, the same residual the smoothing leaves on the Mac's own traced mask."
+
+[[override]]
+cases = "selections/object-two-right#selection"
+max_channel_diff = 1
+max_pixels_over = 2
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same disc on both; 2 pixels by up to 13/255 at one vertex of the smoothed outline, as object-two-left."
+
+[[override]]
+cases = "selections/object-two-add#selection"
+max_channel_diff = 1
+max_pixels_over = 4
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: both discs' outlines, 2 pixels each by up to 13/255, as object-two-left."
+
+[[override]]
+cases = "selections/object-subtract#selection"
+max_channel_diff = 1
+max_pixels_over = 2
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the right disc taken from Select All: 2 pixels by up to 13/255, as object-two-right."
+
+[[override]]
+cases = "selections/object-aliased#selection"
+max_channel_diff = 1
+max_pixels_over = 9
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the disc on the photo, traced without smoothing: the two models' masks differ by 9 of 4,096 pixels (IoU 0.994)."
+
+[[override]]
+cases = "selections/object#selection"
+max_channel_diff = 1
+max_pixels_over = 210
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the same 9-pixel mask difference as object-aliased moves the smoothing's simplified vertices around the whole outline: 210 of 4,096 selection pixels over 1/255, by up to 254 (IoU 0.954)."
+
+[[override]]
+cases = "selections/object-edge-3#selection"
+max_channel_diff = 1
+max_pixels_over = 157
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: object-aliased's mask difference, eroded 3 px and smoothed: 157 of 4,096 pixels, by up to 255 (IoU 0.956)."
+
+[[override]]
+cases = "selections/object-edge-minus-3#selection"
+max_channel_diff = 1
+max_pixels_over = 278
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: object-aliased's mask difference, dilated 3 px and smoothed: 278 of 4,096 pixels, by up to 254 (IoU 0.952)."
+
+[[override]]
+cases = "selections/object-edge-10#selection"
+max_channel_diff = 1
+max_pixels_over = 74
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: object-aliased's mask difference, eroded 10 px to a small core and smoothed: 74 of 4,096 pixels, by up to 255 (IoU 0.912)."
+
+[[override]]
+cases = "selections/object-this-layer#selection"
+max_channel_diff = 1
+max_pixels_over = 97
+reason = "Vision's mask can't be reproduced off Apple's systems and U²-Netp stands in: the right disc read on its own over transparency: Vision's outline sits about a pixel left of U²-Netp's, 97 of 4,096 pixels by up to 227 (IoU 0.908)."
+
 # Image import, JPEG: Apple's JPEG decoder (AppleJPEG) runs its own inverse DCT. Probed with
 # coefficient-built files (import/jpeg-idct-basis, jpeg-idct-random), its output sits within
 # about 0.15 of the exact transform but rounds differently from the exact, libjpeg ISLOW, IFAST

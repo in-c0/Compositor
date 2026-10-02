@@ -28,10 +28,30 @@ pub struct Refinement {
     pub shift_edge: f64,
 }
 
+/// The model's own answer for an image: saliency on its 320 × 320 grid, stretched to 0…1 as rembg
+/// does, and the peak before stretching (the sigmoid's own confidence, 0…1).
+pub struct Saliency {
+    pub side: usize,
+    pub values: Vec<f32>,
+    pub peak: f32,
+}
+
 /// Where the subject is in `image` (straight RGBA): white over it, black over the background, the
 /// image's size. Stands in for `SubjectRemoval.vision`.
-#[cfg(feature = "ml")]
 pub fn subject_mask(image: &RgbaImage) -> Result<GrayImage, RenderError> {
+    let map = saliency(image)?;
+    Ok(saliency_to_image(&map, image.width(), image.height()))
+}
+
+/// The stretched saliency resampled to `w` × `h` bytes.
+pub fn saliency_to_image(map: &Saliency, w: u32, h: u32) -> GrayImage {
+    let full = resample(&map.values, 1, (map.side, map.side), (w as usize, h as usize));
+    GrayImage::from_fn(w, h, |x, y| Luma([to_byte(full[(y * w + x) as usize])]))
+}
+
+/// U²-Netp's saliency for `image` (straight RGBA).
+#[cfg(feature = "ml")]
+pub fn saliency(image: &RgbaImage) -> Result<Saliency, RenderError> {
     use std::sync::{Mutex, OnceLock};
     use tract_onnx::prelude::*;
     type Model = TypedRunnableModel;
@@ -39,7 +59,7 @@ pub fn subject_mask(image: &RgbaImage) -> Result<GrayImage, RenderError> {
 
     let Some(path) = model_path() else {
         return Err(RenderError::Unsupported(format!(
-            "Remove Background without its model ({MODEL}; run port/tools/fetch-models.sh)"
+            "the subject mask without its model ({MODEL}; run port/tools/fetch-models.sh)"
         )));
     };
     let plan = {
@@ -77,17 +97,15 @@ pub fn subject_mask(image: &RgbaImage) -> Result<GrayImage, RenderError> {
     let outputs = plan.run(tvec!(input.into())).map_err(|e| RenderError::Failed(anyhow::anyhow!("{MODEL}: {e}")))?;
     let prediction = outputs[0].to_plain_array_view::<f32>().map_err(|e| RenderError::Failed(anyhow::anyhow!("{MODEL}: {e}")))?;
     let values: Vec<f32> = prediction.iter().cloned().collect();
-    // Stretched to 0…1, as rembg does, then back to the image's size.
+    // Stretched to 0…1, as rembg does.
     let (lo, hi) = values.iter().fold((f32::MAX, f32::MIN), |(a, b), &v| (a.min(v), b.max(v)));
     let span = (hi - lo).max(1e-6);
-    let normalized: Vec<f32> = values.iter().map(|v| (v - lo) / span).collect();
-    let full = resample(&normalized, 1, (SIDE, SIDE), (w as usize, h as usize));
-    Ok(GrayImage::from_fn(w, h, |x, y| Luma([to_byte(full[(y * w + x) as usize])])))
+    Ok(Saliency { side: SIDE, values: values.iter().map(|v| (v - lo) / span).collect(), peak: hi })
 }
 
 #[cfg(not(feature = "ml"))]
-pub fn subject_mask(_image: &RgbaImage) -> Result<GrayImage, RenderError> {
-    Err(RenderError::Unsupported("Remove Background (built without the `ml` feature)".into()))
+pub fn saliency(_image: &RgbaImage) -> Result<Saliency, RenderError> {
+    Err(RenderError::Unsupported("the subject mask (built without the `ml` feature)".into()))
 }
 
 /// `COMPOSITOR_MODELS`, or `models/` next to the executable or one folder up (test binaries run
@@ -108,13 +126,13 @@ fn model_path() -> Option<std::path::PathBuf> {
 }
 
 /// 0…1 to a byte, as `GuidedMatte.image` and Core Image store a mask.
-fn to_byte(v: f32) -> u8 {
+pub(crate) fn to_byte(v: f32) -> u8 {
     (v * 255.0 + 0.5).clamp(0.0, 255.0) as u8
 }
 
 /// A separable triangle-filter resize of `channels`-interleaved floats, widened when shrinking so
 /// every source pixel counts.
-fn resample(src: &[f32], channels: usize, (sw, sh): (usize, usize), (dw, dh): (usize, usize)) -> Vec<f32> {
+pub(crate) fn resample(src: &[f32], channels: usize, (sw, sh): (usize, usize), (dw, dh): (usize, usize)) -> Vec<f32> {
     let weights = |from: usize, to: usize| -> Vec<Vec<(usize, f32)>> {
         let scale = from as f32 / to as f32;
         let support = scale.max(1.0);

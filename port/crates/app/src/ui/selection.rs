@@ -95,9 +95,7 @@ pub fn press(app: &mut App, pos: Pos2, pixel: Point, modifiers: egui::Modifiers,
         return;
     }
     match app.tool {
-        Tool::Wand if app.settings.wand == WandMode::Object => {
-            run(app, "Object Selection", json!({ "op": "objectSelection", "point": pixel, "mode": m }));
-        }
+        Tool::Wand if app.settings.wand == WandMode::Object => object(app, pixel, m),
         Tool::Wand => wand(app, pixel, m),
         Tool::Marquee => {
             let p = snapped(app, pixel, modifiers);
@@ -137,6 +135,20 @@ fn wand(app: &mut App, pixel: Point, m: &str) {
         "antialias": s.anti_alias,
     });
     run(app, "Magic Wand", op);
+}
+
+/// The Magic tool in Object mode, with its options bar's settings.
+fn object(app: &mut App, pixel: Point, m: &str) {
+    let s = &app.settings;
+    let op = json!({
+        "op": "objectSelection",
+        "point": pixel,
+        "mode": m,
+        "sampleAllLayers": s.object_layers == crate::tools::SampleLayers::All,
+        "edge": s.object_edge.round().clamp(-10.0, 10.0),
+        "antialias": s.anti_alias,
+    });
+    run(app, "Object Selection", op);
 }
 
 pub fn drag(app: &mut App, gesture: Gesture, pixel: Point, modifiers: egui::Modifiers) -> Gesture {
@@ -218,7 +230,7 @@ pub fn release(app: &mut App, gesture: Gesture) {
             } else if app.tool == Tool::Wand {
                 // The wand's click inside the selection selects afresh from that pixel.
                 if app.settings.wand == WandMode::Object {
-                    run(app, "Object Selection", json!({ "op": "objectSelection", "point": start, "mode": "New" }));
+                    object(app, start, "New");
                 } else {
                     wand(app, start, "New");
                 }
@@ -279,7 +291,10 @@ pub fn command(app: &mut App, command: Command) {
                 run(app, "Load Mask Selection", json!({ "op": "loadSelection", "layer": id, "mask": true, "mode": "New" }));
             }
         }
-        Command::SelectSubject => app.alert("Couldn’t select the subject", "The port can’t find the subject exactly yet: the engine has no Select Subject (Vision's foreground mask).".into()),
+        Command::SelectSubject => {
+            let op = json!({ "op": "selectSubject", "antialias": app.settings.anti_alias });
+            run(app, "Select Subject", op);
+        }
         Command::ClearSelectionPixels => {
             let gfx = app.gfx.clone();
             if let Some(d) = app.doc_mut() {
