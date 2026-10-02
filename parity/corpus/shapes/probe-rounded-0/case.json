@@ -1,0 +1,295 @@
+{
+  "feature": "shapes",
+  "input": "input.comp",
+  "label": "Probe: rounded rectangles with fractional radii",
+  "ops": [
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 2.40625,
+      "from": [
+        8.0,
+        11.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        22.0,
+        22.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 3.125,
+      "from": [
+        54.0,
+        15.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        62.0,
+        23.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 1.03125,
+      "from": [
+        6.0,
+        23.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        12.0,
+        27.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 1.671875,
+      "from": [
+        45.0,
+        26.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        53.0,
+        37.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 1.640625,
+      "from": [
+        11.0,
+        27.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        23.0,
+        36.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 4.71875,
+      "from": [
+        12.0,
+        21.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        26.0,
+        37.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 3.375,
+      "from": [
+        20.0,
+        51.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        43.0,
+        63.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 2.515625,
+      "from": [
+        24.0,
+        3.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        51.0,
+        29.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 2.78125,
+      "from": [
+        12.0,
+        33.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        34.0,
+        59.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 0.984375,
+      "from": [
+        42.0,
+        32.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        46.0,
+        43.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 1.0,
+      "from": [
+        23.0,
+        48.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        49.0,
+        52.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 1.171875,
+      "from": [
+        7.0,
+        48.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        15.0,
+        58.0
+      ]
+    },
+    {
+      "color": [
+        0.8,
+        0.3,
+        0.55
+      ],
+      "cornerRadius": 2.296875,
+      "from": [
+        31.0,
+        39.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        52.0,
+        48.0
+      ]
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cornerRadius": 1.71875,
+      "from": [
+        14.0,
+        36.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        24.0,
+        61.0
+      ]
+    },
+    {
+      "color": [
+        0.1,
+        0.6,
+        0.9
+      ],
+      "cornerRadius": 0.65625,
+      "from": [
+        6.0,
+        17.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        13.0,
+        44.0
+      ]
+    },
+    {
+      "color": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cornerRadius": 1.09375,
+      "from": [
+        35.0,
+        57.0
+      ],
+      "kind": "Rectangle",
+      "op": "shape",
+      "to": [
+        46.0,
+        63.0
+      ]
+    }
+  ]
+}

@@ -221,6 +221,7 @@ fn probes(w: &mut CaseWriter) -> Result<()> {
             .collect();
         w.write(F, case, "Probe: ellipses of many sizes", ground(w, case, N, N), ops)?;
     }
+    vertex_probes(w)?;
     let lines: [([f64; 2], [f64; 2], f64); 14] = [
         ([4.0, 5.0], [40.0, 5.0], 1.0), ([4.0, 9.0], [40.0, 9.0], 2.0), ([4.0, 14.0], [40.0, 14.0], 3.0),
         ([44.0, 4.0], [44.0, 40.0], 1.0), ([50.0, 4.0], [50.0, 40.0], 4.0), ([4.0, 20.0], [30.0, 46.0], 1.0),
@@ -436,6 +437,54 @@ fn line_probes(w: &mut CaseWriter) -> Result<()> {
             })
             .collect();
         w.write(F, case, "Probe: lines fanned out at slants between the eighths of a turn", ground(w, case, N, N), fan)?;
+    }
+    Ok(())
+}
+
+/// Shapes whose outlines turn inside pixels at many angles and sub-pixel positions, with no path
+/// operation on the way (a selection's outline goes through one): the round caps of lines of
+/// many widths at fractional points and slants, and rounded rectangles with fractional radii.
+/// Each is on its own layer, so the saved project keeps every fill.
+fn vertex_probes(w: &mut CaseWriter) -> Result<()> {
+    let mut state: u64 = 0x2545_f491_4f6c_dd1d;
+    let mut random = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+    };
+    // Ends on a 1/64 px grid, as trigonometry differs in the last bits between platforms.
+    let q = |v: f64| (v * 64.0).round() / 64.0;
+    let c = |i: usize| COLORS[i % COLORS.len()];
+    // Wider lines round their caps with more, gentler corners; thin ones with few, sharp ones.
+    let widths: [[f64; 2]; 4] = [[2.0, 6.0], [5.0, 12.0], [10.0, 22.0], [18.0, 34.0]];
+    for (k, range) in widths.iter().enumerate() {
+        let case = format!("probe-caps-{k}");
+        let ops = (0..14)
+            .map(|i| {
+                let width = q(range[0] + (range[1] - range[0]) * random());
+                let length = 1.0 + 14.0 * random();
+                let angle = std::f64::consts::TAU * random();
+                let margin = width / 2.0 + 1.0;
+                let a = [q(margin + (64.0 - 2.0 * margin) * random()), q(margin + (64.0 - 2.0 * margin) * random())];
+                let b = [q((a[0] + length * angle.cos()).clamp(margin, 64.0 - margin)), q((a[1] + length * angle.sin()).clamp(margin, 64.0 - margin))];
+                line(a, b, width, c(i))
+            })
+            .collect();
+        w.write(F, &case, "Probe: lines with round caps of many widths, at fractional points", ground(w, &case, N, N), ops)?;
+    }
+    for k in 0..2 {
+        let case = format!("probe-rounded-{k}");
+        let ops = (0..16)
+            .map(|i| {
+                let (bw, bh) = ((4.0 + 26.0 * random()).floor(), (4.0 + 26.0 * random()).floor());
+                let (x, y) = ((random() * (64.0 - bw)).floor(), (random() * (64.0 - bh)).floor());
+                let radius = q(0.6 + (bw.min(bh) / 2.0 - 0.6) * random());
+                rect([x, y], [x + bw, y + bh], radius, c(i))
+            })
+            .collect();
+        w.write(F, &case, "Probe: rounded rectangles with fractional radii", ground(w, &case, N, N), ops)?;
     }
     Ok(())
 }

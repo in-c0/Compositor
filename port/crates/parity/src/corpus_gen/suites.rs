@@ -1537,6 +1537,35 @@ fn fill_probes() -> Vec<(String, String, Vec<[f64; 2]>)> {
         out.push((format!("probe-zigzag-{case}"), format!("Probe: teeth with zigzag left sides, a corner in every pixel ({})", case + 1), points));
         out.push((format!("probe-zigzag-{case}-mirrored"), format!("Probe: teeth with zigzag right sides, a corner in every pixel ({})", case + 1), mirrored));
     }
+    // The same teeth with a corner inside every pixel of their sides placed anywhere in it (the
+    // zigzags' corners all sit 0.02 px from a pixel side), turning gently or sharply.
+    for (case, sharp) in [(0, false), (1, true)] {
+        let mut points: Vec<[f64; 2]> = Vec::new();
+        for tooth in 0..15 {
+            let column = 2.0 + 4.0 * tooth as f64;
+            let spread = if sharp { 0.7 } else { 0.25 };
+            let edge: Vec<f64> = (0..=40).map(|_| grid(0.5 + spread * (random() - 0.5))).collect();
+            points.push([column + edge[40], if tooth == 0 { 60.0 } else { 44.0 }]);
+            for r in (5..=44).rev() {
+                let (below, above) = (edge[r - 4], edge[r - 5]);
+                // At least 1/4 px from the row's ends, as the Lasso drops closer points.
+                let f = grid(0.27 + 0.46 * random());
+                let middle = below * f + above * (1.0 - f);
+                let vertex = grid((middle + spread * (random() - 0.5)).clamp(0.05, 0.95));
+                if r < 44 || tooth == 0 {
+                    points.push([column + below, r as f64]);
+                }
+                points.push([column + vertex, r as f64 - f]);
+            }
+            points.push([column + edge[0], 4.0]);
+            points.push([column + 2.0, 4.0]);
+            points.push([column + 2.0, if tooth == 14 { 60.0 } else { 44.0 }]);
+        }
+        let mirrored: Vec<[f64; 2]> = points.iter().map(|p| [64.0 - p[0], p[1]]).collect();
+        let kind = if sharp { "sharply" } else { "gently" };
+        out.push((format!("probe-kinks-{case}"), format!("Probe: teeth whose left sides turn {kind} inside every pixel"), points));
+        out.push((format!("probe-kinks-{case}-mirrored"), format!("Probe: teeth whose right sides turn {kind} inside every pixel"), mirrored));
+    }
     out
 }
 
